@@ -12,6 +12,9 @@ interface LiveStats {
   unclaimedFees: number;
   openPositions: number;
   closedPositions: number;
+  totalDeposits: number;
+  totalWithdrawals: number;
+  totalFees: number;
 }
 
 export function PortfolioSummary({ trader }: { trader: Trader }) {
@@ -31,25 +34,39 @@ export function PortfolioSummary({ trader }: { trader: Trader }) {
       setLoading(true);
       setError(null);
       try {
-        const [totalRes, openRes] = await Promise.all([
+        const [totalRes, openRes, portfolioRes] = await Promise.all([
           fetch(`/api/meteora/total?wallet=${trader.walletAddress}`),
           fetch(`/api/meteora/open?wallet=${trader.walletAddress}`),
+          fetch(`/api/meteora/portfolio?wallet=${trader.walletAddress}`),
         ]);
-        if (!totalRes.ok || !openRes.ok) {
+        if (!totalRes.ok || !openRes.ok || !portfolioRes.ok) {
           throw new Error("Meteora API request failed");
         }
         const totalData = await totalRes.json();
         const openData = await openRes.json();
+        const portfolioData = await portfolioRes.json();
         const totals = openData.total || {};
+        const pools = Array.isArray(portfolioData.pools) ? portfolioData.pools : [];
+
+        let totalDeposits = 0;
+        let totalWithdrawals = 0;
+        let totalFees = 0;
+        for (const pool of pools) {
+          totalDeposits += num(pool.totalDeposit);
+          totalWithdrawals += num(pool.totalWithdrawal);
+          totalFees += num(pool.totalFee);
+        }
 
         const live: LiveStats = {
-          // Open portfolio live value / pnl when available; fall back to closed-total PnL
           totalValue: num(totals.balances),
           totalPnl: num(totals.pnl) || num(totalData.totalPnlUsd),
           pnlPct: num(totals.pnlPctChange) || num(totalData.totalPnlPctChange),
           unclaimedFees: num(totals.unclaimedFees),
           openPositions: num(openData.totalPositions) || (Array.isArray(openData.pools) ? openData.pools.reduce((a: number, p: { openPositionCount?: number }) => a + (p.openPositionCount || 0), 0) : 0),
           closedPositions: num(totalData.totalClosedPositions),
+          totalDeposits,
+          totalWithdrawals,
+          totalFees,
         };
         if (!cancelled) setLiveStats(live);
       } catch (e) {
@@ -72,7 +89,14 @@ export function PortfolioSummary({ trader }: { trader: Trader }) {
     unclaimedFees: 0,
     openPositions: 0,
     closedPositions: 0,
+    totalDeposits: 0,
+    totalWithdrawals: 0,
+    totalFees: 0,
   };
+
+  const hasOpenPositions = stats.openPositions > 0;
+  const hasClosedPositions = stats.closedPositions > 0;
+  const closedOnly = !hasOpenPositions && hasClosedPositions;
 
   return (
     <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-5">
@@ -86,30 +110,56 @@ export function PortfolioSummary({ trader }: { trader: Trader }) {
       )}
 
       <div className="text-xs uppercase tracking-wide text-zinc-500">
-        {liveStats ? "Open Position Value" : "Total Portfolio Value"}
+        {liveStats ? (closedOnly ? "Lifetime PnL" : "Open Position Value") : "Total Portfolio Value"}
       </div>
-      <div className="mt-1 text-3xl font-semibold">{formatUsd(stats.totalValue)}</div>
-
-      <div className="mt-6 text-xs uppercase tracking-wide text-zinc-500">
-        {liveStats ? "Live / Lifetime PnL" : "Total PnL"}
-      </div>
-      <div className={`mt-1 text-2xl font-semibold ${stats.totalPnl >= 0 ? "text-green-400" : "text-red-400"}`}>
-        {formatUsd(stats.totalPnl, true)}{" "}
-        {liveStats && (
-          <span className="text-base opacity-80">
-            ({stats.pnlPct >= 0 ? "+" : ""}
-            {stats.pnlPct.toFixed(2)}%)
+      <div className="mt-1 text-3xl font-semibold">
+        {closedOnly ? (
+          <span className={stats.totalPnl >= 0 ? "text-green-400" : "text-red-400"}>
+            {formatUsd(stats.totalPnl, true)}
           </span>
+        ) : (
+          formatUsd(stats.totalValue)
         )}
       </div>
+
+      {!closedOnly && (
+        <>
+          <div className="mt-6 text-xs uppercase tracking-wide text-zinc-500">
+            {liveStats ? "Live / Lifetime PnL" : "Total PnL"}
+          </div>
+          <div className={`mt-1 text-2xl font-semibold ${stats.totalPnl >= 0 ? "text-green-400" : "text-red-400"}`}>
+            {formatUsd(stats.totalPnl, true)}{" "}
+            {liveStats && (
+              <span className="text-base opacity-80">
+                ({stats.pnlPct >= 0 ? "+" : ""}
+                {stats.pnlPct.toFixed(2)}%)
+              </span>
+            )}
+          </div>
+        </>
+      )}
 
       <div className="mt-6 grid grid-cols-2 gap-3 text-sm">
         {liveStats ? (
           <>
-            <Stat label="Open Positions" value={`${stats.openPositions}`} />
+            {!closedOnly && <Stat label="Open Positions" value={`${stats.openPositions}`} />}
             <Stat label="Closed Positions" value={`${stats.closedPositions}`} />
-            <Stat label="Unclaimed Fees" value={formatUsd(stats.unclaimedFees, true)} good />
-            <Stat label="Wallet" value={`${(trader.walletAddress || "").slice(0, 4)}…${(trader.walletAddress || "").slice(-4)}`} />
+            {closedOnly ? (
+              <>
+                <Stat label="PnL %" value={`${stats.pnlPct >= 0 ? "+" : ""}${stats.pnlPct.toFixed(2)}%`} good={stats.pnlPct >= 0} bad={stats.pnlPct < 0} />
+                <Stat label="Total Deposits" value={formatUsd(stats.totalDeposits)} />
+                <Stat label="Total Withdrawals" value={formatUsd(stats.totalWithdrawals)} />
+                <Stat label="Total Fees Earned" value={formatUsd(stats.totalFees, true)} good />
+              </>
+            ) : (
+              <>
+                <Stat label="Unclaimed Fees" value={formatUsd(stats.unclaimedFees, true)} good />
+                <Stat label="Wallet" value={`${(trader.walletAddress || "").slice(0, 4)}…${(trader.walletAddress || "").slice(-4)}`} />
+              </>
+            )}
+            {!closedOnly && (
+              <Stat label="Wallet" value={`${(trader.walletAddress || "").slice(0, 4)}…${(trader.walletAddress || "").slice(-4)}`} />
+            )}
           </>
         ) : (
           <>

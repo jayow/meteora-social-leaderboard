@@ -11,23 +11,51 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const openRes = await fetch(`${BASE}/portfolio/open?user=${wallet}&page_size=50`, {
-      headers: { Accept: "application/json" },
-      next: { revalidate: 60 },
-    });
+    const [openRes, portfolioRes] = await Promise.all([
+      fetch(`${BASE}/portfolio/open?user=${wallet}&page_size=50`, {
+        headers: { Accept: "application/json" },
+        next: { revalidate: 60 },
+      }),
+      fetch(`${BASE}/portfolio?user=${wallet}&page_size=50`, {
+        headers: { Accept: "application/json" },
+        next: { revalidate: 60 },
+      }),
+    ]);
+
     if (!openRes.ok) {
       return NextResponse.json({ error: `Meteora open portfolio ${openRes.status}` }, { status: openRes.status });
     }
+    if (!portfolioRes.ok) {
+      return NextResponse.json({ error: `Meteora portfolio ${portfolioRes.status}` }, { status: portfolioRes.status });
+    }
+
     const openData = await openRes.json();
-    const pools = Array.isArray(openData.pools) ? openData.pools : [];
+    const portfolioData = await portfolioRes.json();
+    const openPools = Array.isArray(openData.pools) ? openData.pools : [];
+    const allPools = Array.isArray(portfolioData.pools) ? portfolioData.pools : [];
+    
+    const poolAddresses = new Set<string>();
+    for (const pool of openPools) {
+      poolAddresses.add(pool.poolAddress);
+    }
+    for (const pool of allPools) {
+      poolAddresses.add(pool.poolAddress);
+    }
+
     const positionAddrs: string[] = [];
-    for (const pool of pools) {
-      const list = pool.listPositions || pool.positions || [] || [];
-      for (const addr of list) {
-        if (positionAddrs.length >= MAX_POSITIONS) break;
-        positionAddrs.push(addr);
-      }
+    for (const poolAddr of poolAddresses) {
       if (positionAddrs.length >= MAX_POSITIONS) break;
+      const pnlRes = await fetch(`${BASE}/positions/${poolAddr}/pnl?user=${wallet}`, {
+        headers: { Accept: "application/json" },
+        next: { revalidate: 60 },
+      });
+      if (!pnlRes.ok) continue;
+      const pnlData = await pnlRes.json();
+      const positions = Array.isArray(pnlData.positions) ? pnlData.positions : [];
+      for (const pos of positions) {
+        if (positionAddrs.length >= MAX_POSITIONS) break;
+        if (pos.positionAddress) positionAddrs.push(pos.positionAddress);
+      }
     }
 
     const events: unknown[] = [];
@@ -48,7 +76,7 @@ export async function GET(request: NextRequest) {
       positionCount: positionAddrs.length,
       eventCount: events.length,
       days,
-      note: "Calendar days sum claim_fee/claim_reward USD from open-position historical events. Deposits/withdrawals are excluded from PnL.",
+      note: "Calendar days sum claim_fee/claim_reward USD from both open and closed position historical events. Deposits/withdrawals are excluded from PnL.",
     });
   } catch (error) {
     console.error("calendar route error", error);

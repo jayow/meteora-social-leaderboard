@@ -60,10 +60,10 @@ export function PnLCalendar({ history, walletAddress }: { history: DailyPnL[]; w
     <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-4">
       {loading && <div className="mb-3 text-xs text-violet-400">Loading live calendar from Meteora…</div>}
       {walletAddress && !loading && liveHistory.length > 0 && (
-        <div className="mb-3 text-xs text-green-400">✓ Fee claims from open Meteora positions (by day)</div>
+        <div className="mb-3 text-xs text-green-400">✓ Fee claims from open & closed Meteora positions (by day)</div>
       )}
       {walletAddress && !loading && liveHistory.length === 0 && (
-        <div className="mb-3 text-xs text-zinc-500">{note || "No open-position events yet — showing sample calendar"}</div>
+        <div className="mb-3 text-xs text-zinc-500">{note || "No position events yet — showing sample calendar"}</div>
       )}
       {!walletAddress && <div className="mb-3 text-xs text-zinc-500">Connect wallet for live PnL tracking</div>}
 
