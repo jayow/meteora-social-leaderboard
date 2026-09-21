@@ -143,3 +143,17 @@ export function unlinkX() {
   delete u.xAvatarUrl;
   saveMe(u);
 }
+
+export function linkWallet(address: string) {
+  const u = getMe();
+  if (!u) return;
+  u.walletAddress = address;
+  saveMe(u);
+}
+
+export function unlinkWallet() {
+  const u = getMe();
+  if (!u) return;
+  delete u.walletAddress;
+  saveMe(u);
+}

@@ -9,6 +9,7 @@ import { PortfolioSummary } from "@/components/PortfolioSummary";
 import { PnLCalendar } from "@/components/PnLCalendar";
 import { ThesisEditor } from "@/components/ThesisEditor";
 import { XConnect } from "@/components/XConnect";
+import { WalletButton } from "@/components/WalletButton";
 
 export default function ProfilePage() {
   const params = useParams<{ id: string }>();
@@ -39,7 +40,10 @@ export default function ProfilePage() {
     <main className="mx-auto max-w-6xl px-4 py-10">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <Link href="/" className="text-sm text-zinc-400 hover:text-white">← Leaderboard</Link>
-        {mine && <span className="rounded-full border border-violet-500/40 px-3 py-1 text-xs text-violet-300">Your profile</span>}
+        <div className="flex items-center gap-3">
+          {mine && <span className="rounded-full border border-violet-500/40 px-3 py-1 text-xs text-violet-300">Your profile</span>}
+          {mine && <WalletButton />}
+        </div>
       </div>
 
       <div className="mb-6 flex flex-wrap items-center gap-4">
@@ -60,7 +64,7 @@ export default function ProfilePage() {
 
       <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
         <PortfolioSummary trader={trader} />
-        <PnLCalendar history={trader.pnlHistory} />
+        <PnLCalendar history={trader.pnlHistory} walletAddress={trader.walletAddress} />
       </div>
     </main>
   );

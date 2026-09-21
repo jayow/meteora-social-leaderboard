@@ -1,18 +1,65 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { DailyPnL } from "@/lib/types";
 import { formatUsd, monthTotal } from "@/lib/pnl";
 
 const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-export function PnLCalendar({ history }: { history: DailyPnL[] }) {
+export function PnLCalendar({ history, walletAddress }: { history: DailyPnL[]; walletAddress?: string }) {
   const now = new Date();
   const [cursor, setCursor] = useState(new Date(now.getFullYear(), now.getMonth(), 1));
+  const [liveHistory, setLiveHistory] = useState<DailyPnL[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!walletAddress) {
+      setLiveHistory([]);
+      return;
+    }
+
+    const fetchLiveHistory = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/meteora/portfolio?wallet=${walletAddress}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.events && Array.isArray(data.events)) {
+            const dayMap = new Map<string, { pnl: number; positions: number }>();
+            
+            data.events.forEach((event: { timestamp: number; pnl?: number; amount?: number }) => {
+              const date = new Date(event.timestamp * 1000).toISOString().split("T")[0];
+              const pnl = event.pnl || event.amount || 0;
+              const existing = dayMap.get(date) || { pnl: 0, positions: 0 };
+              dayMap.set(date, {
+                pnl: existing.pnl + pnl,
+                positions: existing.positions + 1,
+              });
+            });
+
+            const liveDays: DailyPnL[] = Array.from(dayMap.entries()).map(([date, { pnl, positions }]) => ({
+              date,
+              pnl,
+              positions,
+            }));
+            setLiveHistory(liveDays);
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching live history:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchLiveHistory();
+  }, [walletAddress]);
+
+  const activeHistory = walletAddress && liveHistory.length > 0 ? liveHistory : history;
   const y = cursor.getFullYear();
   const m = cursor.getMonth();
-  const map = useMemo(() => new Map(history.map((d) => [d.date, d])), [history]);
-  const total = monthTotal(history, y, m);
+  const map = useMemo(() => new Map(activeHistory.map((d) => [d.date, d])), [activeHistory]);
+  const total = monthTotal(activeHistory, y, m);
   const start = new Date(y, m, 1).getDay();
   const days = new Date(y, m + 1, 0).getDate();
   const cells: (number | null)[] = [...Array(start).fill(null), ...Array.from({ length: days }, (_, i) => i + 1)];
@@ -20,6 +67,15 @@ export function PnLCalendar({ history }: { history: DailyPnL[] }) {
 
   return (
     <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-4">
+      {loading && (
+        <div className="mb-3 text-xs text-violet-400">Loading live PnL calendar from Meteora...</div>
+      )}
+      {walletAddress && !loading && liveHistory.length > 0 && (
+        <div className="mb-3 text-xs text-green-400">✓ PnL from Meteora events (deposits, withdrawals, claims, closes)</div>
+      )}
+      {!walletAddress && (
+        <div className="mb-3 text-xs text-zinc-500">Connect wallet for live PnL tracking</div>
+      )}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <button type="button" className="rounded border border-zinc-700 px-2 py-1 text-sm" onClick={() => setCursor(new Date(y, m - 1, 1))}>‹</button>
