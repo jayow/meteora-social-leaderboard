@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Meteora Social — Trading Leaderboard",
-  description: "Thesis, X profile, and PnL calendar for Meteora traders",
+  title: "Pool Party — Meteora Social Leaderboard",
+  description: "Thesis, X profile, and PnL calendar for Meteora pool traders",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

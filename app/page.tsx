@@ -17,9 +17,9 @@ export default function HomePage() {
     <main className="mx-auto max-w-3xl px-4 py-10">
       <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-violet-400">Meteora Social</p>
-          <h1 className="mt-1 text-3xl font-semibold">Leaderboard</h1>
-          <p className="mt-2 text-sm text-zinc-400">Thesis · X identity · PnL calendar</p>
+          <p className="text-xs uppercase tracking-[0.2em] text-violet-400">Pool Party</p>
+          <h1 className="mt-1 text-3xl font-semibold">Pool Party</h1>
+          <p className="mt-2 text-sm text-zinc-400">Meteora social leaderboard · Thesis · X · PnL calendar</p>
         </div>
         <Link href="/profile/me" className="rounded-md bg-violet-600 px-4 py-2 text-sm font-medium hover:bg-violet-500">My Profile</Link>
       </header>

@@ -1,6 +1,6 @@
-# Meteora Social Leaderboard
+# Pool Party
 
-MVP social trading leaderboard for Meteora:
+Social trading leaderboard for Meteora pools:
 
 - Write / save a trading thesis
 - Mock X (Twitter) connect
@@ -23,4 +23,5 @@ Configured via `railway.toml` / `nixpacks.toml`.
 - Build: `npm run build`
 - Start: `npm start` (binds `PORT`)
 
-Deploy from GitHub: `jayow/meteora-social-leaderboard`
+Live: https://web-production-c8f29.up.railway.app  
+Repo: `jayow/meteora-social-leaderboard`
