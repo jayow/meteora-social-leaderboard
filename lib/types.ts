@@ -8,6 +8,7 @@ export type Trader = {
   id: string;
   username: string;
   displayName: string;
+  walletAddress?: string;
   xHandle?: string;
   xAvatarUrl?: string;
   thesis: string;
@@ -18,4 +19,20 @@ export type Trader = {
   biggestWin: number;
   avgLoss: number;
   pnlHistory: DailyPnL[];
+};
+
+export type MeteoraPortfolioTotal = {
+  totalValue?: number;
+  totalPnl?: number;
+  totalDeposits?: number;
+  totalWithdrawals?: number;
+  totalFees?: number;
+  totalRewards?: number;
+};
+
+export type MeteoraEvent = {
+  timestamp: number;
+  type: string;
+  amount?: number;
+  pnl?: number;
 };
