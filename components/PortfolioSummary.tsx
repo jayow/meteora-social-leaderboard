@@ -3,88 +3,113 @@
 import { useEffect, useState } from "react";
 import type { Trader } from "@/lib/types";
 import { formatUsd } from "@/lib/pnl";
+import { num } from "@/lib/meteora";
 
 interface LiveStats {
-  totalValue?: number;
-  totalPnl?: number;
-  totalFees?: number;
-  totalDeposits?: number;
-  openPositions?: number;
+  totalValue: number;
+  totalPnl: number;
+  pnlPct: number;
+  unclaimedFees: number;
+  openPositions: number;
+  closedPositions: number;
 }
 
 export function PortfolioSummary({ trader }: { trader: Trader }) {
   const [liveStats, setLiveStats] = useState<LiveStats | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!trader.walletAddress) {
       setLiveStats(null);
+      setError(null);
       return;
     }
 
-    const fetchLiveData = async () => {
+    let cancelled = false;
+    const run = async () => {
       setLoading(true);
+      setError(null);
       try {
         const [totalRes, openRes] = await Promise.all([
           fetch(`/api/meteora/total?wallet=${trader.walletAddress}`),
           fetch(`/api/meteora/open?wallet=${trader.walletAddress}`),
         ]);
-
-        if (totalRes.ok && openRes.ok) {
-          const totalData = await totalRes.json();
-          const openData = await openRes.json();
-
-          setLiveStats({
-            totalValue: totalData.totalValue || totalData.total_value || 0,
-            totalPnl: totalData.totalPnl || totalData.total_pnl || 0,
-            totalFees: totalData.totalFees || totalData.total_fees || 0,
-            totalDeposits: totalData.totalDeposits || totalData.total_deposits || 0,
-            openPositions: Array.isArray(openData) ? openData.length : (openData.positions?.length || 0),
-          });
+        if (!totalRes.ok || !openRes.ok) {
+          throw new Error("Meteora API request failed");
         }
-      } catch (err) {
-        console.error("Error fetching live Meteora data:", err);
+        const totalData = await totalRes.json();
+        const openData = await openRes.json();
+        const totals = openData.total || {};
+
+        const live: LiveStats = {
+          // Open portfolio live value / pnl when available; fall back to closed-total PnL
+          totalValue: num(totals.balances),
+          totalPnl: num(totals.pnl) || num(totalData.totalPnlUsd),
+          pnlPct: num(totals.pnlPctChange) || num(totalData.totalPnlPctChange),
+          unclaimedFees: num(totals.unclaimedFees),
+          openPositions: num(openData.totalPositions) || (Array.isArray(openData.pools) ? openData.pools.reduce((a: number, p: { openPositionCount?: number }) => a + (p.openPositionCount || 0), 0) : 0),
+          closedPositions: num(totalData.totalClosedPositions),
+        };
+        if (!cancelled) setLiveStats(live);
+      } catch (e) {
+        console.error(e);
+        if (!cancelled) setError("Could not load Meteora portfolio");
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
-
-    fetchLiveData();
+    run();
+    return () => {
+      cancelled = true;
+    };
   }, [trader.walletAddress]);
 
   const stats = liveStats || {
     totalValue: trader.portfolioValue,
     totalPnl: trader.totalPnL,
+    pnlPct: 0,
+    unclaimedFees: 0,
+    openPositions: 0,
+    closedPositions: 0,
   };
-
-  const base = (stats.totalValue || 0) - (stats.totalPnl || 0);
-  const pct = base ? ((stats.totalPnl || 0) / Math.abs(base)) * 100 : 0;
 
   return (
     <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-5">
-      {loading && (
-        <div className="mb-3 text-xs text-violet-400">Loading live data from Meteora...</div>
-      )}
-      {trader.walletAddress && !loading && (
+      {loading && <div className="mb-3 text-xs text-violet-400">Loading live Meteora DLMM data…</div>}
+      {trader.walletAddress && !loading && !error && (
         <div className="mb-3 text-xs text-green-400">✓ Live Meteora DLMM data</div>
       )}
+      {error && <div className="mb-3 text-xs text-red-400">{error}</div>}
       {!trader.walletAddress && (
         <div className="mb-3 text-xs text-zinc-500">Connect wallet for live data</div>
       )}
-      <div className="text-xs uppercase tracking-wide text-zinc-500">Total Portfolio Value</div>
-      <div className="mt-1 text-3xl font-semibold">{formatUsd(stats.totalValue || 0)}</div>
-      <div className="mt-6 text-xs uppercase tracking-wide text-zinc-500">Total PnL</div>
-      <div className={`mt-1 text-2xl font-semibold ${(stats.totalPnl || 0) >= 0 ? "text-green-400" : "text-red-400"}`}>
-        {formatUsd(stats.totalPnl || 0, true)}{" "}
-        <span className="text-base opacity-80">({pct >= 0 ? "+" : ""}{pct.toFixed(2)}%)</span>
+
+      <div className="text-xs uppercase tracking-wide text-zinc-500">
+        {liveStats ? "Open Position Value" : "Total Portfolio Value"}
       </div>
+      <div className="mt-1 text-3xl font-semibold">{formatUsd(stats.totalValue)}</div>
+
+      <div className="mt-6 text-xs uppercase tracking-wide text-zinc-500">
+        {liveStats ? "Live / Lifetime PnL" : "Total PnL"}
+      </div>
+      <div className={`mt-1 text-2xl font-semibold ${stats.totalPnl >= 0 ? "text-green-400" : "text-red-400"}`}>
+        {formatUsd(stats.totalPnl, true)}{" "}
+        {liveStats && (
+          <span className="text-base opacity-80">
+            ({stats.pnlPct >= 0 ? "+" : ""}
+            {stats.pnlPct.toFixed(2)}%)
+          </span>
+        )}
+      </div>
+
       <div className="mt-6 grid grid-cols-2 gap-3 text-sm">
         {liveStats ? (
           <>
-            <Stat label="Open Positions" value={`${liveStats.openPositions || 0}`} />
-            <Stat label="Total Fees" value={formatUsd(liveStats.totalFees || 0, true)} good />
-            <Stat label="Total Deposits" value={formatUsd(liveStats.totalDeposits || 0)} />
-            <Stat label="Total Value" value={formatUsd(liveStats.totalValue || 0)} />
+            <Stat label="Open Positions" value={`${stats.openPositions}`} />
+            <Stat label="Closed Positions" value={`${stats.closedPositions}`} />
+            <Stat label="Unclaimed Fees" value={formatUsd(stats.unclaimedFees, true)} good />
+            <Stat label="Wallet" value={`${(trader.walletAddress || "").slice(0, 4)}…${(trader.walletAddress || "").slice(-4)}`} />
           </>
         ) : (
           <>

@@ -5,16 +5,17 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import { linkWallet, unlinkWallet } from "@/lib/storage";
 
-export function WalletButton() {
+export function WalletButton({ onChange }: { onChange?: () => void }) {
   const { publicKey, connected } = useWallet();
 
   useEffect(() => {
     if (connected && publicKey) {
-      linkWallet(publicKey.toString());
+      linkWallet(publicKey.toBase58());
     } else if (!connected) {
       unlinkWallet();
     }
-  }, [connected, publicKey]);
+    onChange?.();
+  }, [connected, publicKey, onChange]);
 
   return <WalletMultiButton />;
 }

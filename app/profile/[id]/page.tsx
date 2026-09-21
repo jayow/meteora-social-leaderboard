@@ -42,7 +42,7 @@ export default function ProfilePage() {
         <Link href="/" className="text-sm text-zinc-400 hover:text-white">← Leaderboard</Link>
         <div className="flex items-center gap-3">
           {mine && <span className="rounded-full border border-violet-500/40 px-3 py-1 text-xs text-violet-300">Your profile</span>}
-          {mine && <WalletButton />}
+          {mine && <WalletButton onChange={reload} />}
         </div>
       </div>
 
