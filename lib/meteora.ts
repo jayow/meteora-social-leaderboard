@@ -26,7 +26,7 @@ export function aggregateEventsByDay(
   for (const event of events) {
     let date = "";
     if (event.createdAt) date = event.createdAt.slice(0, 10);
-    else if (event.blockTime) date = new Date(event.blockTime * 1000).toISOString().slice(0, 10);
+    else if (event.blockTime) date = new Date(event.blockTime).toISOString().slice(0, 10);
     if (!date) continue;
     const pnl = eventUsd(event);
     const cur = map.get(date) || { pnl: 0, positions: 0 };
