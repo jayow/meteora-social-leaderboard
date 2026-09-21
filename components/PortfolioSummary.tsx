@@ -150,6 +150,7 @@ export function PortfolioSummary({ trader }: { trader: Trader }) {
                 <Stat label="Total Deposits" value={formatUsd(stats.totalDeposits)} />
                 <Stat label="Total Withdrawals" value={formatUsd(stats.totalWithdrawals)} />
                 <Stat label="Total Fees Earned" value={formatUsd(stats.totalFees, true)} good />
+                <Stat label="Wallet" value={`${(trader.walletAddress || "").slice(0, 4)}…${(trader.walletAddress || "").slice(-4)}`} />
               </>
             ) : (
               <>
