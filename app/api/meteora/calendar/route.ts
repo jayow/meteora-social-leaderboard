@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { aggregateEventsByDay } from "@/lib/meteora";
+import { aggregateCalendarData } from "@/lib/meteora";
 
 const BASE = "https://dlmm.datapi.meteora.ag";
-const MAX_POSITIONS = 20;
+const MAX_POOLS = 50;
 
 export async function GET(request: NextRequest) {
   const wallet = request.nextUrl.searchParams.get("wallet");
@@ -42,9 +42,14 @@ export async function GET(request: NextRequest) {
       poolAddresses.add(pool.poolAddress);
     }
 
-    const positionAddrs: string[] = [];
-    for (const poolAddr of poolAddresses) {
-      if (positionAddrs.length >= MAX_POSITIONS) break;
+    const allPositions: Array<{
+      positionAddress: string;
+      isClosed: boolean;
+      closedAt?: number;
+      pnlUsd?: string | number;
+    }> = [];
+    
+    for (const poolAddr of Array.from(poolAddresses).slice(0, MAX_POOLS)) {
       const pnlRes = await fetch(`${BASE}/positions/${poolAddr}/pnl?user=${wallet}`, {
         headers: { Accept: "application/json" },
         next: { revalidate: 60 },
@@ -52,15 +57,13 @@ export async function GET(request: NextRequest) {
       if (!pnlRes.ok) continue;
       const pnlData = await pnlRes.json();
       const positions = Array.isArray(pnlData.positions) ? pnlData.positions : [];
-      for (const pos of positions) {
-        if (positionAddrs.length >= MAX_POSITIONS) break;
-        if (pos.positionAddress) positionAddrs.push(pos.positionAddress);
-      }
+      allPositions.push(...positions);
     }
 
     const events: unknown[] = [];
-    for (const addr of positionAddrs) {
-      const hRes = await fetch(`${BASE}/positions/${addr}/historical`, {
+    for (const pos of allPositions) {
+      if (!pos.positionAddress) continue;
+      const hRes = await fetch(`${BASE}/positions/${pos.positionAddress}/historical`, {
         headers: { Accept: "application/json" },
         next: { revalidate: 60 },
       });
@@ -70,13 +73,18 @@ export async function GET(request: NextRequest) {
       else if (Array.isArray(hData)) events.push(...hData);
     }
 
-    const days = aggregateEventsByDay(events as Array<{ blockTime?: number; createdAt?: string; eventType?: string; totalUsd?: string | number }>);
+    const days = aggregateCalendarData(
+      events as Array<{ blockTime?: number; createdAt?: string; eventType?: string; totalUsd?: string | number }>,
+      allPositions
+    );
+    
     return NextResponse.json({
       wallet,
-      positionCount: positionAddrs.length,
+      positionCount: allPositions.length,
+      closedPositions: allPositions.filter(p => p.isClosed).length,
       eventCount: events.length,
       days,
-      note: "Calendar days sum claim_fee/claim_reward USD from both open and closed position historical events. Deposits/withdrawals are excluded from PnL.",
+      note: "Calendar days include closed position PnL attributed to closedAt date, plus claim_fee/claim_reward events.",
     });
   } catch (error) {
     console.error("calendar route error", error);

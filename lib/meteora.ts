@@ -34,3 +34,57 @@ export function aggregateEventsByDay(
   }
   return Array.from(map.entries()).map(([date, v]) => ({ date, ...v }));
 }
+
+/**
+ * Aggregate calendar data from both historical events and closed positions.
+ * Closed positions' PnL is attributed to their closedAt date.
+ */
+export function aggregateCalendarData(
+  events: Array<{ blockTime?: number; createdAt?: string; eventType?: string; totalUsd?: string | number }>,
+  positions: Array<{ isClosed: boolean; closedAt?: number; pnlUsd?: string | number; positionAddress?: string }>
+): DailyPnL[] {
+  const map = new Map<string, { pnl: number; positionSet: Set<string> }>();
+  
+  // Add fee/reward claim events
+  for (const event of events) {
+    let date = "";
+    if (event.createdAt) {
+      date = event.createdAt.slice(0, 10);
+    } else if (event.blockTime) {
+      // blockTime is in seconds, need to convert to milliseconds
+      const timestamp = event.blockTime * 1000;
+      date = new Date(timestamp).toISOString().slice(0, 10);
+    }
+    if (!date) continue;
+    
+    const pnl = eventUsd(event);
+    if (pnl === 0) continue;
+    
+    const cur = map.get(date) || { pnl: 0, positionSet: new Set<string>() };
+    cur.pnl += pnl;
+    map.set(date, cur);
+  }
+  
+  // Add closed positions' PnL to their closedAt date
+  for (const pos of positions) {
+    if (!pos.isClosed || !pos.closedAt) continue;
+    
+    // closedAt is in seconds, convert to milliseconds
+    const timestamp = pos.closedAt * 1000;
+    const date = new Date(timestamp).toISOString().slice(0, 10);
+    
+    const pnl = num(pos.pnlUsd);
+    const cur = map.get(date) || { pnl: 0, positionSet: new Set<string>() };
+    cur.pnl += pnl;
+    if (pos.positionAddress) {
+      cur.positionSet.add(pos.positionAddress);
+    }
+    map.set(date, cur);
+  }
+  
+  return Array.from(map.entries()).map(([date, v]) => ({
+    date,
+    pnl: v.pnl,
+    positions: v.positionSet.size,
+  }));
+}
