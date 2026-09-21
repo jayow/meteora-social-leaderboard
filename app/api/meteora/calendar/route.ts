@@ -60,31 +60,14 @@ export async function GET(request: NextRequest) {
       allPositions.push(...positions);
     }
 
-    const events: unknown[] = [];
-    for (const pos of allPositions) {
-      if (!pos.positionAddress) continue;
-      const hRes = await fetch(`${BASE}/positions/${pos.positionAddress}/historical`, {
-        headers: { Accept: "application/json" },
-        next: { revalidate: 60 },
-      });
-      if (!hRes.ok) continue;
-      const hData = await hRes.json();
-      if (Array.isArray(hData.events)) events.push(...hData.events);
-      else if (Array.isArray(hData)) events.push(...hData);
-    }
-
-    const days = aggregateCalendarData(
-      events as Array<{ blockTime?: number; createdAt?: string; eventType?: string; totalUsd?: string | number }>,
-      allPositions
-    );
+    const days = aggregateCalendarData([], allPositions);
     
     return NextResponse.json({
       wallet,
       positionCount: allPositions.length,
       closedPositions: allPositions.filter(p => p.isClosed).length,
-      eventCount: events.length,
       days,
-      note: "Calendar days include closed position PnL attributed to closedAt date, plus claim_fee/claim_reward events.",
+      note: "Calendar days show closed position PnL attributed to closedAt date. Position PnL includes all deposits, withdrawals, and fees.",
     });
   } catch (error) {
     console.error("calendar route error", error);
