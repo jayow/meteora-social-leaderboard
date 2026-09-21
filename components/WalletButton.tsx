@@ -17,5 +17,5 @@ export function WalletButton({ onChange }: { onChange?: () => void }) {
     onChange?.();
   }, [connected, publicKey, onChange]);
 
-  return <WalletMultiButton />;
+  return <WalletMultiButton>Connect Wallet</WalletMultiButton>;
 }
