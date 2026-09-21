@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import type { Trader } from "@/lib/types";
 import { bootstrap, listTraders } from "@/lib/storage";
 import { LeaderboardCard } from "@/components/LeaderboardCard";
@@ -21,7 +22,10 @@ export default function HomePage() {
           <h1 className="mt-1 text-3xl font-semibold">Leaderboard</h1>
           <p className="mt-2 text-sm text-zinc-400">Meteora social leaderboard · Thesis · X · PnL calendar</p>
         </div>
-        <WalletButton />
+        <div className="flex items-center gap-3">
+          <Link href="/profile/me" className="text-sm text-zinc-400 hover:text-white">Profile</Link>
+          <WalletButton />
+        </div>
       </header>
       <div className="space-y-3">
         {traders.map((t, i) => (
