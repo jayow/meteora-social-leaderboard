@@ -126,13 +126,17 @@ export function setThesis(thesis: string) {
   saveMe(u);
 }
 
-export function linkX(handle: string) {
+export function linkX(handle: string, avatarUrl?: string, name?: string) {
   const u = getMe();
   if (!u) return;
   const h = handle.replace(/^@/, "").trim();
   u.xHandle = h;
-  u.xAvatarUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(h)}`;
-  if (u.displayName === "Anonymous Trader") u.displayName = h;
+  u.xAvatarUrl = avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(h)}`;
+  if (u.displayName === "Anonymous Trader" && name) {
+    u.displayName = name;
+  } else if (u.displayName === "Anonymous Trader") {
+    u.displayName = h;
+  }
   saveMe(u);
 }
 

@@ -1,11 +1,29 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { linkX, unlinkX } from "@/lib/storage";
 
 export function XConnect({ handle, avatarUrl, editable, onChange }: { handle?: string; avatarUrl?: string; editable: boolean; onChange?: () => void }) {
-  const [input, setInput] = useState(handle || "");
-  const [open, setOpen] = useState(false);
+  const searchParams = useSearchParams();
+  const [connecting, setConnecting] = useState(false);
+
+  useEffect(() => {
+    const xStatus = searchParams.get("x");
+    if (xStatus === "connected" && !handle) {
+      setConnecting(true);
+      fetch("/api/x/session")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.profile) {
+            linkX(data.profile.username, data.profile.avatarUrl, data.profile.name);
+            onChange?.();
+          }
+        })
+        .catch(console.error)
+        .finally(() => setConnecting(false));
+    }
+  }, [searchParams, handle, onChange]);
 
   if (handle) {
     return (
@@ -21,15 +39,20 @@ export function XConnect({ handle, avatarUrl, editable, onChange }: { handle?: s
       </div>
     );
   }
+
   if (!editable) return <p className="text-sm text-zinc-500">X not connected</p>;
-  if (!open) {
-    return <button type="button" className="rounded-md bg-zinc-100 px-3 py-2 text-sm font-medium text-black" onClick={() => setOpen(true)}>Connect X</button>;
+
+  if (connecting) {
+    return <p className="text-sm text-zinc-500">Connecting...</p>;
   }
+
   return (
-    <form className="flex flex-wrap gap-2" onSubmit={(e) => { e.preventDefault(); if (!input.trim()) return; linkX(input); setOpen(false); onChange?.(); }}>
-      <input className="rounded-md border border-zinc-700 bg-black px-3 py-2 text-sm outline-none focus:border-violet-500" placeholder="@handle" value={input} onChange={(e) => setInput(e.target.value)} />
-      <button type="submit" className="rounded-md bg-violet-600 px-3 py-2 text-sm">Save</button>
-      <button type="button" className="rounded-md border border-zinc-700 px-3 py-2 text-sm text-zinc-400" onClick={() => setOpen(false)}>Cancel</button>
-    </form>
+    <button 
+      type="button" 
+      className="rounded-md bg-sky-500 px-4 py-2 text-sm font-medium text-white hover:bg-sky-600 transition-colors"
+      onClick={() => { window.location.href = "/api/x/login"; }}
+    >
+      Sign in with X
+    </button>
   );
 }
