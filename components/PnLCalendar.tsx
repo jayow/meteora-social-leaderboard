@@ -60,7 +60,7 @@ export function PnLCalendar({ history, walletAddress }: { history: DailyPnL[]; w
     <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-4">
       {loading && <div className="mb-3 text-xs text-violet-400">Loading live calendar from Meteora…</div>}
       {walletAddress && !loading && liveHistory.length > 0 && (
-        <div className="mb-3 text-xs text-green-400">Live from Meteora — closed position PnL by close day</div>
+        <div className="mb-3 text-xs text-green-400">✓ Live from Meteora — closed position PnL by close day</div>
       )}
       {walletAddress && !loading && liveHistory.length === 0 && (
         <div className="mb-3 text-xs text-zinc-500">{note || "No position events yet — showing sample calendar"}</div>
@@ -86,7 +86,7 @@ export function PnLCalendar({ history, walletAddress }: { history: DailyPnL[]; w
       </div>
       <div className="grid grid-cols-7 gap-1">
         {cells.map((day, i) => {
-          if (!day) return <div key={`e${i}`} className="min-h-[72px]" />;
+          if (!day) return <div key={`e${i}`} className="min-h-[72px] rounded-md border border-zinc-800 bg-zinc-900/30" />;
           const iso = `${y}-${String(m + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
           const e = map.get(iso);
           const pnl = e?.pnl ?? 0;

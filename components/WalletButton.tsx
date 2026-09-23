@@ -7,15 +7,19 @@ import { linkWallet, unlinkWallet } from "@/lib/storage";
 
 export function WalletButton({ onChange }: { onChange?: () => void }) {
   const { publicKey, connected } = useWallet();
-
+  
   useEffect(() => {
     if (connected && publicKey) {
       linkWallet(publicKey.toBase58());
-    } else if (!connected) {
-      unlinkWallet();
+      onChange?.();
     }
-    onChange?.();
   }, [connected, publicKey, onChange]);
+
+  if (connected && publicKey) {
+    const addr = publicKey.toBase58();
+    const short = `${addr.slice(0, 4)}...${addr.slice(-4)}`;
+    return <WalletMultiButton>{short}</WalletMultiButton>;
+  }
 
   return <WalletMultiButton>Connect Wallet</WalletMultiButton>;
 }
