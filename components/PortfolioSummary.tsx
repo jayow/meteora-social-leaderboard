@@ -15,6 +15,10 @@ interface LiveStats {
   totalDeposits: number;
   totalWithdrawals: number;
   totalFees: number;
+  avgInvestedUsd?: number;
+  winRateUsd?: number;
+  biggestPnlUsd?: number;
+  biggestPnlPctChange?: number;
 }
 
 export function PortfolioSummary({ trader }: { trader: Trader }) {
@@ -34,10 +38,11 @@ export function PortfolioSummary({ trader }: { trader: Trader }) {
       setLoading(true);
       setError(null);
       try {
-        const [totalRes, openRes, portfolioRes] = await Promise.all([
+        const [totalRes, openRes, portfolioRes, performanceRes] = await Promise.all([
           fetch(`/api/meteora/total?wallet=${trader.walletAddress}`),
           fetch(`/api/meteora/open?wallet=${trader.walletAddress}`),
           fetch(`/api/meteora/portfolio?wallet=${trader.walletAddress}`),
+          fetch(`/api/meteora/performance?wallet=${trader.walletAddress}&time_range=30d`),
         ]);
         if (!totalRes.ok || !openRes.ok || !portfolioRes.ok) {
           throw new Error("Meteora API request failed");
@@ -45,6 +50,7 @@ export function PortfolioSummary({ trader }: { trader: Trader }) {
         const totalData = await totalRes.json();
         const openData = await openRes.json();
         const portfolioData = await portfolioRes.json();
+        const performanceData = performanceRes.ok ? await performanceRes.json() : null;
         const totals = openData.total || {};
         const pools = Array.isArray(portfolioData.pools) ? portfolioData.pools : [];
 
@@ -67,6 +73,10 @@ export function PortfolioSummary({ trader }: { trader: Trader }) {
           totalDeposits,
           totalWithdrawals,
           totalFees,
+          avgInvestedUsd: performanceData ? num(performanceData.avg_invested_usd) : undefined,
+          winRateUsd: performanceData ? num(performanceData.win_rate_usd) : undefined,
+          biggestPnlUsd: performanceData ? num(performanceData.biggest_pnl_usd) : undefined,
+          biggestPnlPctChange: performanceData ? num(performanceData.biggest_pnl_pct_change) : undefined,
         };
         if (!cancelled) setLiveStats(live);
       } catch (e) {
@@ -134,6 +144,20 @@ export function PortfolioSummary({ trader }: { trader: Trader }) {
             <Stat label="Total Deposits" value={formatUsd(stats.totalDeposits)} />
             <Stat label="Total Withdrawals" value={formatUsd(stats.totalWithdrawals)} />
             <Stat label="Fees Claimed" value={formatUsd(stats.totalFees, true)} good />
+            {stats.avgInvestedUsd !== undefined && (
+              <Stat label="Avg Invested (30D)" value={formatUsd(stats.avgInvestedUsd)} />
+            )}
+            {stats.winRateUsd !== undefined && (
+              <Stat label="Win Rate (30D)" value={`${stats.winRateUsd.toFixed(2)}%`} good={stats.winRateUsd >= 50} />
+            )}
+            {stats.biggestPnlUsd !== undefined && (
+              <Stat 
+                label="Biggest Win (30D)" 
+                value={`${formatUsd(stats.biggestPnlUsd, true)}${stats.biggestPnlPctChange ? ` (+${stats.biggestPnlPctChange.toFixed(2)}%)` : ''}`}
+                good 
+              />
+            )}
+            <Stat label="Wallet" value={`${(trader.walletAddress || "").slice(0, 4)}…${(trader.walletAddress || "").slice(-4)}`} />
           </>
         ) : (
           <>
