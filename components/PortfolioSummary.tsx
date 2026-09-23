@@ -58,9 +58,9 @@ export function PortfolioSummary({ trader }: { trader: Trader }) {
         }
 
         const live: LiveStats = {
-          totalValue: num(totals.balances),
-          totalPnl: num(totals.pnl) || num(totalData.totalPnlUsd),
-          pnlPct: num(totals.pnlPctChange) || num(totalData.totalPnlPctChange),
+          totalValue: num(totals.balances) + num(totals.unclaimedFees),
+          totalPnl: num(totalData.totalPnlUsd),
+          pnlPct: num(totalData.totalPnlPctChange),
           unclaimedFees: num(totals.unclaimedFees),
           openPositions: num(openData.totalPositions) || (Array.isArray(openData.pools) ? openData.pools.reduce((a: number, p: { openPositionCount?: number }) => a + (p.openPositionCount || 0), 0) : 0),
           closedPositions: num(totalData.totalClosedPositions),
@@ -94,10 +94,6 @@ export function PortfolioSummary({ trader }: { trader: Trader }) {
     totalFees: 0,
   };
 
-  const hasOpenPositions = stats.openPositions > 0;
-  const hasClosedPositions = stats.closedPositions > 0;
-  const closedOnly = !hasOpenPositions && hasClosedPositions;
-
   return (
     <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-5">
       {loading && <div className="mb-3 text-xs text-violet-400">Loading live Meteora DLMM data…</div>}
@@ -110,57 +106,34 @@ export function PortfolioSummary({ trader }: { trader: Trader }) {
       )}
 
       <div className="text-xs uppercase tracking-wide text-zinc-500">
-        {liveStats ? (closedOnly ? "Lifetime PnL" : "Open Position Value") : "Total Portfolio Value"}
+        {liveStats ? "Total Portfolio Value" : "Total Portfolio Value"}
       </div>
       <div className="mt-1 text-3xl font-semibold">
-        {closedOnly ? (
-          <span className={stats.totalPnl >= 0 ? "text-green-400" : "text-red-400"}>
-            {formatUsd(stats.totalPnl, true)}
-          </span>
-        ) : (
-          formatUsd(stats.totalValue)
-        )}
+        {formatUsd(stats.totalValue)}
       </div>
 
-      {!closedOnly && (
-        <>
-          <div className="mt-6 text-xs uppercase tracking-wide text-zinc-500">
-            {liveStats ? "Live / Lifetime PnL" : "Total PnL"}
-          </div>
-          <div className={`mt-1 text-2xl font-semibold ${stats.totalPnl >= 0 ? "text-green-400" : "text-red-400"}`}>
-            {formatUsd(stats.totalPnl, true)}{" "}
-            {liveStats && (
-              <span className="text-base opacity-80">
-                ({stats.pnlPct >= 0 ? "+" : ""}
-                {stats.pnlPct.toFixed(2)}%)
-              </span>
-            )}
-          </div>
-        </>
-      )}
+      <div className="mt-6 text-xs uppercase tracking-wide text-zinc-500">
+        Total PnL
+      </div>
+      <div className={`mt-1 text-2xl font-semibold ${stats.totalPnl >= 0 ? "text-green-400" : "text-red-400"}`}>
+        {formatUsd(stats.totalPnl, true)}{" "}
+        {liveStats && (
+          <span className="text-base opacity-80">
+            ({stats.pnlPct >= 0 ? "+" : ""}
+            {stats.pnlPct.toFixed(2)}%)
+          </span>
+        )}
+      </div>
 
       <div className="mt-6 grid grid-cols-2 gap-3 text-sm">
         {liveStats ? (
           <>
-            {!closedOnly && <Stat label="Open Positions" value={`${stats.openPositions}`} />}
+            <Stat label="Open Positions" value={`${stats.openPositions}`} />
             <Stat label="Closed Positions" value={`${stats.closedPositions}`} />
-            {closedOnly ? (
-              <>
-                <Stat label="PnL %" value={`${stats.pnlPct >= 0 ? "+" : ""}${stats.pnlPct.toFixed(2)}%`} good={stats.pnlPct >= 0} bad={stats.pnlPct < 0} />
-                <Stat label="Total Deposits" value={formatUsd(stats.totalDeposits)} />
-                <Stat label="Total Withdrawals" value={formatUsd(stats.totalWithdrawals)} />
-                <Stat label="Total Fees Earned" value={formatUsd(stats.totalFees, true)} good />
-                <Stat label="Wallet" value={`${(trader.walletAddress || "").slice(0, 4)}…${(trader.walletAddress || "").slice(-4)}`} />
-              </>
-            ) : (
-              <>
-                <Stat label="Unclaimed Fees" value={formatUsd(stats.unclaimedFees, true)} good />
-                <Stat label="Wallet" value={`${(trader.walletAddress || "").slice(0, 4)}…${(trader.walletAddress || "").slice(-4)}`} />
-              </>
-            )}
-            {!closedOnly && (
-              <Stat label="Wallet" value={`${(trader.walletAddress || "").slice(0, 4)}…${(trader.walletAddress || "").slice(-4)}`} />
-            )}
+            <Stat label="Unclaimed Fees" value={formatUsd(stats.unclaimedFees, true)} good />
+            <Stat label="Total Deposits" value={formatUsd(stats.totalDeposits)} />
+            <Stat label="Total Withdrawals" value={formatUsd(stats.totalWithdrawals)} />
+            <Stat label="Fees Claimed" value={formatUsd(stats.totalFees, true)} good />
           </>
         ) : (
           <>

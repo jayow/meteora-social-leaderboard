@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { aggregateCalendarData } from "@/lib/meteora";
 
 const BASE = "https://dlmm.datapi.meteora.ag";
-const MAX_POOLS = 50;
 
 export async function GET(request: NextRequest) {
   const wallet = request.nextUrl.searchParams.get("wallet");
@@ -11,35 +10,41 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const [openRes, portfolioRes] = await Promise.all([
-      fetch(`${BASE}/portfolio/open?user=${wallet}&page_size=50`, {
-        headers: { Accept: "application/json" },
-        next: { revalidate: 60 },
-      }),
-      fetch(`${BASE}/portfolio?user=${wallet}&page_size=50`, {
-        headers: { Accept: "application/json" },
-        next: { revalidate: 60 },
-      }),
-    ]);
-
-    if (!openRes.ok) {
-      return NextResponse.json({ error: `Meteora open portfolio ${openRes.status}` }, { status: openRes.status });
-    }
-    if (!portfolioRes.ok) {
-      return NextResponse.json({ error: `Meteora portfolio ${portfolioRes.status}` }, { status: portfolioRes.status });
-    }
-
-    const openData = await openRes.json();
-    const portfolioData = await portfolioRes.json();
-    const openPools = Array.isArray(openData.pools) ? openData.pools : [];
-    const allPools = Array.isArray(portfolioData.pools) ? portfolioData.pools : [];
-    
     const poolAddresses = new Set<string>();
-    for (const pool of openPools) {
-      poolAddresses.add(pool.poolAddress);
-    }
-    for (const pool of allPools) {
-      poolAddresses.add(pool.poolAddress);
+    
+    let page = 1;
+    let hasNextPage = true;
+    
+    while (hasNextPage) {
+      const portfolioRes = await fetch(
+        `${BASE}/portfolio?user=${wallet}&page=${page}&page_size=50&days_back=365`,
+        {
+          headers: { Accept: "application/json" },
+          next: { revalidate: 60 },
+        }
+      );
+
+      if (!portfolioRes.ok) {
+        if (page === 1) {
+          return NextResponse.json(
+            { error: `Meteora portfolio ${portfolioRes.status}` },
+            { status: portfolioRes.status }
+          );
+        }
+        break;
+      }
+
+      const portfolioData = await portfolioRes.json();
+      const pools = Array.isArray(portfolioData.pools) ? portfolioData.pools : [];
+      
+      for (const pool of pools) {
+        if (pool.poolAddress) {
+          poolAddresses.add(pool.poolAddress);
+        }
+      }
+
+      hasNextPage = portfolioData.hasNext === true;
+      page++;
     }
 
     const allPositions: Array<{
@@ -49,15 +54,30 @@ export async function GET(request: NextRequest) {
       pnlUsd?: string | number;
     }> = [];
     
-    for (const poolAddr of Array.from(poolAddresses).slice(0, MAX_POOLS)) {
-      const pnlRes = await fetch(`${BASE}/positions/${poolAddr}/pnl?user=${wallet}`, {
-        headers: { Accept: "application/json" },
-        next: { revalidate: 60 },
-      });
-      if (!pnlRes.ok) continue;
-      const pnlData = await pnlRes.json();
-      const positions = Array.isArray(pnlData.positions) ? pnlData.positions : [];
-      allPositions.push(...positions);
+    for (const poolAddr of Array.from(poolAddresses)) {
+      let poolPage = 1;
+      let poolHasNext = true;
+      
+      while (poolHasNext) {
+        const pnlRes = await fetch(
+          `${BASE}/positions/${poolAddr}/pnl?user=${wallet}&page=${poolPage}&page_size=50`,
+          {
+            headers: { Accept: "application/json" },
+            next: { revalidate: 60 },
+          }
+        );
+        
+        if (!pnlRes.ok) {
+          break;
+        }
+        
+        const pnlData = await pnlRes.json();
+        const positions = Array.isArray(pnlData.positions) ? pnlData.positions : [];
+        allPositions.push(...positions);
+        
+        poolHasNext = pnlData.hasNext === true;
+        poolPage++;
+      }
     }
 
     const days = aggregateCalendarData([], allPositions);
