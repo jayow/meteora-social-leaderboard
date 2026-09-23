@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { aggregateCalendarData } from "@/lib/meteora";
+import type { DailyPnL } from "@/lib/types";
 
-const BASE = "https://dlmm.datapi.meteora.ag";
+const CALENDAR_BASE = "https://portfolio.datapi.meteora.ag";
+
+function num(v: unknown): number {
+  if (v == null) return 0;
+  const n = typeof v === "number" ? v : parseFloat(String(v));
+  return Number.isFinite(n) ? n : 0;
+}
 
 export async function GET(request: NextRequest) {
   const wallet = request.nextUrl.searchParams.get("wallet");
@@ -9,88 +15,50 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "wallet parameter required" }, { status: 400 });
   }
 
+  const monthParam = request.nextUrl.searchParams.get("month");
+  const now = new Date();
+  const month = monthParam || `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
+
   try {
-    const poolAddresses = new Set<string>();
-    
-    let page = 1;
-    let hasNextPage = true;
-    
-    while (hasNextPage) {
-      const portfolioRes = await fetch(
-        `${BASE}/portfolio?user=${wallet}&page=${page}&page_size=50&days_back=365`,
-        {
-          headers: { Accept: "application/json" },
-          next: { revalidate: 60 },
-        }
+    const calendarRes = await fetch(
+      `${CALENDAR_BASE}/chart/calendar/${wallet}?month=${month}`,
+      {
+        headers: { Accept: "application/json" },
+        next: { revalidate: 60 },
+      }
+    );
+
+    if (!calendarRes.ok) {
+      return NextResponse.json(
+        { error: `Meteora calendar ${calendarRes.status}` },
+        { status: calendarRes.status }
       );
-
-      if (!portfolioRes.ok) {
-        if (page === 1) {
-          return NextResponse.json(
-            { error: `Meteora portfolio ${portfolioRes.status}` },
-            { status: portfolioRes.status }
-          );
-        }
-        break;
-      }
-
-      const portfolioData = await portfolioRes.json();
-      const pools = Array.isArray(portfolioData.pools) ? portfolioData.pools : [];
-      
-      for (const pool of pools) {
-        if (pool.poolAddress) {
-          poolAddresses.add(pool.poolAddress);
-        }
-      }
-
-      hasNextPage = portfolioData.hasNext === true;
-      page++;
     }
 
-    const allPositions: Array<{
-      positionAddress: string;
-      isClosed: boolean;
-      closedAt?: number;
-      pnlUsd?: string | number;
-    }> = [];
-    
-    for (const poolAddr of Array.from(poolAddresses)) {
-      let poolPage = 1;
-      let poolHasNext = true;
-      
-      while (poolHasNext) {
-        const pnlRes = await fetch(
-          `${BASE}/positions/${poolAddr}/pnl?user=${wallet}&page=${poolPage}&page_size=50`,
-          {
-            headers: { Accept: "application/json" },
-            next: { revalidate: 60 },
-          }
-        );
-        
-        if (!pnlRes.ok) {
-          break;
-        }
-        
-        const pnlData = await pnlRes.json();
-        const positions = Array.isArray(pnlData.positions) ? pnlData.positions : [];
-        allPositions.push(...positions);
-        
-        poolHasNext = pnlData.hasNext === true;
-        poolPage++;
-      }
-    }
+    const calendarData = await calendarRes.json();
+    const dataPoints = Array.isArray(calendarData.data_points) ? calendarData.data_points : [];
 
-    const days = aggregateCalendarData([], allPositions);
-    
+    const days: DailyPnL[] = dataPoints.map((point: any) => {
+      const dateTime = point.date_time || "";
+      const date = dateTime.slice(0, 10);
+      const pnl = num(point.pnl_usd);
+      const positions = num(point.closed_position_count);
+
+      return {
+        date,
+        pnl,
+        positions,
+      };
+    });
+
     return NextResponse.json({
       wallet,
-      positionCount: allPositions.length,
-      closedPositions: allPositions.filter(p => p.isClosed).length,
+      month,
       days,
-      note: "Calendar days show closed position PnL attributed to closedAt date. Position PnL includes all deposits, withdrawals, and fees.",
+      note: "Live from Meteora portfolio calendar API",
     });
   } catch (error) {
     console.error("calendar route error", error);
-    return NextResponse.json({ error: "Failed to build calendar" }, { status: 500 });
+    return NextResponse.json({ error: "Failed to fetch calendar" }, { status: 500 });
   }
 }

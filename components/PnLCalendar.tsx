@@ -23,7 +23,10 @@ export function PnLCalendar({ history, walletAddress }: { history: DailyPnL[]; w
     const run = async () => {
       setLoading(true);
       try {
-        const res = await fetch(`/api/meteora/calendar?wallet=${walletAddress}`);
+        const y = cursor.getFullYear();
+        const m = cursor.getMonth();
+        const month = `${y}-${String(m + 1).padStart(2, "0")}`;
+        const res = await fetch(`/api/meteora/calendar?wallet=${walletAddress}&month=${month}`);
         if (!res.ok) throw new Error("calendar fetch failed");
         const data = await res.json();
         if (!cancelled) {
@@ -44,7 +47,7 @@ export function PnLCalendar({ history, walletAddress }: { history: DailyPnL[]; w
     return () => {
       cancelled = true;
     };
-  }, [walletAddress]);
+  }, [walletAddress, cursor]);
 
   const activeHistory = walletAddress && liveHistory.length > 0 ? liveHistory : history;
   const y = cursor.getFullYear();
@@ -60,7 +63,7 @@ export function PnLCalendar({ history, walletAddress }: { history: DailyPnL[]; w
     <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-4">
       {loading && <div className="mb-3 text-xs text-violet-400">Loading live calendar from Meteora…</div>}
       {walletAddress && !loading && liveHistory.length > 0 && (
-        <div className="mb-3 text-xs text-green-400">✓ Live from Meteora — closed position PnL by close day</div>
+        <div className="mb-3 text-xs text-green-400">✓ {note || "Live from Meteora portfolio calendar API"}</div>
       )}
       {walletAddress && !loading && liveHistory.length === 0 && (
         <div className="mb-3 text-xs text-zinc-500">{note || "No position events yet — showing sample calendar"}</div>
