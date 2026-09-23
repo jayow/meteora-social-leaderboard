@@ -3,6 +3,26 @@ import type { DailyPnL } from "@/lib/types";
 
 const CALENDAR_BASE = "https://portfolio.datapi.meteora.ag";
 
+interface MeteoraCalendarDataPoint {
+  timestamp: number;
+  date_time: string;
+  pnl_usd: string | number;
+  pnl_sol: string | number;
+  closed_position_count: number;
+  win_count_usd: number;
+  loss_count_usd: number;
+  win_count_sol: number;
+  loss_count_sol: number;
+  win_rate_usd: string | number;
+  win_rate_sol: string | number;
+  deposit_usd: string | number;
+  deposit_sol: string | number;
+  withdrawn_usd: string | number;
+  withdrawn_sol: string | number;
+  fees_earned_usd: string | number;
+  fees_earned_sol: string | number;
+}
+
 function num(v: unknown): number {
   if (v == null) return 0;
   const n = typeof v === "number" ? v : parseFloat(String(v));
@@ -38,7 +58,7 @@ export async function GET(request: NextRequest) {
     const calendarData = await calendarRes.json();
     const dataPoints = Array.isArray(calendarData.data_points) ? calendarData.data_points : [];
 
-    const days: DailyPnL[] = dataPoints.map((point: any) => {
+    const days: DailyPnL[] = dataPoints.map((point: MeteoraCalendarDataPoint) => {
       const dateTime = point.date_time || "";
       const date = dateTime.slice(0, 10);
       const pnl = num(point.pnl_usd);
