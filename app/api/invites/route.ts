@@ -1,18 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSessionWallet } from "@/lib/session";
+import { getSessionUser } from "@/lib/session";
 import { ensureUserInvites, getUserInvites } from "@/lib/invite";
-import { findUser } from "@/lib/users";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(_req: NextRequest): Promise<NextResponse> {
-  const wallet = await getSessionWallet();
-  if (!wallet) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  }
-  const user = await findUser(wallet);
+  const user = await getSessionUser();
   if (!user || !user.joinedAt) {
-    return NextResponse.json({ error: "Not a member" }, { status: 403 });
+    return NextResponse.json({ error: "Not authenticated or not a member" }, { status: 401 });
   }
   await ensureUserInvites(user.id);
   const codes = await getUserInvites(user.id);

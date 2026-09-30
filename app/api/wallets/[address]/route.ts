@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq, and, sql } from "drizzle-orm";
 import { getDb, hasDb } from "@/lib/db";
 import { users, userWallets } from "@/lib/db/schema";
-import { getSessionWallet } from "@/lib/session";
+import { getSessionUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -19,13 +19,11 @@ export async function PATCH(
   if (!hasDb()) return NextResponse.json({ error: "Database not configured" }, { status: 503 });
 
   const { address } = await params;
-  const sessionWallet = await getSessionWallet();
-  if (!sessionWallet) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  const user = await getSessionUser();
+  if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const db = getDb();
-  const [user] = await db.select().from(users).where(eq(users.wallet, sessionWallet)).limit(1);
-  if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
-
+  
   // Verify wallet belongs to this user
   const [wallet] = await db
     .select()
@@ -89,13 +87,11 @@ export async function DELETE(
   if (!hasDb()) return NextResponse.json({ error: "Database not configured" }, { status: 503 });
 
   const { address } = await params;
-  const sessionWallet = await getSessionWallet();
-  if (!sessionWallet) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  const user = await getSessionUser();
+  if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const db = getDb();
-  const [user] = await db.select().from(users).where(eq(users.wallet, sessionWallet)).limit(1);
-  if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
-
+  
   // Check wallet count
   const [{ count }] = await db
     .select({ count: sql<number>`count(*)::int` })

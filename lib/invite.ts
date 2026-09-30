@@ -30,6 +30,11 @@ export function isAdmin(wallet: string | null, xHandle?: string | null): boolean
   return false;
 }
 
+export function isAdminUser(user: { wallet: string; xHandle: string | null } | null | undefined): boolean {
+  if (!user) return false;
+  return isAdmin(user.wallet, user.xHandle);
+}
+
 export async function getMemberCount(): Promise<number> {
   const db = getDb();
   const [result] = await db

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
 import { getDb, hasDb } from "@/lib/db";
 import { follows, users } from "@/lib/db/schema";
-import { getSessionWallet } from "@/lib/session";
+import { getSessionUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -13,8 +13,8 @@ interface FollowBody {
 export async function POST(req: NextRequest): Promise<NextResponse> {
   if (!hasDb()) return NextResponse.json({ error: "Database not configured" }, { status: 503 });
   
-  const sessionWallet = await getSessionWallet();
-  if (!sessionWallet) {
+  const currentUser = await getSessionUser();
+  if (!currentUser) {
     return NextResponse.json({ error: "Sign in with your wallet first" }, { status: 401 });
   }
 
@@ -31,11 +31,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const db = getDb();
   
-  const [currentUser] = await db.select().from(users).where(eq(users.wallet, sessionWallet)).limit(1);
-  if (!currentUser) {
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
-  }
-
   if (currentUser.id === body.targetId) {
     return NextResponse.json({ error: "Cannot follow yourself" }, { status: 400 });
   }
@@ -61,8 +56,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 export async function DELETE(req: NextRequest): Promise<NextResponse> {
   if (!hasDb()) return NextResponse.json({ error: "Database not configured" }, { status: 503 });
   
-  const sessionWallet = await getSessionWallet();
-  if (!sessionWallet) {
+  const currentUser = await getSessionUser();
+  if (!currentUser) {
     return NextResponse.json({ error: "Sign in with your wallet first" }, { status: 401 });
   }
 
@@ -79,11 +74,6 @@ export async function DELETE(req: NextRequest): Promise<NextResponse> {
 
   const db = getDb();
   
-  const [currentUser] = await db.select().from(users).where(eq(users.wallet, sessionWallet)).limit(1);
-  if (!currentUser) {
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
-  }
-
   await db.delete(follows).where(
     and(
       eq(follows.followerUserId, currentUser.id),

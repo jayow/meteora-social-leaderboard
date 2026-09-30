@@ -83,6 +83,21 @@ export async function getSessionUserId(): Promise<number | null> {
   }
 }
 
+// Get full user record from session (supports both user-ID and wallet sessions)
+export async function getSessionUser(): Promise<typeof users.$inferSelect | null> {
+  if (!hasDb()) return null;
+  const userId = await getSessionUserId();
+  if (!userId) return null;
+  
+  try {
+    const db = getDb();
+    const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+    return user || null;
+  } catch {
+    return null;
+  }
+}
+
 // Legacy: get wallet from session (for backward compat)
 export async function getSessionWallet(): Promise<string | null> {
   const store = await cookies();

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq, sql } from "drizzle-orm";
 import { getDb, hasDb } from "@/lib/db";
 import { users, userWallets } from "@/lib/db/schema";
-import { getSessionWallet } from "@/lib/session";
+import { getSessionUser } from "@/lib/session";
 import { isValidWallet } from "@/lib/wallet";
 import { verifyWalletSignature, loginMessage } from "@/lib/session";
 
@@ -12,13 +12,10 @@ export const dynamic = "force-dynamic";
 export async function GET(): Promise<NextResponse> {
   if (!hasDb()) return NextResponse.json({ wallets: [] });
   
-  const sessionWallet = await getSessionWallet();
-  if (!sessionWallet) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  const user = await getSessionUser();
+  if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const db = getDb();
-  const [user] = await db.select().from(users).where(eq(users.wallet, sessionWallet)).limit(1);
-  if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
-
   const wallets = await db
     .select()
     .from(userWallets)
@@ -47,13 +44,10 @@ interface AddWalletBody {
 export async function POST(req: NextRequest): Promise<NextResponse> {
   if (!hasDb()) return NextResponse.json({ error: "Database not configured" }, { status: 503 });
 
-  const sessionWallet = await getSessionWallet();
-  if (!sessionWallet) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  const user = await getSessionUser();
+  if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const db = getDb();
-  const [user] = await db.select().from(users).where(eq(users.wallet, sessionWallet)).limit(1);
-  if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
-
   let body: AddWalletBody = {};
   try {
     body = (await req.json()) as AddWalletBody;

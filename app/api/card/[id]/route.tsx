@@ -95,7 +95,8 @@ export async function GET(
             backgroundImage:
               "radial-gradient(circle at 30% 20%, rgba(139, 108, 255, 0.15), transparent 40%), radial-gradient(circle at 70% 80%, rgba(255, 92, 26, 0.1), transparent 40%)",
             padding: "60px",
-            fontFamily: fontData ? "Inter" : "system-ui",
+            fontFamily: "system-ui, -apple-system, sans-serif",
+            fontWeight: 600,
           }}
         >
           {/* Header: Logo + Handle */}
@@ -336,16 +337,6 @@ export async function GET(
       {
         width: 1200,
         height: 630,
-        ...(fontData ? {
-          fonts: [
-            {
-              name: "Inter",
-              data: fontData,
-              weight: 400,
-              style: "normal",
-            },
-          ],
-        } : {}),
       }
     );
   } catch (error) {

@@ -4,7 +4,7 @@ import sharp from "sharp";
 import { getDb, hasDb } from "@/lib/db";
 import { profileBanners, users } from "@/lib/db/schema";
 import { findUser } from "@/lib/users";
-import { getSessionWallet } from "@/lib/session";
+import { getSessionUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -44,8 +44,8 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }): Promise<NextResponse> {
   if (!hasDb()) return NextResponse.json({ error: "Database not configured" }, { status: 503 });
   
-  const wallet = await getSessionWallet();
-  if (!wallet) {
+  const sessionUser = await getSessionUser();
+  if (!sessionUser) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
@@ -56,7 +56,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  if (user.wallet !== wallet) {
+  if (user.id !== sessionUser.id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -128,8 +128,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
 export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: string }> }): Promise<NextResponse> {
   if (!hasDb()) return NextResponse.json({ error: "Database not configured" }, { status: 503 });
   
-  const wallet = await getSessionWallet();
-  if (!wallet) {
+  const sessionUser = await getSessionUser();
+  if (!sessionUser) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
@@ -140,7 +140,7 @@ export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: str
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  if (user.wallet !== wallet) {
+  if (user.id !== sessionUser.id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
