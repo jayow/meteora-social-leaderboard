@@ -50,6 +50,8 @@ export async function GET(_req: NextRequest): Promise<NextResponse> {
         COUNT(DISTINCT op.user_id) AS lp_count,
         SUM(op.value_usd) AS total_value_usd
       FROM open_positions op
+      JOIN users u ON u.id = op.user_id
+      WHERE u.joined_at IS NOT NULL
       GROUP BY op.pool_address, op.token_x, op.token_y, op.token_x_icon, op.token_y_icon, op.bin_step, op.protocol
     ),
     friends_in_pool AS (
@@ -61,7 +63,7 @@ export async function GET(_req: NextRequest): Promise<NextResponse> {
       FROM open_positions op
       JOIN follows f ON f.followee_user_id = op.user_id
       JOIN users u ON u.id = op.user_id
-      WHERE f.follower_user_id = $1
+      WHERE f.follower_user_id = $1 AND u.joined_at IS NOT NULL
       GROUP BY op.pool_address
     )
     SELECT 
@@ -89,6 +91,8 @@ export async function GET(_req: NextRequest): Promise<NextResponse> {
       NULL AS friend_avatars,
       NULL AS friend_handles
     FROM open_positions op
+    JOIN users u ON u.id = op.user_id
+    WHERE u.joined_at IS NOT NULL
     GROUP BY op.pool_address, op.token_x, op.token_y, op.token_x_icon, op.token_y_icon, op.bin_step, op.protocol
     ORDER BY COUNT(DISTINCT op.user_id) DESC, SUM(op.value_usd) DESC NULLS LAST
     LIMIT 100

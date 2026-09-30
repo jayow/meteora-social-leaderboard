@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isNull, lt, or, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { getDb, hasDb } from "@/lib/db";
 import { users, type UserRow } from "@/lib/db/schema";
 import { syncUser, type SyncResult } from "@/lib/sync";
@@ -77,10 +77,7 @@ async function runBatch(): Promise<void> {
       .select()
       .from(users)
       .where(
-        or(
-          isNull(users.lastAttemptedAt),
-          lt(users.lastAttemptedAt, staleThreshold)
-        )
+        sql`${users.joinedAt} IS NOT NULL AND (${users.lastAttemptedAt} IS NULL OR ${users.lastAttemptedAt} < ${staleThreshold})`
       )
       .orderBy(sql`COALESCE(${users.lastAttemptedAt}, ${users.lastSyncedAt}) ASC NULLS FIRST`)
       .limit(MAX_USERS_PER_RUN);

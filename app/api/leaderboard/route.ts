@@ -63,7 +63,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
            s.top_pool_x_icon, s.top_pool_y_icon, s.updated_at,
            (select count(*) from follows where followee_user_id = u.id) as followers_count
     from latest s join users u on u.id = s.user_id
-    where ($1::text is null or u.country = $1)
+    where u.joined_at is not null and ($1::text is null or u.country = $1)
     order by ${cols[sort]} desc nulls last, ${cols.pnl} desc nulls last, u.id asc
     limit $2`;
 
@@ -73,7 +73,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     pool.query<{ n: string; pnl: number | null; fees: number | null }>(
       `with latest as (select distinct on (user_id) * from pnl_snapshots order by user_id, date desc)
        select count(*)::text as n, sum(${cols.pnl}) as pnl, sum(${cols.fees}) as fees
-       from latest s join users u on u.id = s.user_id where ($1::text is null or u.country = $1)`,
+       from latest s join users u on u.id = s.user_id where u.joined_at is not null and ($1::text is null or u.country = $1)`,
       [country]
     ),
   ]);

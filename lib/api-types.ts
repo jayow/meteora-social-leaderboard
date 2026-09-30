@@ -51,6 +51,7 @@ export interface ApiUser {
   thesis: string | null;
   createdAt: string;
   lastSyncedAt: string | null;
+  memberNumber?: number | null;
   followersCount?: number;
   followingCount?: number;
   isFollowing?: boolean;

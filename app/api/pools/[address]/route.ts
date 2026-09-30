@@ -50,8 +50,9 @@ export async function GET(
       protocol,
       COUNT(DISTINCT user_id)::text AS lp_count,
       SUM(value_usd) AS total_value_usd
-    FROM open_positions
-    WHERE pool_address = $1
+    FROM open_positions op
+    JOIN users u ON u.id = op.user_id
+    WHERE op.pool_address = $1 AND u.joined_at IS NOT NULL
     GROUP BY pool_address, token_x, token_y, token_x_icon, token_y_icon, bin_step, protocol
   `;
 
@@ -106,7 +107,7 @@ export async function GET(
     FROM open_positions op
     JOIN users u ON u.id = op.user_id
     LEFT JOIN latest_snapshots ls ON ls.user_id = u.id
-    WHERE op.pool_address = $1
+    WHERE op.pool_address = $1 AND u.joined_at IS NOT NULL
     ORDER BY 
       EXISTS(SELECT 1 FROM follows WHERE follower_user_id = $2 AND followee_user_id = u.id) DESC,
       op.value_usd DESC NULLS LAST
@@ -131,7 +132,7 @@ export async function GET(
     FROM open_positions op
     JOIN users u ON u.id = op.user_id
     LEFT JOIN latest_snapshots ls ON ls.user_id = u.id
-    WHERE op.pool_address = $1
+    WHERE op.pool_address = $1 AND u.joined_at IS NOT NULL
     ORDER BY op.value_usd DESC NULLS LAST
   `;
 

@@ -12,6 +12,23 @@ import {
   index,
 } from "drizzle-orm/pg-core";
 
+export const inviteCodes = pgTable(
+  "invite_codes",
+  {
+    id: serial("id").primaryKey(),
+    code: varchar("code", { length: 8 }).notNull(),
+    createdByUserId: integer("created_by_user_id"),
+    maxUses: integer("max_uses").notNull().default(1),
+    uses: integer("uses").notNull().default(0),
+    disabled: integer("disabled").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("invite_codes_code_key").on(t.code),
+    index("invite_codes_created_by_idx").on(t.createdByUserId),
+  ]
+);
+
 export const users = pgTable(
   "users",
   {
@@ -24,6 +41,10 @@ export const users = pgTable(
     avatarCheckedAt: timestamp("avatar_checked_at", { withTimezone: true }),
     country: varchar("country", { length: 2 }),
     thesis: text("thesis"),
+    invitedByUserId: integer("invited_by_user_id"),
+    inviteCodeId: integer("invite_code_id"),
+    joinedAt: timestamp("joined_at", { withTimezone: true }),
+    memberNumber: integer("member_number"),
     lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
     lastAttemptedAt: timestamp("last_attempted_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -31,8 +52,10 @@ export const users = pgTable(
   },
   (t) => [
     uniqueIndex("users_wallet_key").on(t.wallet),
+    uniqueIndex("users_member_number_key").on(t.memberNumber),
     index("users_x_handle_idx").on(t.xHandle),
     index("users_country_idx").on(t.country),
+    index("users_joined_at_idx").on(t.joinedAt),
     index("users_last_synced_at_idx").on(t.lastSyncedAt.asc()),
     index("users_last_attempted_at_idx").on(t.lastAttemptedAt),
   ]
@@ -122,6 +145,7 @@ export const openPositions = pgTable(
   ]
 );
 
+export type InviteCodeRow = typeof inviteCodes.$inferSelect;
 export type UserRow = typeof users.$inferSelect;
 export type SnapshotRow = typeof pnlSnapshots.$inferSelect;
 export type NewSnapshot = typeof pnlSnapshots.$inferInsert;

@@ -12,7 +12,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
   if (!hasDb()) return NextResponse.json({ error: "Database not configured" }, { status: 503 });
   const { id } = await ctx.params;
   const user = await findUser(decodeURIComponent(id));
-  if (!user) return NextResponse.json({ user: null }, { status: 404 });
+  if (!user || !user.joinedAt) return NextResponse.json({ user: null }, { status: 404 });
   
   const snap = await latestSnapshot(user.id);
   const counts = await getFollowCounts(user.id);
