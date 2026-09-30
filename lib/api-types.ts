@@ -28,12 +28,13 @@ export interface LeaderboardEntry {
   topPool: PoolInfo | null;
   snapshotDate: string;
   updatedAt: string;
+  bannerUpdatedAt: string | null;
   isFollowing?: boolean;
 }
 
 export interface LeaderboardResponse {
   range: "7d" | "30d" | "all";
-  sort: "pnl" | "volume" | "winrate";
+  sort: "pnl" | "volume" | "winrate" | "fees";
   country: string | null;
   entries: LeaderboardEntry[];
   stats: { lps: number; totalPnl: number; fees: number } | null;

@@ -1,5 +1,5 @@
 {
-  "id": "2b1e6436-b699-497e-bf45-9fd4a779ecd2",
+  "id": "2c0f341d-f3b7-40f9-b64f-3281fe66bd2e",
   "prevId": "ec4fa241-a750-49d7-b3bc-4f346748631c",
   "version": "7",
   "dialect": "postgresql",
@@ -457,6 +457,12 @@
         },
         "fees_usd": {
           "name": "fees_usd",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "fees_7d_usd": {
+          "name": "fees_7d_usd",
           "type": "double precision",
           "primaryKey": false,
           "notNull": false

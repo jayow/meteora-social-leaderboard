@@ -241,6 +241,7 @@ export async function syncUser(user: UserRow): Promise<SyncResult> {
   let volume7dUsd = 0;
   let volume30dUsd = 0;
   let feesUsd = 0;
+  let fees7dUsd = 0;
   let fees30dUsd = 0;
   let positionsClosed = 0;
   
@@ -276,6 +277,7 @@ export async function syncUser(user: UserRow): Promise<SyncResult> {
     if (wd.perf7) {
       pnl7d += num(wd.perf7.pnl_usd);
       volume7dUsd += num(wd.perf7.total_deposit_usd);
+      fees7dUsd += num(wd.perf7.realized_fee_earned_usd) + num(wd.perf7.unrealized_fee_earned_usd);
       totalWinCount7d += num(wd.perf7.win_count_usd);
       totalLossCount7d += num(wd.perf7.loss_count_usd);
     }
@@ -335,6 +337,7 @@ export async function syncUser(user: UserRow): Promise<SyncResult> {
     volume7dUsd: volume7dUsd || null,
     volume30dUsd: volume30dUsd || null,
     feesUsd: feesUsd || null,
+    fees7dUsd: fees7dUsd || null,
     fees30dUsd: fees30dUsd || null,
     winRate,
     winRate7d,

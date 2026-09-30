@@ -6,16 +6,18 @@ export const dynamic = "force-dynamic";
 
 type Range = "7d" | "30d" | "all";
 
-const COLS: Record<Range, string> = {
-  "7d": "pnl_7d",
-  "30d": "pnl_30d",
-  all: "total_pnl_usd",
+const COLS: Record<Range, { pnl: string; fees: string; volume: string }> = {
+  "7d": { pnl: "pnl_7d", fees: "fees_7d_usd", volume: "volume_7d_usd" },
+  "30d": { pnl: "pnl_30d", fees: "fees_30d_usd", volume: "volume_30d_usd" },
+  all: { pnl: "total_pnl_usd", fees: "fees_usd", volume: "volume_usd" },
 };
 
 interface CountryStatsRow {
   country: string;
   members: string;
   total_pnl: number | null;
+  total_fees: number | null;
+  total_volume: number | null;
   avg_win_rate: number | null;
   top_lp_id: number | null;
   top_lp_wallet: string | null;
@@ -30,7 +32,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   
   const sp = req.nextUrl.searchParams;
   const range = (["7d", "30d", "all"].includes(sp.get("range") || "") ? sp.get("range") : "30d") as Range;
-  const pnlCol = COLS[range];
+  const cols = COLS[range];
   
   const sql = `
     WITH latest AS (
@@ -42,7 +44,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       SELECT 
         u.country,
         COUNT(*)::text AS members,
-        SUM(s.${pnlCol}) AS total_pnl,
+        SUM(s.${cols.pnl}) AS total_pnl,
+        SUM(s.${cols.fees}) AS total_fees,
+        SUM(s.${cols.volume}) AS total_volume,
         AVG(
           CASE 
             WHEN ${range === "7d" ? "s.win_rate_7d" : range === "30d" ? "s.win_rate_30d" : "s.win_rate"} IS NOT NULL 
@@ -62,16 +66,18 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         u.x_handle AS top_lp_x_handle,
         u.x_name AS top_lp_x_name,
         u.x_avatar_url AS top_lp_x_avatar_url,
-        s.${pnlCol} AS top_lp_pnl
+        s.${cols.pnl} AS top_lp_pnl
       FROM users u
       JOIN latest s ON s.user_id = u.id
       WHERE u.country IS NOT NULL AND u.joined_at IS NOT NULL
-      ORDER BY u.country, s.${pnlCol} DESC NULLS LAST
+      ORDER BY u.country, s.${cols.pnl} DESC NULLS LAST
     )
     SELECT 
       cs.country,
       cs.members,
       cs.total_pnl,
+      cs.total_fees,
+      cs.total_volume,
       cs.avg_win_rate,
       tl.top_lp_id,
       tl.top_lp_wallet,
@@ -93,6 +99,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     name: countryName(r.country),
     members: Number(r.members),
     totalPnl: r.total_pnl,
+    totalFees: r.total_fees,
+    totalVolume: r.total_volume,
     avgWinRate: r.avg_win_rate,
     topLp: r.top_lp_id ? {
       id: r.top_lp_id,

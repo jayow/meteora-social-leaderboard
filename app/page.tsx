@@ -12,11 +12,11 @@ import { useMe } from "@/components/MeProvider";
 import { displayName, fmtPct, fmtUsd } from "@/lib/format";
 
 type Range = "7d" | "30d" | "all";
-type Sort = "pnl" | "volume" | "winrate";
+type Sort = "pnl" | "volume" | "winrate" | "fees";
 
 const RANGE_LABEL: Record<Range, string> = { "7d": "7D", "30d": "30D", all: "All-time" };
 const HERO_SUFFIX: Record<Range, string> = { "7d": "this week", "30d": "this month", all: "of all time" };
-const SORT_LABEL: Record<Sort, string> = { pnl: "PnL", volume: "volume", winrate: "win rate" };
+const SORT_LABEL: Record<Sort, string> = { pnl: "PnL", volume: "volume", winrate: "win rate", fees: "fees earned" };
 const APP_URL = "https://web-production-c8f29.up.railway.app";
 
 function shareText(e: LeaderboardEntry, range: Range): string {
@@ -40,10 +40,14 @@ export default function LeaderboardPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const qs = new URLSearchParams({ range, sort });
+      const qs = new URLSearchParams({ range, sort: sort === "fees" ? "pnl" : sort });
       if (country) qs.set("country", country);
       const res = await fetch(`/api/leaderboard?${qs.toString()}`, { cache: "no-store" });
-      setData((await res.json()) as LeaderboardResponse);
+      const result = (await res.json()) as LeaderboardResponse;
+      if (sort === "fees") {
+        result.entries = [...result.entries].sort((a, b) => (b.fees ?? 0) - (a.fees ?? 0));
+      }
+      setData(result);
     } catch {
       setData({ range, sort, country: country || null, entries: [], stats: null, error: "Couldn't load the leaderboard" });
     } finally {
@@ -72,8 +76,8 @@ export default function LeaderboardPage() {
     else setSelectedId(e.id);
   };
 
-  const metric = (e: LeaderboardEntry) => (sort === "volume" ? fmtUsd(e.volume) : sort === "winrate" ? fmtPct(e.winRate) : fmtUsd(e.pnl, { signed: true }));
-  const metricTone = (e: LeaderboardEntry) => (sort === "pnl" ? ((e.pnl ?? 0) >= 0 ? "text-up" : "text-dn") : "text-white");
+  const metric = (e: LeaderboardEntry) => (sort === "volume" ? fmtUsd(e.volume) : sort === "winrate" ? fmtPct(e.winRate) : sort === "fees" ? fmtUsd(e.fees) : fmtUsd(e.pnl, { signed: true }));
+  const metricTone = (e: LeaderboardEntry) => (sort === "pnl" ? ((e.pnl ?? 0) >= 0 ? "text-up" : "text-dn") : sort === "fees" ? "text-orange" : "text-white");
 
   const onCountryChange = (c: string) => {
     setCountry(c);
@@ -134,7 +138,7 @@ export default function LeaderboardPage() {
           <div className="no-scrollbar -mx-4 mt-5 flex items-center gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
             <Pills value={range} onChange={setRange} options={[{ value: "7d", label: "7D" }, { value: "30d", label: "30D" }, { value: "all", label: "All" }]} />
             <CountrySelect value={country} onChange={onCountryChange} allLabel="Global" membersOnly />
-            <Pills label="Sort" value={sort} onChange={setSort} options={[{ value: "pnl", label: "PnL" }, { value: "volume", label: "Volume" }, { value: "winrate", label: "Win rate" }]} />
+            <Pills label="Sort" value={sort} onChange={setSort} options={[{ value: "pnl", label: "PnL" }, { value: "volume", label: "Volume" }, { value: "winrate", label: "Win rate" }, { value: "fees", label: "Fees" }]} />
           </div>
 
           {/* Claim CTA */}
@@ -258,7 +262,7 @@ function PodiumCard({ e, first, isMe, metric, tone, onClick, range }: { e: Leade
         </div>
       )}
       <div className="mt-0.5 hidden text-[11px] text-mute sm:block">
-        Vol <span className="text-white/80">{fmtUsd(e.volume)}</span> · Win <span className="text-white/80">{fmtPct(e.winRate)}</span>
+        Vol <span className="text-white/80">{fmtUsd(e.volume)}</span> · Fees <span className="text-orange">{fmtUsd(e.fees)}</span> · Win <span className="text-white/80">{fmtPct(e.winRate)}</span>
       </div>
       <div className="mt-2 max-w-full">
         <PoolChip pool={e.topPool} compact />
@@ -289,9 +293,16 @@ function Row({ e, isMe, metric, tone, onClick, range, active }: { e: Leaderboard
         </div>
         <div className="mt-0.5 flex items-center gap-2 text-[12px] text-mute">
           <PoolChip pool={e.topPool} compact />
-          <span className="hidden sm:inline">Vol {fmtUsd(e.volume)}</span>
           <span>Win {fmtPct(e.winRate)}</span>
         </div>
+      </div>
+      <div className="hidden md:flex md:flex-col md:items-end md:gap-0.5">
+        <div className="text-[10px] uppercase tracking-wider text-mute">Volume</div>
+        <div className="num text-[14px] font-semibold text-white/80">{fmtUsd(e.volume)}</div>
+      </div>
+      <div className="hidden sm:flex sm:flex-col sm:items-end sm:gap-0.5">
+        <div className="text-[10px] uppercase tracking-wider text-mute">Fees</div>
+        <div className="num text-[14px] font-semibold text-orange">{fmtUsd(e.fees)}</div>
       </div>
       <div className={`num text-right text-[18px] font-extrabold sm:text-[22px] ${tone}`}>{metric}</div>
       <div className="hidden sm:block" onClick={(ev) => ev.stopPropagation()}>
@@ -330,6 +341,8 @@ interface CountryLeaderboardEntry {
   name: string;
   members: number;
   totalPnl: number | null;
+  totalFees: number | null;
+  totalVolume: number | null;
   avgWinRate: number | null;
   topLp: {
     id: number;
@@ -421,6 +434,14 @@ function CountriesView({ range, setRange, onCountryClick }: { range: Range; setR
                   )}
                   <span>Avg win rate: <span className="text-white/80">{fmtPct(entry.avgWinRate, 1)}</span></span>
                 </div>
+              </div>
+              <div className="hidden md:flex md:flex-col md:items-end md:gap-0.5 md:min-w-[90px]">
+                <div className="text-[10px] uppercase tracking-wider text-mute">Volume</div>
+                <div className="num text-[15px] font-semibold text-white/80">{fmtUsd(entry.totalVolume)}</div>
+              </div>
+              <div className="hidden sm:flex sm:flex-col sm:items-end sm:gap-0.5 sm:min-w-[90px]">
+                <div className="text-[10px] uppercase tracking-wider text-mute">Fees</div>
+                <div className="num text-[15px] font-semibold text-orange">{fmtUsd(entry.totalFees)}</div>
               </div>
               <div className={`num text-right text-[22px] font-extrabold sm:text-[28px] ${(entry.totalPnl ?? 0) >= 0 ? "text-up" : "text-dn"}`}>
                 {fmtUsd(entry.totalPnl, { signed: true })}

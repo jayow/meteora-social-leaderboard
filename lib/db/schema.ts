@@ -108,6 +108,7 @@ export const pnlSnapshots = pgTable(
     volume7dUsd: doublePrecision("volume_7d_usd"),
     volume30dUsd: doublePrecision("volume_30d_usd"),
     feesUsd: doublePrecision("fees_usd"),
+    fees7dUsd: doublePrecision("fees_7d_usd"),
     fees30dUsd: doublePrecision("fees_30d_usd"),
     winRate: doublePrecision("win_rate"),
     winRate7d: doublePrecision("win_rate_7d"),

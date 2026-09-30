@@ -8,7 +8,7 @@ type Range = "7d" | "30d" | "all";
 type Sort = "pnl" | "volume" | "winrate";
 
 const COLS: Record<Range, { pnl: string; volume: string; winrate: string; fees: string }> = {
-  "7d": { pnl: "s.pnl_7d", volume: "s.volume_7d_usd", winrate: "s.win_rate_7d", fees: "s.fees_30d_usd" },
+  "7d": { pnl: "s.pnl_7d", volume: "s.volume_7d_usd", winrate: "s.win_rate_7d", fees: "s.fees_7d_usd" },
   "30d": { pnl: "s.pnl_30d", volume: "s.volume_30d_usd", winrate: "s.win_rate_30d", fees: "s.fees_30d_usd" },
   all: { pnl: "s.total_pnl_usd", volume: "s.volume_usd", winrate: "s.win_rate", fees: "s.fees_usd" },
 };
@@ -38,6 +38,7 @@ interface Row {
   top_pool_x_icon: string | null;
   top_pool_y_icon: string | null;
   updated_at: Date;
+  banner_updated_at: Date | null;
   followers_count: string;
 }
 
@@ -60,9 +61,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
            s.date::text as date, ${cols.pnl} as pnl, ${cols.volume} as volume, ${cols.winrate} as win_rate,
            ${cols.fees} as fees, s.total_pnl_usd, s.portfolio_value_usd, s.positions_open, s.positions_closed,
            s.top_pool_address, s.top_pool_name, s.top_pool_bin_step, s.top_pool_protocol,
-           s.top_pool_x_icon, s.top_pool_y_icon, s.updated_at,
+           s.top_pool_x_icon, s.top_pool_y_icon, s.updated_at, pb.updated_at as banner_updated_at,
            (select count(*) from follows where followee_user_id = u.id) as followers_count
-    from latest s join users u on u.id = s.user_id
+    from latest s 
+    join users u on u.id = s.user_id
+    left join profile_banners pb on pb.user_id = u.id
     where u.joined_at is not null and ($1::text is null or u.country = $1)
     order by ${cols[sort]} desc nulls last, ${cols.pnl} desc nulls last, u.id asc
     limit $2`;
@@ -109,6 +112,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         : null,
     snapshotDate: r.date,
     updatedAt: r.updated_at instanceof Date ? r.updated_at.toISOString() : String(r.updated_at),
+    bannerUpdatedAt: r.banner_updated_at instanceof Date ? r.banner_updated_at.toISOString() : null,
   }));
 
   const st = statsRes.rows[0];
