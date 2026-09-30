@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { useWallet } from "@solana/wallet-adapter-react";
@@ -377,15 +377,16 @@ function ProfileBanner({ user, mine, onUpdated }: { user: ApiUser; mine: boolean
   const { verified } = useMe();
   const [editing, setEditing] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
+  const [fileName, setFileName] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [dragActive, setDragActive] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const bannerUrl = user.bannerUpdatedAt ? `/api/users/${user.id}/banner?v=${new Date(user.bannerUpdatedAt).getTime()}` : null;
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  const validateAndPreviewFile = (file: File) => {
     if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
       setError("Please upload a JPG, PNG, or WebP image");
       return;
@@ -399,9 +400,41 @@ function ProfileBanner({ user, mine, onUpdated }: { user: ApiUser; mine: boolean
     const reader = new FileReader();
     reader.onload = (ev) => {
       setPreview(ev.target?.result as string);
+      setFileName(file.name);
       setError(null);
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    validateAndPreviewFile(file);
+  };
+
+  const handleDrag = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      validateAndPreviewFile(file);
+    }
+  };
+
+  const handleClickDropzone = () => {
+    fileInputRef.current?.click();
   };
 
   const upload = async () => {
@@ -438,6 +471,7 @@ function ProfileBanner({ user, mine, onUpdated }: { user: ApiUser; mine: boolean
 
       setEditing(false);
       setPreview(null);
+      setFileName(null);
       onUpdated();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed");
@@ -517,27 +551,69 @@ function ProfileBanner({ user, mine, onUpdated }: { user: ApiUser; mine: boolean
             <p className="mt-1 text-[13px] text-mute">Upload a JPG, PNG, or WebP up to 5MB. It will be cropped to 3:1 aspect ratio.</p>
 
             <div className="mt-4">
-              {preview ? (
-                <div className="relative aspect-[3/1] overflow-hidden rounded-xl">
+              <div
+                className={`group relative aspect-[3/1] cursor-pointer overflow-hidden rounded-xl transition-all ${
+                  dragActive ? "ring-2 ring-orange ring-offset-2 ring-offset-[#0a0a0f]" : "ring-1 ring-white/10"
+                }`}
+                onDragEnter={handleDrag}
+                onDragLeave={handleDrag}
+                onDragOver={handleDrag}
+                onDrop={handleDrop}
+                onClick={handleClickDropzone}
+                onMouseEnter={() => setHovered(true)}
+                onMouseLeave={() => setHovered(false)}
+              >
+                {preview ? (
                   <img src={preview} alt="Preview" className="h-full w-full object-cover" />
-                </div>
-              ) : bannerUrl ? (
-                <div className="relative aspect-[3/1] overflow-hidden rounded-xl">
+                ) : bannerUrl ? (
                   <img src={bannerUrl} alt="Current banner" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="brand-grad relative h-full">
+                    <div className="absolute inset-0 bg-[radial-gradient(60%_120%_at_20%_0%,rgba(255,255,255,.28),transparent)]" />
+                  </div>
+                )}
+                
+                {/* Overlay on hover or when empty */}
+                <div
+                  className={`absolute inset-0 flex flex-col items-center justify-center bg-black/70 backdrop-blur-sm transition-opacity ${
+                    hovered || (!preview && !bannerUrl) ? "opacity-100" : "opacity-0"
+                  }`}
+                >
+                  <svg className="h-10 w-10 text-white/80" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                  </svg>
+                  <p className="mt-2 text-[14px] font-semibold text-white">Click or drag an image here</p>
+                  <p className="mt-1 text-[12px] text-white/60">JPG, PNG or WebP · up to 5MB · 3:1</p>
                 </div>
-              ) : (
-                <div className="brand-grad relative aspect-[3/1] overflow-hidden rounded-xl">
-                  <div className="absolute inset-0 bg-[radial-gradient(60%_120%_at_20%_0%,rgba(255,255,255,.28),transparent)]" />
-                </div>
+              </div>
+
+              {/* Hidden file input */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={handleFileChange}
+                className="sr-only"
+                aria-label="Upload banner image"
+              />
+
+              {/* Upload button */}
+              <button
+                type="button"
+                onClick={handleClickDropzone}
+                disabled={uploading}
+                className="mt-3 h-9 w-full rounded-full bg-white/[.08] px-4 text-[13px] font-semibold text-white hover:bg-white/[.12] disabled:opacity-60"
+              >
+                {preview ? "Replace image" : "Upload image"}
+              </button>
+
+              {/* Filename display */}
+              {fileName && (
+                <p className="mt-2 truncate text-[12px] text-mute">
+                  Selected: <span className="text-white/70">{fileName}</span>
+                </p>
               )}
             </div>
-
-            <input
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              onChange={handleFileChange}
-              className="mt-4 w-full text-[13px] text-mute"
-            />
 
             {error && <p className="mt-2 text-[12px] text-dn">{error}</p>}
 
@@ -560,6 +636,7 @@ function ProfileBanner({ user, mine, onUpdated }: { user: ApiUser; mine: boolean
                   onClick={() => {
                     setEditing(false);
                     setPreview(null);
+                    setFileName(null);
                     setError(null);
                   }}
                   disabled={uploading}
