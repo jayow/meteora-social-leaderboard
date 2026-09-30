@@ -60,44 +60,42 @@ export interface EnrichedPool {
 }
 
 /**
- * Fetch ALL Meteora pools (DLMM and DAMM v2) that have a given token as base (mint_x)
+ * Fetch ALL Meteora pools (DLMM) that have a given token as base (mint_x)
  * @param tokenMint - The base token mint address
  * @returns Array of enriched pool data
  */
 export async function fetchMeteoraPoolsForToken(tokenMint: string): Promise<EnrichedPool[]> {
   try {
-    // Fetch DLMM pools - cached for 5 minutes
-    const dlmmData = await fetchMeteora<MeteoraPoolsResponse>(
-      "https://dlmm.datapi.meteora.ag/pools",
-      300000
-    );
+    // Try the pair search endpoint with mint - cached for 5 minutes
+    const searchUrl = `https://dlmm-api.meteora.ag/pair/all_by_groups?search_term=${encodeURIComponent(tokenMint)}`;
+    const searchData = await fetchMeteora<Record<string, MeteoraPool[]>>(searchUrl, 300000);
 
     const pools: EnrichedPool[] = [];
 
-    if (dlmmData?.groups) {
-      for (const group of dlmmData.groups) {
-        if (!group.tokens || group.tokens.length !== 2 || !group.pools) continue;
+    if (searchData && typeof searchData === 'object') {
+      // searchData is keyed by pair name, values are arrays of pools
+      for (const [pairName, pairPools] of Object.entries(searchData)) {
+        if (!Array.isArray(pairPools)) continue;
 
-        const [tokenXInfo, tokenYInfo] = group.tokens;
-        
-        // Only include pools where tokenMint is the base token (mint_x)
-        if (tokenXInfo.address !== tokenMint) continue;
-
-        for (const pool of group.pools) {
-          if (pool.hide) continue;
+        for (const pool of pairPools) {
+          // Only include pools where tokenMint is the base token (mint_x)
+          if (pool.mint_x !== tokenMint || pool.hide) continue;
 
           const tvl = pool.reserve_x_amount && pool.reserve_y_amount && pool.current_price
             ? pool.reserve_x_amount * (pool.current_price || 1) + pool.reserve_y_amount
-            : null;
+            : parseFloat(pool.liquidity || '0');
+
+          // Extract token symbols from pair name (e.g. "SOL-USDC")
+          const [tokenX, tokenY] = pairName.split('-');
 
           pools.push({
             poolAddress: pool.address,
-            tokenX: tokenXInfo.symbol,
-            tokenY: tokenYInfo.symbol,
+            tokenX: tokenX || 'Unknown',
+            tokenY: tokenY || 'Unknown',
             tokenXMint: pool.mint_x,
             tokenYMint: pool.mint_y,
-            tokenXIcon: tokenXInfo.logoURI || null,
-            tokenYIcon: tokenYInfo.logoURI || null,
+            tokenXIcon: null, // API doesn't provide icons in search response
+            tokenYIcon: null,
             binStep: pool.bin_step,
             protocol: "dlmm",
             tvl,

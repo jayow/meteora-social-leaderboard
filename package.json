@@ -8,7 +8,9 @@
     "start": "node scripts/migrate.mjs && next start -p ${PORT:-3000}",
     "lint": "eslint",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "node scripts/migrate.mjs"
+    "db:migrate": "node scripts/migrate.mjs",
+    "backfill:mints": "node scripts/backfill-mints.mjs",
+    "postinstall": "npm run backfill:mints || echo 'Backfill optional'"
   },
   "dependencies": {
     "@solana/wallet-adapter-base": "^0.9.23",

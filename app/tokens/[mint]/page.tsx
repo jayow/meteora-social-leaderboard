@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useMe } from "@/components/MeProvider";
 import { avatarFor, fmtUsd, timeAgo } from "@/lib/format";
@@ -72,8 +72,23 @@ export default function TokenPage() {
 
 function TokenDetail() {
   const params = useParams<{ mint: string }>();
+  const router = useRouter();
   const mint = decodeURIComponent(params.mint);
   const { user } = useMe();
+
+  // Check if this is a symbol and redirect to mint
+  useEffect(() => {
+    if (mint.length < 32 || !/^[1-9A-HJ-NP-Za-km-z]+$/.test(mint)) {
+      fetch(`/api/tokens/symbol/${mint}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.mint) {
+            router.replace(`/tokens/${data.mint}`);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [mint, router]);
 
   const [tokenData, setTokenData] = useState<TokenResponse | null>(null);
   const [comments, setComments] = useState<CommentsResponse | null>(null);
