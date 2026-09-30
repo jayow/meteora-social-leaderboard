@@ -20,10 +20,14 @@ export function invitesPerUser(): number {
   return Number(process.env.INVITES_PER_USER) || 3;
 }
 
-export function isAdmin(wallet: string | null): boolean {
-  if (!wallet) return false;
-  const admins = (process.env.ADMIN_WALLETS || "").split(",").map((w) => w.trim());
-  return admins.includes(wallet);
+export function isAdmin(wallet: string | null, xHandle?: string | null): boolean {
+  const wallets = (process.env.ADMIN_WALLETS || "").split(",").map((w) => w.trim()).filter(Boolean);
+  const handles = (process.env.ADMIN_X_HANDLES || "jayowtrades").split(",").map((h) => h.trim().replace(/^@/, "").toLowerCase()).filter(Boolean);
+  
+  if (wallet && wallets.includes(wallet)) return true;
+  if (xHandle && handles.includes(xHandle.replace(/^@/, "").toLowerCase())) return true;
+  
+  return false;
 }
 
 export async function getMemberCount(): Promise<number> {
