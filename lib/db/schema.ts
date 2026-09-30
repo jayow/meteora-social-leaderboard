@@ -21,9 +21,11 @@ export const users = pgTable(
     xHandle: varchar("x_handle", { length: 64 }),
     xName: text("x_name"),
     xAvatarUrl: text("x_avatar_url"),
+    avatarCheckedAt: timestamp("avatar_checked_at", { withTimezone: true }),
     country: varchar("country", { length: 2 }),
     thesis: text("thesis"),
     lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
+    lastAttemptedAt: timestamp("last_attempted_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -32,6 +34,7 @@ export const users = pgTable(
     index("users_x_handle_idx").on(t.xHandle),
     index("users_country_idx").on(t.country),
     index("users_last_synced_at_idx").on(t.lastSyncedAt.asc()),
+    index("users_last_attempted_at_idx").on(t.lastAttemptedAt),
   ]
 );
 

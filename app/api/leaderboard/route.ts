@@ -38,6 +38,7 @@ interface Row {
   top_pool_x_icon: string | null;
   top_pool_y_icon: string | null;
   updated_at: Date;
+  followers_count: string;
 }
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
@@ -59,7 +60,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
            s.date::text as date, ${cols.pnl} as pnl, ${cols.volume} as volume, ${cols.winrate} as win_rate,
            ${cols.fees} as fees, s.total_pnl_usd, s.portfolio_value_usd, s.positions_open, s.positions_closed,
            s.top_pool_address, s.top_pool_name, s.top_pool_bin_step, s.top_pool_protocol,
-           s.top_pool_x_icon, s.top_pool_y_icon, s.updated_at
+           s.top_pool_x_icon, s.top_pool_y_icon, s.updated_at,
+           (select count(*) from follows where followee_user_id = u.id) as followers_count
     from latest s join users u on u.id = s.user_id
     where ($1::text is null or u.country = $1)
     order by ${cols[sort]} desc nulls last, ${cols.pnl} desc nulls last, u.id asc
@@ -94,6 +96,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     portfolioValue: r.portfolio_value_usd,
     positionsOpen: r.positions_open,
     positionsClosed: r.positions_closed,
+    followersCount: Number(r.followers_count || 0),
     topPool:
       r.top_pool_address && r.top_pool_name
         ? {

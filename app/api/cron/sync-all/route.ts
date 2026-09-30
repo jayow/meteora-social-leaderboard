@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { asc, isNull, lt, or, sql } from "drizzle-orm";
+import { isNull, lt, or, sql } from "drizzle-orm";
 import { getDb, hasDb } from "@/lib/db";
 import { users, type UserRow } from "@/lib/db/schema";
-import { syncUser } from "@/lib/sync";
+import { syncUser, type SyncResult } from "@/lib/sync";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -10,8 +10,11 @@ export const maxDuration = 300;
 const CONCURRENCY = 4;
 const BATCH_DELAY_MS = 500;
 const STALE_HOURS = 20;
-const MAX_USERS_PER_RUN = 150;
+const MAX_USERS_PER_RUN = 50;
 const MAX_RETRIES = 3;
+
+// Module-level lock to prevent overlapping runs
+let runInProgress = false;
 
 function authorized(req: NextRequest): boolean {
   const secret = process.env.CRON_SECRET;
@@ -24,13 +27,18 @@ async function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function syncWithRetry(user: UserRow, attempt = 1): Promise<{ ok: boolean; wallet: string; error?: string }> {
+async function syncWithRetry(user: UserRow, attempt = 1): Promise<SyncResult> {
   try {
     const result = await syncUser(user);
+    if (!result.ok) {
+      // syncUser returned error; throw to trigger retry
+      throw new Error(result.error || "Sync failed");
+    }
     return result;
   } catch (error) {
-    const isRateLimit = error instanceof Error && (error.message.includes("429") || error.message.includes("rate limit"));
-    const isServerError = error instanceof Error && (error.message.includes("5") || error.message.includes("timeout"));
+    const message = error instanceof Error ? error.message : String(error);
+    const isRateLimit = message.includes("429") || message.toLowerCase().includes("rate limit");
+    const isServerError = /5\d\d/.test(message) || message.toLowerCase().includes("timeout");
     
     if ((isRateLimit || isServerError) && attempt < MAX_RETRIES) {
       const backoffMs = Math.min(1000 * Math.pow(2, attempt - 1), 8000);
@@ -41,89 +49,98 @@ async function syncWithRetry(user: UserRow, attempt = 1): Promise<{ ok: boolean;
     return {
       ok: false,
       wallet: user.wallet,
-      error: error instanceof Error ? error.message : "Unknown error",
+      date: "",
+      error: message,
     };
   }
 }
 
-async function run(req: NextRequest): Promise<NextResponse> {
-  if (!authorized(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!hasDb()) return NextResponse.json({ error: "Database not configured" }, { status: 503 });
-
-  const staleThreshold = new Date(Date.now() - STALE_HOURS * 60 * 60 * 1000);
-  
-  const db = getDb();
-  const staleUsers = await db
-    .select()
-    .from(users)
-    .where(
-      or(
-        isNull(users.lastSyncedAt),
-        lt(users.lastSyncedAt, staleThreshold)
-      )
-    )
-    .orderBy(asc(users.lastSyncedAt))
-    .limit(MAX_USERS_PER_RUN);
-
-  if (staleUsers.length === 0) {
-    return NextResponse.json({ 
-      users: 0, 
-      ok: 0, 
-      skipped: 0, 
-      failed: [], 
-      message: "All users recently synced",
-      ms: 0 
-    });
+async function runBatch(): Promise<void> {
+  if (runInProgress) {
+    console.log("[cron] Run already in progress, skipping");
+    return;
   }
 
+  runInProgress = true;
   const started = Date.now();
-  let ok = 0;
-  let skipped = 0;
-  const failed: Array<{ wallet: string; error: string }> = [];
 
-  for (let i = 0; i < staleUsers.length; i += CONCURRENCY) {
-    const batch = staleUsers.slice(i, i + CONCURRENCY);
+  try {
+    if (!hasDb()) {
+      console.error("[cron] Database not configured");
+      return;
+    }
+
+    const staleThreshold = new Date(Date.now() - STALE_HOURS * 60 * 60 * 1000);
     
-    const results = await Promise.all(
-      batch.map((u) => syncWithRetry(u))
-    );
-    
-    for (const r of results) {
-      if (r.ok) {
-        ok++;
-      } else {
-        failed.push({ wallet: r.wallet, error: r.error || "Unknown" });
+    const db = getDb();
+    const staleUsers = await db
+      .select()
+      .from(users)
+      .where(
+        or(
+          isNull(users.lastAttemptedAt),
+          lt(users.lastAttemptedAt, staleThreshold)
+        )
+      )
+      .orderBy(sql`COALESCE(${users.lastAttemptedAt}, ${users.lastSyncedAt}) ASC NULLS FIRST`)
+      .limit(MAX_USERS_PER_RUN);
+
+    if (staleUsers.length === 0) {
+      console.log("[cron] All users recently synced");
+      return;
+    }
+
+    let ok = 0;
+    const failed: Array<{ wallet: string; error: string }> = [];
+
+    for (let i = 0; i < staleUsers.length; i += CONCURRENCY) {
+      const batch = staleUsers.slice(i, i + CONCURRENCY);
+      
+      const results = await Promise.all(
+        batch.map((u) => syncWithRetry(u))
+      );
+      
+      for (const r of results) {
+        if (r.ok) {
+          ok++;
+        } else {
+          failed.push({ wallet: r.wallet, error: r.error || "Unknown" });
+          // Update last_attempted_at for failed users
+          await db.update(users).set({ lastAttemptedAt: sql`now()` }).where(sql`wallet = ${r.wallet}`);
+        }
+      }
+      
+      if (i + CONCURRENCY < staleUsers.length) {
+        await sleep(BATCH_DELAY_MS);
+      }
+      
+      // Time budget: ~4.5 minutes
+      if (Date.now() - started > 270000) {
+        console.log("[cron] Time budget exceeded, stopping");
+        break;
       }
     }
-    
-    if (i + CONCURRENCY < staleUsers.length) {
-      await sleep(BATCH_DELAY_MS);
-    }
-    
-    if (Date.now() - started > 280000) {
-      skipped = staleUsers.length - (i + batch.length);
-      break;
-    }
+
+    console.log(`[cron] Completed: ${ok} ok, ${failed.length} failed, ${Date.now() - started}ms`);
+  } finally {
+    runInProgress = false;
   }
-
-  const totalUsers = await db.select({ count: sql<number>`count(*)::int` }).from(users);
-
-  return NextResponse.json({
-    totalUsers: totalUsers[0]?.count ?? 0,
-    processed: ok + failed.length,
-    ok,
-    failed: failed.length,
-    skipped,
-    failedDetails: failed.slice(0, 10),
-    ms: Date.now() - started,
-    staleThreshold: staleThreshold.toISOString(),
-  });
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  return run(req);
+  if (!authorized(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  
+  // Fire and forget
+  void runBatch();
+  
+  return NextResponse.json({ status: "started" }, { status: 202 });
 }
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
-  return run(req);
+  if (!authorized(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  
+  // Fire and forget
+  void runBatch();
+  
+  return NextResponse.json({ status: "started" }, { status: 202 });
 }

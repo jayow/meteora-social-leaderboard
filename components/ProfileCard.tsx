@@ -70,21 +70,10 @@ export function ProfileCard({ user, stats, rank, isMe }: { user: CardUser; stats
             </a>
           )}
           <span className="num">{user.xHandle ? "·" : ""} {shortAddr(user.wallet)}</span>
+          {user.followersCount !== undefined && user.followersCount > 0 && (
+            <span>· {user.followersCount} {user.followersCount === 1 ? "follower" : "followers"}</span>
+          )}
         </div>
-        {(user.followersCount !== undefined || user.followingCount !== undefined) && (
-          <div className="mt-1.5 flex gap-3 text-[12px]">
-            {user.followersCount !== undefined && (
-              <span>
-                <span className="font-semibold text-white">{user.followersCount}</span> <span className="text-mute">{user.followersCount === 1 ? "follower" : "followers"}</span>
-              </span>
-            )}
-            {user.followingCount !== undefined && (
-              <span>
-                <span className="font-semibold text-white">{user.followingCount}</span> <span className="text-mute">following</span>
-              </span>
-            )}
-          </div>
-        )}
 
         <div className="mt-4 rounded-2xl rounded-tl-md border border-purp/20 bg-purp/10 p-3">
           <div className="text-[10px] font-bold uppercase tracking-wider text-purp-soft">Thesis</div>

@@ -6,6 +6,7 @@ import { fetchMeteora } from "@/lib/meteora-limiter";
 
 const DLMM = "https://dlmm.datapi.meteora.ag";
 const PORTFOLIO = "https://portfolio.datapi.meteora.ag";
+const AVATAR_RECHECK_DAYS = 7;
 
 type Json = Record<string, unknown>;
 
@@ -133,6 +134,11 @@ export async function syncUser(user: UserRow): Promise<SyncResult> {
     getJson(`${PORTFOLIO}/performances/${w}?time_range=all`),
   ]);
 
+  // Backfill avatar if needed
+  if (user.xHandle && !user.xAvatarUrl && shouldCheckAvatar(user.avatarCheckedAt)) {
+    void backfillAvatar(user.id, user.xHandle);
+  }
+
   const date = todayUtc();
   if (!total && !perf30 && !perfAll) {
     return { ok: false, wallet: user.wallet, date, error: "Meteora APIs unavailable" };
@@ -254,7 +260,7 @@ export async function syncUser(user: UserRow): Promise<SyncResult> {
     await db.delete(openPositions).where(eq(openPositions.userId, user.id));
   }
   
-  await db.update(users).set({ lastSyncedAt: sql`now()` }).where(eq(users.id, user.id));
+  await db.update(users).set({ lastSyncedAt: sql`now()`, lastAttemptedAt: sql`now()` }).where(eq(users.id, user.id));
 
   return { ok: true, wallet: user.wallet, date, snapshot };
 }
@@ -263,6 +269,50 @@ function stripNested(p: Json): Json {
   const out: Json = {};
   for (const [k, v] of Object.entries(p)) if (v === null || typeof v !== "object") out[k] = v;
   return out;
+}
+
+function shouldCheckAvatar(lastCheckedAt: Date | null): boolean {
+  if (!lastCheckedAt) return true;
+  const daysSince = (Date.now() - lastCheckedAt.getTime()) / (1000 * 60 * 60 * 24);
+  return daysSince >= AVATAR_RECHECK_DAYS;
+}
+
+async function backfillAvatar(userId: number, xHandle: string): Promise<void> {
+  try {
+    const res = await fetch(`https://unavatar.io/x/${xHandle}?json`, {
+      redirect: "manual",
+      cache: "no-store",
+    });
+
+    let avatarUrl: string | null = null;
+
+    if (res.status >= 200 && res.status < 300) {
+      const data = await res.json();
+      if (data && typeof data === "object" && typeof (data as Record<string, unknown>).url === "string") {
+        avatarUrl = (data as Record<string, unknown>).url as string;
+      }
+    } else if (res.status >= 300 && res.status < 400) {
+      const location = res.headers.get("location");
+      if (location && location.includes("pbs.twimg.com")) {
+        avatarUrl = location;
+      }
+    }
+
+    const db = getDb();
+    if (avatarUrl) {
+      await db
+        .update(users)
+        .set({ xAvatarUrl: avatarUrl, avatarCheckedAt: sql`now()` })
+        .where(eq(users.id, userId));
+    } else {
+      await db
+        .update(users)
+        .set({ avatarCheckedAt: sql`now()` })
+        .where(eq(users.id, userId));
+    }
+  } catch {
+    // Ignore avatar backfill errors
+  }
 }
 
 export async function getSnapshot(userId: number, date: string) {

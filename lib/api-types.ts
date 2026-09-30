@@ -25,6 +25,7 @@ export interface LeaderboardEntry {
   portfolioValue: number | null;
   positionsOpen: number | null;
   positionsClosed: number | null;
+  followersCount?: number;
   topPool: PoolInfo | null;
   snapshotDate: string;
   updatedAt: string;

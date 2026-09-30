@@ -8,6 +8,8 @@ interface RateLimitState {
   remaining: number;
   resetAt: number;
   lastRequest: number;
+  queue: Array<() => void>;
+  processing: boolean;
 }
 
 class MeteoraLimiter {
@@ -15,28 +17,49 @@ class MeteoraLimiter {
     remaining: 300,
     resetAt: Date.now() + 60000,
     lastRequest: 0,
+    queue: [],
+    processing: false,
   };
 
   private readonly minDelayMs = 250; // ~4 req/s
 
   async acquire(): Promise<void> {
-    const now = Date.now();
+    return new Promise((resolve) => {
+      this.state.queue.push(resolve);
+      if (!this.state.processing) {
+        void this.processQueue();
+      }
+    });
+  }
 
-    // Enforce minimum delay between requests
-    const timeSinceLastRequest = now - this.state.lastRequest;
-    if (timeSinceLastRequest < this.minDelayMs) {
-      await this.sleep(this.minDelayMs - timeSinceLastRequest);
+  private async processQueue(): Promise<void> {
+    if (this.state.processing || this.state.queue.length === 0) return;
+    
+    this.state.processing = true;
+
+    while (this.state.queue.length > 0) {
+      const now = Date.now();
+
+      // Enforce minimum delay between requests
+      const timeSinceLastRequest = now - this.state.lastRequest;
+      if (timeSinceLastRequest < this.minDelayMs) {
+        await this.sleep(this.minDelayMs - timeSinceLastRequest);
+      }
+
+      // Check if we're close to rate limit
+      if (this.state.remaining < 10 && Date.now() < this.state.resetAt) {
+        const waitMs = this.state.resetAt - Date.now() + 1000; // +1s buffer
+        console.log(`[meteora-limiter] Low remaining (${this.state.remaining}), waiting ${waitMs}ms until reset`);
+        await this.sleep(waitMs);
+        this.state.remaining = 300; // Reset after waiting
+      }
+
+      this.state.lastRequest = Date.now();
+      const resolve = this.state.queue.shift();
+      if (resolve) resolve();
     }
 
-    // Check if we're close to rate limit
-    if (this.state.remaining < 10 && now < this.state.resetAt) {
-      const waitMs = this.state.resetAt - now + 1000; // +1s buffer
-      console.log(`[meteora-limiter] Low remaining (${this.state.remaining}), waiting ${waitMs}ms until reset`);
-      await this.sleep(waitMs);
-      this.state.remaining = 300; // Reset after waiting
-    }
-
-    this.state.lastRequest = Date.now();
+    this.state.processing = false;
   }
 
   updateFromHeaders(headers: Headers): void {
