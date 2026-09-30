@@ -6,6 +6,9 @@ import {
   storeXProfileCookie,
   getCallbackUrl,
 } from "@/lib/x-oauth";
+import { hasDb } from "@/lib/db";
+import { getSessionWallet } from "@/lib/session";
+import { upsertUser } from "@/lib/users";
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const { searchParams } = new URL(req.url);
@@ -59,6 +62,21 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   // Store profile in short-lived cookie for client to consume
   await storeXProfileCookie(profile);
+
+  // Persist the verified X identity server-side on the signed-in wallet's row.
+  const wallet = await getSessionWallet();
+  if (wallet && hasDb()) {
+    try {
+      await upsertUser(wallet, {
+        xId: profile.id ?? null,
+        xHandle: profile.username,
+        xName: profile.name,
+        xAvatarUrl: profile.avatarUrl ? profile.avatarUrl.replace("_normal.", "_400x400.") : null,
+      });
+    } catch (e) {
+      console.error("Failed to persist X profile:", e);
+    }
+  }
 
   // Redirect back to profile page with success
   return NextResponse.redirect(new URL("/profile/me?x=connected", baseUrl));

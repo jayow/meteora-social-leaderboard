@@ -1,163 +1,59 @@
 "use client";
 
-import type { Trader } from "./types";
-import { makeHistory } from "./pnl";
+/**
+ * localStorage cache of *your own* profile. The database is the source of truth;
+ * this cache keeps the UI instant and works as a fallback if the API is unavailable.
+ */
+export interface CachedProfile {
+  wallet?: string;
+  xHandle?: string | null;
+  xName?: string | null;
+  xAvatarUrl?: string | null;
+  thesis?: string | null;
+  country?: string | null;
+  updatedAt?: string;
+}
 
-const K_USER = "meteora_user";
-const K_ALL = "meteora_traders";
+const K_PROFILE = "pp_profile_v2";
+const LEGACY_KEYS = ["meteora_user", "meteora_traders"];
 
-function read<T>(k: string, fb: T): T {
-  if (typeof window === "undefined") return fb;
+export function getCachedProfile(): CachedProfile {
+  if (typeof window === "undefined") return {};
   try {
-    const v = localStorage.getItem(k);
-    return v ? (JSON.parse(v) as T) : fb;
+    const raw = localStorage.getItem(K_PROFILE);
+    if (raw) return JSON.parse(raw) as CachedProfile;
+    // Migrate v1 (xHandle/xAvatarUrl/thesis/walletAddress) if present.
+    const legacy = localStorage.getItem("meteora_user");
+    if (legacy) {
+      const u = JSON.parse(legacy) as { walletAddress?: string; xHandle?: string; xAvatarUrl?: string; thesis?: string };
+      const thesis = u.thesis && u.thesis !== "Write your trading thesis here..." ? u.thesis : null;
+      const migrated: CachedProfile = { wallet: u.walletAddress, xHandle: u.xHandle ?? null, xAvatarUrl: u.xAvatarUrl ?? null, thesis };
+      saveCachedProfile(migrated);
+      return migrated;
+    }
   } catch {
-    return fb;
+    // ignore corrupt cache
   }
+  return {};
 }
-function write(k: string, v: unknown) {
+
+export function saveCachedProfile(p: CachedProfile): void {
   if (typeof window === "undefined") return;
-  localStorage.setItem(k, JSON.stringify(v));
-}
-
-function seeds(): Trader[] {
-  return [
-    {
-      id: "1",
-      username: "crypto_whale",
-      displayName: "Crypto Whale",
-      xHandle: "cryptowhale",
-      xAvatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=cryptowhale",
-      thesis: "Meteora USDC-SOL pools with high volume. Solana DeFi surge = alpha in stables.",
-      portfolioValue: 125430.5,
-      totalPnL: 15240.3,
-      winRate: 68.24,
-      avgWin: 555.59,
-      biggestWin: 1824.21,
-      avgLoss: -421.1,
-      pnlHistory: makeHistory(90, 11),
-    },
-    {
-      id: "2",
-      username: "defi_hunter",
-      displayName: "DeFi Hunter",
-      xHandle: "defihunter",
-      xAvatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=defihunter",
-      thesis: "Farming across Meteora pools for 15–20% APY with low IL.",
-      portfolioValue: 89200,
-      totalPnL: 8940.15,
-      winRate: 72.5,
-      avgWin: 445.22,
-      biggestWin: 1340.55,
-      avgLoss: -310.88,
-      pnlHistory: makeHistory(90, 22),
-    },
-    {
-      id: "3",
-      username: "sol_maxi",
-      displayName: "SOL Maxi",
-      xHandle: "solmaxi",
-      xAvatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=solmaxi",
-      thesis: "All-in Solana. Meteora is the best liquidity layer for SOL pairs.",
-      portfolioValue: 210500.75,
-      totalPnL: 32100.8,
-      winRate: 65.3,
-      avgWin: 890.33,
-      biggestWin: 2540.9,
-      avgLoss: -520.45,
-      pnlHistory: makeHistory(90, 33),
-    },
-  ];
-}
-
-function me(): Trader {
-  return {
-    id: "me",
-    username: "trader_anon",
-    displayName: "Anonymous Trader",
-    thesis: "Write your trading thesis here...",
-    portfolioValue: 10470,
-    totalPnL: 2980,
-    winRate: 68.24,
-    avgWin: 308.48,
-    biggestWin: 555.59,
-    avgLoss: -72.01,
-    pnlHistory: makeHistory(90, 7),
-  };
-}
-
-export function bootstrap(): Trader {
-  let all = read<Trader[]>(K_ALL, []);
-  if (!all.length) {
-    all = seeds();
-    write(K_ALL, all);
+  try {
+    localStorage.setItem(K_PROFILE, JSON.stringify({ ...p, updatedAt: new Date().toISOString() }));
+    for (const k of LEGACY_KEYS) localStorage.removeItem(k);
+  } catch {
+    // storage full / disabled
   }
-  let user = read<Trader | null>(K_USER, null);
-  if (!user) {
-    user = me();
-    write(K_USER, user);
-  }
-  write(K_ALL, [...all.filter((t) => t.id !== user!.id), user]);
-  return user;
 }
 
-export function getMe(): Trader | null {
-  return read<Trader | null>(K_USER, null);
+export function patchCachedProfile(patch: Partial<CachedProfile>): CachedProfile {
+  const next = { ...getCachedProfile(), ...patch };
+  saveCachedProfile(next);
+  return next;
 }
 
-export function listTraders(): Trader[] {
-  return read<Trader[]>(K_ALL, []).sort((a, b) => b.totalPnL - a.totalPnL);
-}
-
-export function getTrader(id: string): Trader | null {
-  if (id === "me") return getMe();
-  return listTraders().find((t) => t.id === id) ?? null;
-}
-
-export function saveMe(user: Trader) {
-  write(K_USER, user);
-  write(K_ALL, [...listTraders().filter((t) => t.id !== user.id), user]);
-}
-
-export function setThesis(thesis: string) {
-  const u = getMe();
-  if (!u) return;
-  u.thesis = thesis;
-  saveMe(u);
-}
-
-export function linkX(handle: string, avatarUrl?: string, name?: string) {
-  const u = getMe();
-  if (!u) return;
-  const h = handle.replace(/^@/, "").trim();
-  u.xHandle = h;
-  u.xAvatarUrl = avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(h)}`;
-  if (u.displayName === "Anonymous Trader" && name) {
-    u.displayName = name;
-  } else if (u.displayName === "Anonymous Trader") {
-    u.displayName = h;
-  }
-  saveMe(u);
-}
-
-export function unlinkX() {
-  const u = getMe();
-  if (!u) return;
-  delete u.xHandle;
-  delete u.xAvatarUrl;
-  saveMe(u);
-}
-
-export function linkWallet(address: string) {
-  const u = getMe();
-  if (!u) return;
-  u.walletAddress = address;
-  saveMe(u);
-}
-
-export function unlinkWallet() {
-  const u = getMe();
-  if (!u) return;
-  delete u.walletAddress;
-  saveMe(u);
+export function clearCachedProfile(): void {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(K_PROFILE);
 }

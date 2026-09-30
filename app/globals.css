@@ -1,4 +1,92 @@
 @import "tailwindcss";
 
-:root { color-scheme: dark; }
-body { background: #000; color: #fff; }
+@theme {
+  --font-sans: var(--font-jakarta), "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --color-base: #110d14;
+  --color-navy: #12121c;
+  --color-row: #161625;
+  --color-orange: #ff5c1a;
+  --color-orange-soft: #ff7a3d;
+  --color-purp: #8b6cff;
+  --color-purp-soft: #b7a5ff;
+  --color-pink: #ff4d8d;
+  --color-up: #22c98a;
+  --color-dn: #f2546b;
+  --color-mute: #8a8aa3;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  background: #110d14;
+  color: #fff;
+}
+
+body {
+  min-height: 100vh;
+  background:
+    radial-gradient(900px 520px at 88% -8%, rgba(255, 92, 26, 0.2), transparent 60%),
+    radial-gradient(700px 480px at 45% -20%, rgba(255, 77, 141, 0.08), transparent 60%),
+    radial-gradient(820px 620px at 6% 108%, rgba(139, 108, 255, 0.18), transparent 60%),
+    linear-gradient(180deg, #110d14 0%, #10101d 100%);
+  background-attachment: fixed;
+}
+
+.glass {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.02));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.brand-grad {
+  background: linear-gradient(135deg, #ff5c1a 0%, #ff3d7f 55%, #8b6cff 100%);
+}
+
+.brand-text {
+  background: linear-gradient(90deg, #ff7a3d, #ff4d8d 50%, #9b7bff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.ring-brand {
+  background: conic-gradient(from 200deg, #ff5c1a, #ff4d8d, #8b6cff, #ff5c1a);
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+.podium-1 {
+  background:
+    radial-gradient(120% 80% at 50% 0%, rgba(255, 92, 26, 0.28), transparent 70%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+  border: 1px solid rgba(255, 92, 26, 0.45);
+  box-shadow: 0 20px 60px -20px rgba(255, 92, 26, 0.45);
+}
+
+.you-row {
+  background: linear-gradient(90deg, rgba(255, 92, 26, 0.16), rgba(139, 108, 255, 0.1));
+  border: 1px solid rgba(255, 92, 26, 0.45);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+/* Wallet adapter modal: match the Meteora palette */
+.wallet-adapter-modal-wrapper {
+  background: #15131f !important;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px !important;
+}
+.wallet-adapter-modal-list .wallet-adapter-button:hover {
+  background: rgba(255, 92, 26, 0.12) !important;
+}

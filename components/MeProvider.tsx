@@ -1,0 +1,150 @@
+"use client";
+
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { useWallet } from "@solana/wallet-adapter-react";
+import type { ApiSnapshot, ApiUser } from "@/lib/api-types";
+import { loginMessage } from "@/lib/login-message";
+import { getCachedProfile, patchCachedProfile, type CachedProfile } from "@/lib/storage";
+
+interface MeState {
+  wallet: string | null;
+  user: ApiUser | null;
+  snapshot: ApiSnapshot | null;
+  cached: CachedProfile;
+  verified: boolean;
+  loading: boolean;
+  verify: () => Promise<boolean>;
+  refresh: () => Promise<void>;
+  update: (patch: { thesis?: string | null; country?: string | null; unlinkX?: boolean }) => Promise<{ ok: boolean; error?: string }>;
+}
+
+const Ctx = createContext<MeState | null>(null);
+
+function toBase64(bytes: Uint8Array): string {
+  let s = "";
+  for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+  return btoa(s);
+}
+
+export function MeProvider({ children }: { children: React.ReactNode }) {
+  const { publicKey, connected, signMessage } = useWallet();
+  const wallet = connected && publicKey ? publicKey.toBase58() : null;
+  const [user, setUser] = useState<ApiUser | null>(null);
+  const [snapshot, setSnapshot] = useState<ApiSnapshot | null>(null);
+  const [cached, setCached] = useState<CachedProfile>({});
+  const [sessionWallet, setSessionWallet] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const registered = useRef<string | null>(null);
+
+  useEffect(() => {
+    setCached(getCachedProfile());
+    fetch("/api/auth/session")
+      .then((r) => r.json() as Promise<{ wallet: string | null }>)
+      .then((d) => setSessionWallet(d.wallet))
+      .catch(() => setSessionWallet(null));
+  }, []);
+
+  const load = useCallback(async (w: string) => {
+    const res = await fetch(`/api/users/${w}`, { cache: "no-store" });
+    if (!res.ok) return;
+    const data = (await res.json()) as { user: ApiUser | null; snapshot: ApiSnapshot | null };
+    setUser(data.user);
+    setSnapshot(data.snapshot);
+    if (data.user) {
+      setCached(
+        patchCachedProfile({
+          wallet: data.user.wallet,
+          xHandle: data.user.xHandle,
+          xName: data.user.xName,
+          xAvatarUrl: data.user.xAvatarUrl,
+          thesis: data.user.thesis,
+          country: data.user.country,
+        })
+      );
+    }
+  }, []);
+
+  // Register on connect (idempotent upsert + stats sync), then load the DB profile.
+  useEffect(() => {
+    if (!wallet) {
+      setUser(null);
+      setSnapshot(null);
+      return;
+    }
+    if (registered.current === wallet) return;
+    registered.current = wallet;
+    setLoading(true);
+    setCached(patchCachedProfile({ wallet }));
+    fetch("/api/users", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ wallet }) })
+      .catch(() => null)
+      .then(() => load(wallet))
+      .finally(() => setLoading(false));
+  }, [wallet, load]);
+
+  const verify = useCallback(async (): Promise<boolean> => {
+    if (!wallet) return false;
+    if (sessionWallet === wallet) return true;
+    if (!signMessage) {
+      alert("This wallet can't sign messages. Try Phantom or Solflare.");
+      return false;
+    }
+    try {
+      const issuedAt = new Date().toISOString();
+      const sig = await signMessage(new TextEncoder().encode(loginMessage(wallet, issuedAt)));
+      const res = await fetch("/api/auth/wallet", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ wallet, issuedAt, signature: toBase64(sig) }),
+      });
+      if (!res.ok) return false;
+      setSessionWallet(wallet);
+      return true;
+    } catch {
+      return false;
+    }
+  }, [wallet, sessionWallet, signMessage]);
+
+  const refresh = useCallback(async () => {
+    if (wallet) await load(wallet);
+  }, [wallet, load]);
+
+  const update = useCallback(
+    async (patch: { thesis?: string | null; country?: string | null; unlinkX?: boolean }) => {
+      if (!wallet) return { ok: false, error: "Connect your wallet first" };
+      // Optimistic local cache (fallback if the API is down).
+      const local: Partial<CachedProfile> = {};
+      if (patch.thesis !== undefined) local.thesis = patch.thesis;
+      if (patch.country !== undefined) local.country = patch.country;
+      if (patch.unlinkX) Object.assign(local, { xHandle: null, xName: null, xAvatarUrl: null });
+      setCached(patchCachedProfile(local));
+      if (!(await verify())) return { ok: false, error: "Wallet signature needed to save" };
+      const res = await fetch(`/api/users/${wallet}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+      });
+      if (!res.ok) {
+        const d = (await res.json().catch(() => ({}))) as { error?: string };
+        if (res.status === 401) setSessionWallet(null);
+        return { ok: false, error: d.error || "Save failed" };
+      }
+      const d = (await res.json()) as { user: ApiUser };
+      setUser(d.user);
+      return { ok: true };
+    },
+    [wallet, verify]
+  );
+
+  const value = useMemo<MeState>(
+    () => ({ wallet, user, snapshot, cached, verified: Boolean(wallet && sessionWallet === wallet), loading, verify, refresh, update }),
+    [wallet, user, snapshot, cached, sessionWallet, loading, verify, refresh, update]
+  );
+
+  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
+}
+
+export function useMe(): MeState {
+  const v = useContext(Ctx);
+  if (!v) throw new Error("useMe must be used inside MeProvider");
+  return v;
+}

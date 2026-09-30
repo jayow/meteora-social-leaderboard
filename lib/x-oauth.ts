@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 
 export interface XProfile {
+  id?: string;
   username: string;
   name: string;
   avatarUrl: string;
@@ -200,6 +201,7 @@ export async function fetchXProfile(accessToken: string): Promise<XProfile | nul
     }
 
     return {
+      id: user.id,
       username: user.username,
       name: user.name,
       avatarUrl: user.profile_image_url || "",
