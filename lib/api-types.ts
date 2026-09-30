@@ -56,6 +56,7 @@ export interface ApiUser {
   followersCount?: number;
   followingCount?: number;
   isFollowing?: boolean;
+  walletCount?: number;
 }
 
 export interface ApiSnapshot {

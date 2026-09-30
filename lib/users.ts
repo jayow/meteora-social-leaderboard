@@ -1,6 +1,6 @@
 import { desc, eq, ilike, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { follows, pnlSnapshots, users, type SnapshotRow, type UserRow } from "@/lib/db/schema";
+import { follows, pnlSnapshots, users, userWallets, type SnapshotRow, type UserRow } from "@/lib/db/schema";
 
 export interface XFields {
   xId?: string | null;
@@ -171,4 +171,13 @@ export async function isUserFollowing(followerId: number | null, followeeId: num
     .where(sql`${follows.followerUserId} = ${followerId} AND ${follows.followeeUserId} = ${followeeId}`)
     .limit(1);
   return result.length > 0;
+}
+
+export async function getUserWalletCount(userId: number): Promise<number> {
+  const db = getDb();
+  const result = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(userWallets)
+    .where(eq(userWallets.userId, userId));
+  return result[0]?.count ?? 0;
 }

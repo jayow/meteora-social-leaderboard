@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { eq } from "drizzle-orm";
 import { findUser } from "@/lib/users";
 import { fetchMeteora } from "@/lib/meteora-limiter";
-import { hasDb } from "@/lib/db";
+import { getDb, hasDb } from "@/lib/db";
+import { userWallets } from "@/lib/db/schema";
 
 const CALENDAR_BASE = "https://portfolio.datapi.meteora.ag";
 
@@ -23,19 +25,61 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
   }
 
   try {
-    const url = `${CALENDAR_BASE}/chart/calendar/${user.wallet}?month=${month}`;
+    // Fetch all user wallets
+    const db = getDb();
+    const wallets = await db
+      .select()
+      .from(userWallets)
+      .where(eq(userWallets.userId, user.id));
+
+    if (wallets.length === 0) {
+      return NextResponse.json({ days: [] });
+    }
+
     const now = new Date();
     const isPastMonth = month < now.toISOString().slice(0, 7);
     const ttl = isPastMonth ? 3600000 : 120000;
     
-    const data = await fetchMeteora(url, ttl) as { data_points?: Array<{ date_time: string; pnl_usd: string; closed_position_count: number }> };
+    // Fetch calendar data for all wallets in parallel
+    const calendarDataList = await Promise.all(
+      wallets.map(async (w) => {
+        const url = `${CALENDAR_BASE}/chart/calendar/${w.address}?month=${month}`;
+        try {
+          return await fetchMeteora(url, ttl) as { data_points?: Array<{ date_time: string; pnl_usd: string; closed_position_count: number }> };
+        } catch {
+          return { data_points: [] };
+        }
+      })
+    );
+
+    // Aggregate data points by date across all wallets
+    const dayMap = new Map<string, { pnl: number; positions: number }>();
     
-    // Transform data_points to days format expected by component
-    const days = (data.data_points || []).map((point) => ({
-      date: point.date_time.slice(0, 10), // Extract YYYY-MM-DD
-      pnl: parseFloat(point.pnl_usd || "0"),
-      positions: point.closed_position_count || 0,
-    }));
+    for (const data of calendarDataList) {
+      const points = data.data_points || [];
+      for (const point of points) {
+        const date = point.date_time.slice(0, 10);
+        const pnl = parseFloat(point.pnl_usd || "0");
+        const positions = point.closed_position_count || 0;
+        
+        const existing = dayMap.get(date);
+        if (existing) {
+          existing.pnl += pnl;
+          existing.positions += positions;
+        } else {
+          dayMap.set(date, { pnl, positions });
+        }
+      }
+    }
+
+    // Convert map to array and sort by date
+    const days = Array.from(dayMap.entries())
+      .map(([date, data]) => ({
+        date,
+        pnl: data.pnl,
+        positions: data.positions,
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date));
     
     return NextResponse.json({ days });
   } catch (error) {
