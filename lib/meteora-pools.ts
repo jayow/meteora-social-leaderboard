@@ -66,45 +66,37 @@ export interface EnrichedPool {
  */
 export async function fetchMeteoraPoolsForToken(tokenMint: string): Promise<EnrichedPool[]> {
   try {
-    // Try the pair search endpoint with mint - cached for 5 minutes
-    const searchUrl = `https://dlmm-api.meteora.ag/pair/all_by_groups?search_term=${encodeURIComponent(tokenMint)}`;
-    const searchData = await fetchMeteora<Record<string, MeteoraPool[]>>(searchUrl, 300000);
+    // Use datapi pools endpoint filtered by mint - cached for 5 minutes
+    const poolsUrl = `https://dlmm.datapi.meteora.ag/pools?mint=${encodeURIComponent(tokenMint)}`;
+    const poolsData = await fetchMeteora<MeteoraPool[]>(poolsUrl, 300000);
 
     const pools: EnrichedPool[] = [];
 
-    if (searchData && typeof searchData === 'object') {
-      // searchData is keyed by pair name, values are arrays of pools
-      for (const [pairName, pairPools] of Object.entries(searchData)) {
-        if (!Array.isArray(pairPools)) continue;
+    if (Array.isArray(poolsData)) {
+      for (const pool of poolsData) {
+        // Only include pools where tokenMint is the base token (mint_x)
+        if (pool.mint_x !== tokenMint || pool.hide) continue;
 
-        for (const pool of pairPools) {
-          // Only include pools where tokenMint is the base token (mint_x)
-          if (pool.mint_x !== tokenMint || pool.hide) continue;
+        const tvl = pool.reserve_x_amount && pool.reserve_y_amount && pool.current_price
+          ? pool.reserve_x_amount * (pool.current_price || 1) + pool.reserve_y_amount
+          : parseFloat(pool.liquidity || '0');
 
-          const tvl = pool.reserve_x_amount && pool.reserve_y_amount && pool.current_price
-            ? pool.reserve_x_amount * (pool.current_price || 1) + pool.reserve_y_amount
-            : parseFloat(pool.liquidity || '0');
-
-          // Extract token symbols from pair name (e.g. "SOL-USDC")
-          const [tokenX, tokenY] = pairName.split('-');
-
-          pools.push({
-            poolAddress: pool.address,
-            tokenX: tokenX || 'Unknown',
-            tokenY: tokenY || 'Unknown',
-            tokenXMint: pool.mint_x,
-            tokenYMint: pool.mint_y,
-            tokenXIcon: null, // API doesn't provide icons in search response
-            tokenYIcon: null,
-            binStep: pool.bin_step,
-            protocol: "dlmm",
-            tvl,
-            volume24h: pool.trade_volume_24h || null,
-            fees24h: pool.fees_24h || pool.today_fees || null,
-            apr: pool.apr || null,
-            memberCount: 0, // Will be joined from open_positions
-          });
-        }
+        pools.push({
+          poolAddress: pool.address,
+          tokenX: pool.name?.split('-')[0] || 'Unknown',
+          tokenY: pool.name?.split('-')[1] || 'Unknown',
+          tokenXMint: pool.mint_x,
+          tokenYMint: pool.mint_y,
+          tokenXIcon: null,
+          tokenYIcon: null,
+          binStep: pool.bin_step,
+          protocol: "dlmm",
+          tvl,
+          volume24h: pool.trade_volume_24h || null,
+          fees24h: pool.fees_24h || pool.today_fees || null,
+          apr: pool.apr || null,
+          memberCount: 0,
+        });
       }
     }
 
