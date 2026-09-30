@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { getDb, hasDb } from "@/lib/db";
-import { users } from "@/lib/db/schema";
+import { users, userWallets } from "@/lib/db/schema";
 import { isCountryCode } from "@/lib/countries";
 import { isValidWallet } from "@/lib/wallet";
 import { toPublicUser, upsertUser } from "@/lib/users";
@@ -42,12 +42,21 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const wallet = body.wallet?.trim();
   if (!isValidWallet(wallet)) return NextResponse.json({ error: "Invalid wallet" }, { status: 400 });
 
+  const db = getDb();
+  const [linked] = await db.select().from(userWallets).where(eq(userWallets.address, wallet)).limit(1);
+  if (linked) {
+    const [existingUser] = await db.select().from(users).where(eq(users.id, linked.userId)).limit(1);
+    if (existingUser) {
+      return NextResponse.json({ user: toPublicUser(existingUser), synced: "cached" });
+    }
+  }
+
   let user = await upsertUser(wallet, isOperator(req) && body.xHandle ? { xId: body.xId, xHandle: body.xHandle, xName: body.xName, xAvatarUrl: body.xAvatarUrl } : undefined);
   if (isOperator(req) && (body.country !== undefined || body.thesis !== undefined)) {
     const set: { country?: string | null; thesis?: string | null } = {};
     if (body.country !== undefined) set.country = body.country && isCountryCode(body.country) ? body.country.toUpperCase() : null;
     if (body.thesis !== undefined) set.thesis = body.thesis ? body.thesis.slice(0, 1000) : null;
-    const rows = await getDb().update(users).set(set).where(eq(users.id, user.id)).returning();
+    const rows = await db.update(users).set(set).where(eq(users.id, user.id)).returning();
     user = rows[0];
   }
   const fresh = user.lastSyncedAt && Date.now() - user.lastSyncedAt.getTime() < 10 * 60 * 1000;

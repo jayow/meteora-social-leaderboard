@@ -354,6 +354,7 @@ function OwnerControls({ user, focusX, onSaved }: { user: ApiUser; focusX: boole
 }
 
 function ProfileBanner({ user, mine, onUpdated }: { user: ApiUser; mine: boolean; onUpdated: () => void }) {
+  const { ensureSession } = useMe();
   const [editing, setEditing] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -390,6 +391,11 @@ function ProfileBanner({ user, mine, onUpdated }: { user: ApiUser; mine: boolean
     setError(null);
 
     try {
+      if (!(await ensureSession())) {
+        setError("Wallet signature needed to upload");
+        return;
+      }
+
       const blob = await fetch(preview).then((r) => r.blob());
       const formData = new FormData();
       formData.append("banner", blob, "banner.webp");
@@ -421,6 +427,11 @@ function ProfileBanner({ user, mine, onUpdated }: { user: ApiUser; mine: boolean
     setError(null);
 
     try {
+      if (!(await ensureSession())) {
+        setError("Wallet signature needed to remove banner");
+        return;
+      }
+
       const res = await fetch(`/api/users/${user.id}/banner`, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to remove banner");
 
@@ -541,6 +552,7 @@ interface UserWallet {
 }
 
 function WalletsSection() {
+  const { ensureSession } = useMe();
   const { publicKey, signMessage } = useWallet();
   const [wallets, setWallets] = useState<UserWallet[]>([]);
   const [loading, setLoading] = useState(true);
@@ -572,6 +584,11 @@ function WalletsSection() {
     setAdding(true);
     setError(null);
     try {
+      if (!(await ensureSession())) {
+        setError("Please sign in with your linked wallet first");
+        return;
+      }
+
       const address = publicKey.toBase58();
       const issuedAt = new Date().toISOString();
       const sig = await signMessage(new TextEncoder().encode(loginMessage(address, issuedAt)));

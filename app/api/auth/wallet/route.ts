@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { hasDb } from "@/lib/db";
+import { eq } from "drizzle-orm";
+import { getDb, hasDb } from "@/lib/db";
+import { userWallets, users } from "@/lib/db/schema";
 import { isValidWallet } from "@/lib/wallet";
-import { loginMessage, setSessionWallet, verifyWalletSignature } from "@/lib/session";
+import { loginMessage, setSessionUserId, verifyWalletSignature } from "@/lib/session";
 import { toPublicUser, upsertUser } from "@/lib/users";
 
 export const dynamic = "force-dynamic";
@@ -12,7 +14,7 @@ interface Body {
   signature?: string;
 }
 
-/** Verify a signed login message and set an httpOnly session cookie bound to the wallet. */
+/** Verify a signed login message and set an httpOnly session cookie bound to the user. */
 export async function POST(req: NextRequest): Promise<NextResponse> {
   let body: Body = {};
   try {
@@ -29,7 +31,23 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (!verifyWalletSignature(wallet, loginMessage(wallet, issuedAt), signature)) {
     return NextResponse.json({ error: "Bad signature" }, { status: 401 });
   }
-  await setSessionWallet(wallet);
-  const user = hasDb() ? toPublicUser(await upsertUser(wallet)) : null;
-  return NextResponse.json({ ok: true, wallet, user });
+  
+  if (!hasDb()) {
+    return NextResponse.json({ ok: true, wallet, user: null });
+  }
+
+  const db = getDb();
+  let user = null;
+
+  const [linkedWallet] = await db.select().from(userWallets).where(eq(userWallets.address, wallet)).limit(1);
+  if (linkedWallet) {
+    const [owner] = await db.select().from(users).where(eq(users.id, linkedWallet.userId)).limit(1);
+    user = owner;
+  } else {
+    const [primaryUser] = await db.select().from(users).where(eq(users.wallet, wallet)).limit(1);
+    user = primaryUser || (await upsertUser(wallet));
+  }
+
+  await setSessionUserId(user.id);
+  return NextResponse.json({ ok: true, user: toPublicUser(user) });
 }

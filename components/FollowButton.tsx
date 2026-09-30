@@ -13,7 +13,7 @@ export function FollowButton({
   size?: "sm" | "md";
   className?: string;
 }) {
-  const { wallet, verify } = useMe();
+  const { wallet, ensureSession } = useMe();
   const { setVisible } = useWalletModal();
   const [isFollowing, setIsFollowing] = useState(targetUser.isFollowing ?? false);
   const [loading, setLoading] = useState(false);
@@ -27,7 +27,7 @@ export function FollowButton({
       return;
     }
 
-    const verified = await verify();
+    const verified = await ensureSession();
     if (!verified) return;
 
     setLoading(true);

@@ -13,6 +13,7 @@ interface MeState {
   cached: CachedProfile;
   verified: boolean;
   loading: boolean;
+  ensureSession: () => Promise<boolean>;
   verify: () => Promise<boolean>;
   refresh: () => Promise<void>;
   update: (patch: { thesis?: string | null; country?: string | null; unlinkX?: boolean }) => Promise<{ ok: boolean; error?: string }>;
@@ -32,16 +33,16 @@ export function MeProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<ApiUser | null>(null);
   const [snapshot, setSnapshot] = useState<ApiSnapshot | null>(null);
   const [cached, setCached] = useState<CachedProfile>({});
-  const [sessionWallet, setSessionWallet] = useState<string | null>(null);
+  const [sessionUserId, setSessionUserId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const registered = useRef<string | null>(null);
 
   useEffect(() => {
     setCached(getCachedProfile());
     fetch("/api/auth/session")
-      .then((r) => r.json() as Promise<{ wallet: string | null }>)
-      .then((d) => setSessionWallet(d.wallet))
-      .catch(() => setSessionWallet(null));
+      .then((r) => r.json() as Promise<{ userId?: number | null; wallet?: string | null }>)
+      .then((d) => setSessionUserId(d.userId || null))
+      .catch(() => setSessionUserId(null));
   }, []);
 
   const load = useCallback(async (w: string) => {
@@ -81,11 +82,9 @@ export function MeProvider({ children }: { children: React.ReactNode }) {
       .finally(() => setLoading(false));
   }, [wallet, load]);
 
-  const verify = useCallback(async (): Promise<boolean> => {
-    if (!wallet) return false;
-    if (sessionWallet === wallet) return true;
-    if (!signMessage) {
-      alert("This wallet can't sign messages. Try Phantom or Solflare.");
+  const ensureSession = useCallback(async (): Promise<boolean> => {
+    if (sessionUserId) return true;
+    if (!wallet || !signMessage) {
       return false;
     }
     try {
@@ -97,12 +96,24 @@ export function MeProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ wallet, issuedAt, signature: toBase64(sig) }),
       });
       if (!res.ok) return false;
-      setSessionWallet(wallet);
-      return true;
+      const data = (await res.json()) as { user?: { id: number } };
+      if (data.user?.id) {
+        setSessionUserId(data.user.id);
+        return true;
+      }
+      return false;
     } catch {
       return false;
     }
-  }, [wallet, sessionWallet, signMessage]);
+  }, [wallet, sessionUserId, signMessage]);
+
+  const verify = useCallback(async (): Promise<boolean> => {
+    if (!wallet || !signMessage) {
+      alert("This wallet can't sign messages. Try Phantom or Solflare.");
+      return false;
+    }
+    return ensureSession();
+  }, [wallet, ensureSession, signMessage]);
 
   const refresh = useCallback(async () => {
     if (wallet) await load(wallet);
@@ -111,13 +122,12 @@ export function MeProvider({ children }: { children: React.ReactNode }) {
   const update = useCallback(
     async (patch: { thesis?: string | null; country?: string | null; unlinkX?: boolean }) => {
       if (!wallet) return { ok: false, error: "Connect your wallet first" };
-      // Optimistic local cache (fallback if the API is down).
       const local: Partial<CachedProfile> = {};
       if (patch.thesis !== undefined) local.thesis = patch.thesis;
       if (patch.country !== undefined) local.country = patch.country;
       if (patch.unlinkX) Object.assign(local, { xHandle: null, xName: null, xAvatarUrl: null });
       setCached(patchCachedProfile(local));
-      if (!(await verify())) return { ok: false, error: "Wallet signature needed to save" };
+      if (!(await ensureSession())) return { ok: false, error: "Wallet signature needed to save" };
       const res = await fetch("/api/users/me", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -125,19 +135,19 @@ export function MeProvider({ children }: { children: React.ReactNode }) {
       });
       if (!res.ok) {
         const d = (await res.json().catch(() => ({}))) as { error?: string };
-        if (res.status === 401) setSessionWallet(null);
+        if (res.status === 401) setSessionUserId(null);
         return { ok: false, error: d.error || "Save failed" };
       }
       const d = (await res.json()) as { user: ApiUser };
       setUser(d.user);
       return { ok: true };
     },
-    [wallet, verify]
+    [wallet, ensureSession]
   );
 
   const value = useMemo<MeState>(
-    () => ({ wallet, user, snapshot, cached, verified: Boolean(wallet && sessionWallet === wallet), loading, verify, refresh, update }),
-    [wallet, user, snapshot, cached, sessionWallet, loading, verify, refresh, update]
+    () => ({ wallet, user, snapshot, cached, verified: Boolean(sessionUserId), loading, ensureSession, verify, refresh, update }),
+    [wallet, user, snapshot, cached, sessionUserId, loading, ensureSession, verify, refresh, update]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
