@@ -59,6 +59,30 @@ export interface EnrichedPool {
   memberCount: number;
 }
 
+interface MeteoraPoolsDatapiResponse {
+  total: number;
+  pages: number;
+  current_page: number;
+  page_size: number;
+  data: MeteoraDatapiPool[];
+}
+
+interface MeteoraDatapiPool {
+  address: string;
+  name: string;
+  token_x: { address: string; symbol: string };
+  token_y: { address: string; symbol: string };
+  token_x_amount: number;
+  token_y_amount: number;
+  pool_config: { bin_step: number };
+  tvl: number;
+  current_price?: number;
+  dynamic_fee_24h?: number;
+  volume_24h?: number;
+  apr?: number;
+  hide?: boolean;
+}
+
 /**
  * Fetch ALL Meteora pools (DLMM) that have a given token as base (mint_x)
  * @param tokenMint - The base token mint address
@@ -67,33 +91,29 @@ export interface EnrichedPool {
 export async function fetchMeteoraPoolsForToken(tokenMint: string): Promise<EnrichedPool[]> {
   try {
     // Use datapi pools endpoint filtered by mint - cached for 5 minutes
-    const poolsUrl = `https://dlmm.datapi.meteora.ag/pools?mint=${encodeURIComponent(tokenMint)}`;
-    const poolsData = await fetchMeteora<MeteoraPool[]>(poolsUrl, 300000);
+    const poolsUrl = `https://dlmm.datapi.meteora.ag/pools?mint=${encodeURIComponent(tokenMint)}&page_size=100`;
+    const response = await fetchMeteora<MeteoraPoolsDatapiResponse>(poolsUrl, 300000);
 
     const pools: EnrichedPool[] = [];
 
-    if (Array.isArray(poolsData)) {
-      for (const pool of poolsData) {
-        // Only include pools where tokenMint is the base token (mint_x)
-        if (pool.mint_x !== tokenMint || pool.hide) continue;
-
-        const tvl = pool.reserve_x_amount && pool.reserve_y_amount && pool.current_price
-          ? pool.reserve_x_amount * (pool.current_price || 1) + pool.reserve_y_amount
-          : parseFloat(pool.liquidity || '0');
+    if (response?.data && Array.isArray(response.data)) {
+      for (const pool of response.data) {
+        // Only include pools where tokenMint is the base token (token_x)
+        if (pool.token_x.address !== tokenMint || pool.hide) continue;
 
         pools.push({
           poolAddress: pool.address,
-          tokenX: pool.name?.split('-')[0] || 'Unknown',
-          tokenY: pool.name?.split('-')[1] || 'Unknown',
-          tokenXMint: pool.mint_x,
-          tokenYMint: pool.mint_y,
+          tokenX: pool.token_x.symbol,
+          tokenY: pool.token_y.symbol,
+          tokenXMint: pool.token_x.address,
+          tokenYMint: pool.token_y.address,
           tokenXIcon: null,
           tokenYIcon: null,
-          binStep: pool.bin_step,
+          binStep: pool.pool_config.bin_step,
           protocol: "dlmm",
-          tvl,
-          volume24h: pool.trade_volume_24h || null,
-          fees24h: pool.fees_24h || pool.today_fees || null,
+          tvl: pool.tvl,
+          volume24h: pool.volume_24h || null,
+          fees24h: pool.dynamic_fee_24h || null,
           apr: pool.apr || null,
           memberCount: 0,
         });
