@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { fmtUsd } from "@/lib/format";
 import { meteoraPoolUrl } from "@/lib/meteora-links";
 
@@ -151,7 +152,11 @@ function PositionCard({ pool }: { pool: MeteoraOpenPool }) {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-[15px] font-bold">{pool.tokenX}/{pool.tokenY}</span>
+              <span className="text-[15px] font-bold">
+                <Link href={`/tokens/${pool.tokenX}`} onClick={(e) => e.stopPropagation()} className="hover:text-orange">{pool.tokenX}</Link>
+                <span>/</span>
+                <Link href={`/tokens/${pool.tokenY}`} onClick={(e) => e.stopPropagation()} className="hover:text-orange">{pool.tokenY}</Link>
+              </span>
               {pool.binStep && (
                 <span className="rounded-full bg-orange/20 px-2 py-0.5 text-[10px] font-bold text-orange">
                   DLMM {pool.binStep}bp
@@ -211,7 +216,11 @@ function PositionCardCompact({ pool }: { pool: MeteoraOpenPool }) {
           )}
         </div>
         <div className="ml-2">
-          <div className="text-[13px] font-semibold">{pool.tokenX}/{pool.tokenY}</div>
+          <div className="text-[13px] font-semibold">
+            <Link href={`/tokens/${pool.tokenX}`} onClick={(e) => e.stopPropagation()} className="hover:text-orange">{pool.tokenX}</Link>
+            <span>/</span>
+            <Link href={`/tokens/${pool.tokenY}`} onClick={(e) => e.stopPropagation()} className="hover:text-orange">{pool.tokenY}</Link>
+          </div>
           <div className="num text-[11px] text-mute">{fmtUsd(value)}</div>
         </div>
       </a>

@@ -132,7 +132,9 @@ export default function PoolDetailPage() {
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 text-[24px] font-extrabold">
               <span className="truncate">
-                {x}-{y}
+                <Link href={`/tokens/${x}`} className="hover:text-orange">{x}</Link>
+                <span>-</span>
+                <Link href={`/tokens/${y}`} className="hover:text-orange">{y}</Link>
               </span>
               <span className="shrink-0 rounded bg-orange/15 px-2 py-0.5 text-[11px] font-bold uppercase text-orange">
                 DLMM

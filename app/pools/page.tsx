@@ -188,7 +188,9 @@ function PoolRow({
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 text-[16px] font-bold">
           <span className="truncate">
-            {x}-{y}
+            <Link href={`/tokens/${x}`} onClick={(e) => e.stopPropagation()} className="hover:text-orange relative z-10">{x}</Link>
+            <span>-</span>
+            <Link href={`/tokens/${y}`} onClick={(e) => e.stopPropagation()} className="hover:text-orange relative z-10">{y}</Link>
           </span>
           <span className="shrink-0 rounded bg-orange/15 px-1.5 text-[10px] font-bold uppercase text-orange">
             DLMM

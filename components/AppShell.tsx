@@ -26,6 +26,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const onBoard = pathname === "/";
   const onMe = pathname.startsWith("/profile");
   const onPools = pathname.startsWith("/pools");
+  const onTokens = pathname.startsWith("/tokens");
   const onInvites = pathname === "/invites";
   const isMember = Boolean(user?.memberNumber);
   const isSignedIn = Boolean(session?.userId);
@@ -70,6 +71,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </Link>
               <Link href="/pools" className={`rounded-full px-4 py-1.5 ${onPools ? "bg-white/[.1] text-white" : "text-mute hover:text-white"}`}>
                 Pools
+              </Link>
+              <Link href="/tokens" className={`rounded-full px-4 py-1.5 ${onTokens ? "bg-white/[.1] text-white" : "text-mute hover:text-white"}`}>
+                Tokens
               </Link>
               <Link href="/profile/me" className={`rounded-full px-4 py-1.5 ${onMe ? "bg-white/[.1] text-white" : "text-mute hover:text-white"}`}>
                 Profile
@@ -176,11 +180,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {isMember && (
         <nav className="fixed inset-x-3 bottom-3 z-40 lg:hidden">
           <div className="flex items-center justify-around rounded-[26px] border border-white/[.08] bg-[#15131f] px-2 py-2 shadow-2xl shadow-black/60">
-            <Link href="/" className={`flex w-16 flex-col items-center gap-0.5 text-[11px] font-semibold ${onBoard ? "text-orange" : "text-mute"}`}>
+            <Link href="/" className={`flex w-14 flex-col items-center gap-0.5 text-[11px] font-semibold ${onBoard ? "text-orange" : "text-mute"}`}>
               <span className="text-[20px]">🏆</span>Ranks
             </Link>
-            <Link href="/pools" className={`flex w-16 flex-col items-center gap-0.5 text-[11px] font-semibold ${onPools ? "text-orange" : "text-mute"}`}>
+            <Link href="/pools" className={`flex w-14 flex-col items-center gap-0.5 text-[11px] font-semibold ${onPools ? "text-orange" : "text-mute"}`}>
               <span className="text-[20px]">🏊</span>Pools
+            </Link>
+            <Link href="/tokens" className={`flex w-14 flex-col items-center gap-0.5 text-[11px] font-semibold ${onTokens ? "text-orange" : "text-mute"}`}>
+              <span className="text-[20px]">🪙</span>Tokens
             </Link>
             {isSignedIn ? (
               <Link href="/profile/me" className="brand-grad -mt-7 flex h-14 w-14 items-center justify-center rounded-full border-4 border-base text-[26px] font-bold shadow-lg shadow-orange/30" aria-label="My rank">
@@ -191,7 +198,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 +
               </button>
             )}
-            <Link href="/profile/me" className={`flex w-16 flex-col items-center gap-0.5 text-[11px] font-semibold ${onMe ? "text-orange" : "text-mute"}`}>
+            <Link href="/profile/me" className={`flex w-14 flex-col items-center gap-0.5 text-[11px] font-semibold ${onMe ? "text-orange" : "text-mute"}`}>
               <span className="text-[20px]">👤</span>Me
             </Link>
           </div>
