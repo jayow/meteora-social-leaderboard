@@ -102,7 +102,7 @@ function Profile() {
     };
   }, [target, load, sync, rawId, router]);
 
-  const mine = Boolean(me.wallet && user && user.wallet === me.wallet);
+  const mine = Boolean(me.user && user && me.user.id === user.id);
 
   // Returning from X OAuth.
   useEffect(() => {

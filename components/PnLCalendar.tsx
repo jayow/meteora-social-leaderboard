@@ -16,6 +16,7 @@ export function PnLCalendar({ userId, compact = false }: { userId?: number | nul
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [initialized, setInitialized] = useState(false);
+  const [triedFallback, setTriedFallback] = useState(false);
 
   useEffect(() => {
     if (!userId) {
@@ -40,13 +41,14 @@ export function PnLCalendar({ userId, compact = false }: { userId?: number | nul
           const currentM = cursor.getMonth();
           if (y === currentY && m === currentM) {
             setDays(daysData);
-            // If this is the first load and current month is empty, try to find most recent month with data
-            if (!initialized && daysData.length === 0 && y === now.getFullYear() && m === now.getMonth()) {
-              // Try previous month
+            // If this is the first load and current month is empty, try previous month
+            if (!initialized && !triedFallback && daysData.length === 0 && y === now.getFullYear() && m === now.getMonth()) {
+              setTriedFallback(true);
               const prevMonth = new Date(y, m - 1, 1);
               setCursor(prevMonth);
+            } else {
+              setInitialized(true);
             }
-            setInitialized(true);
           }
         }
       })
@@ -62,7 +64,7 @@ export function PnLCalendar({ userId, compact = false }: { userId?: number | nul
     return () => {
       cancelled = true;
     };
-  }, [userId, cursor, initialized]);
+  }, [userId, cursor, initialized, triedFallback]);
 
   const y = cursor.getFullYear();
   const m = cursor.getMonth();
