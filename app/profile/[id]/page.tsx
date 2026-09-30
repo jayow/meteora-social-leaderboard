@@ -269,6 +269,9 @@ function Profile() {
                   <StatTile label="Open positions" value={`${snap.positionsOpen ?? 0}`} />
                   <StatTile label="Closed positions" value={`${snap.positionsClosed ?? 0}`} sub="DLMM lifetime" />
                 </div>
+                {user.walletCount !== undefined && user.walletCount > 1 && (
+                  <div className="mt-3 text-[11px] text-mute">Combined across {user.walletCount} wallets</div>
+                )}
               </>
             ) : (
               <p className="text-[14px] text-mute">{syncing ? "Pulling stats from Meteora…" : "No Meteora activity found for this wallet yet."}</p>

@@ -1,6 +1,6 @@
 import { and, eq, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { openPositions, pnlSnapshots, users, type NewSnapshot, type UserRow } from "@/lib/db/schema";
+import { openPositions, pnlSnapshots, users, userWallets, type NewSnapshot, type UserRow } from "@/lib/db/schema";
 import { num } from "@/lib/meteora";
 import { fetchMeteora } from "@/lib/meteora-limiter";
 
@@ -60,8 +60,8 @@ function asPools(v: unknown): PortfolioPool[] {
   return Array.isArray(v) ? (v as PortfolioPool[]) : [];
 }
 
-async function resolveTopPool(perf30: Json | null, pools: PortfolioPool[], openPools: PortfolioPool[]): Promise<TopPool | null> {
-  const all = [...openPools, ...pools];
+async function resolveTopPoolMultiWallet(biggestPnlPool: string | null, allPortfolioPools: PortfolioPool[], openPools: PortfolioPool[]): Promise<TopPool | null> {
+  const all = [...openPools, ...allPortfolioPools];
   const byAddr = new Map<string, PortfolioPool>();
   for (const p of all) if (p.poolAddress && !byAddr.has(p.poolAddress)) byAddr.set(p.poolAddress, p);
 
@@ -74,17 +74,15 @@ async function resolveTopPool(perf30: Json | null, pools: PortfolioPool[], openP
     yIcon: p.tokenYIcon || null,
   });
 
-  // 1) The pool behind the biggest 30D win, if it's a DLMM pool.
-  const dlmm = perf30?.dlmm as Json | undefined;
-  const bigPool = typeof dlmm?.biggest_pnl_usd_pool === "string" ? dlmm.biggest_pnl_usd_pool : null;
-  if (bigPool) {
-    const known = byAddr.get(bigPool);
+  // 1) The pool behind the biggest 30D win across all wallets, if it's a DLMM pool.
+  if (biggestPnlPool) {
+    const known = byAddr.get(biggestPnlPool);
     if (known) return fromPortfolio(known);
-    const info = await getJson(`${DLMM}/pools/${bigPool}`);
+    const info = await getJson(`${DLMM}/pools/${biggestPnlPool}`);
     if (info && typeof info.name === "string") {
       const cfg = info.pool_config as Json | undefined;
       return {
-        address: bigPool,
+        address: biggestPnlPool,
         name: info.name,
         binStep: cfg?.bin_step != null ? Math.round(num(cfg.bin_step)) : null,
         protocol: "dlmm",
@@ -96,8 +94,8 @@ async function resolveTopPool(perf30: Json | null, pools: PortfolioPool[], openP
 
   // 2) Otherwise the best-performing pool among recent/open pools.
   const cutoff = Date.now() / 1000 - 30 * 86400;
-  const recent = pools.filter((p) => (p.lastClosedAt || 0) >= cutoff);
-  const candidates = [...openPools, ...(recent.length ? recent : pools)];
+  const recent = allPortfolioPools.filter((p) => (p.lastClosedAt || 0) >= cutoff);
+  const candidates = [...openPools, ...(recent.length ? recent : allPortfolioPools)];
   let best: PortfolioPool | null = null;
   let bestPnl = -Infinity;
   for (const p of candidates) {
@@ -122,9 +120,19 @@ export function todayUtc(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-/** Pull Meteora totals + 7d/30d/all performance for a wallet and upsert today's snapshot. */
-export async function syncUser(user: UserRow): Promise<SyncResult> {
-  const w = encodeURIComponent(user.wallet);
+interface WalletData {
+  wallet: string;
+  total: Json | null;
+  open: Json | null;
+  portfolio: Json | null;
+  perf7: Json | null;
+  perf30: Json | null;
+  perfAll: Json | null;
+}
+
+/** Pull Meteora data for a single wallet. */
+async function fetchWalletData(wallet: string): Promise<WalletData> {
+  const w = encodeURIComponent(wallet);
   const [total, open, portfolio, perf7, perf30, perfAll] = await Promise.all([
     getJson(`${DLMM}/portfolio/total?user=${w}`),
     getJson(`${DLMM}/portfolio/open?user=${w}`),
@@ -133,44 +141,178 @@ export async function syncUser(user: UserRow): Promise<SyncResult> {
     getJson(`${PORTFOLIO}/performances/${w}?time_range=30d`),
     getJson(`${PORTFOLIO}/performances/${w}?time_range=all`),
   ]);
+  return { wallet, total, open, portfolio, perf7, perf30, perfAll };
+}
+
+/** Aggregate performance metrics across all user wallets and upsert today's snapshot. */
+export async function syncUser(user: UserRow): Promise<SyncResult> {
+  const db = getDb();
+  
+  // Fetch all user wallets
+  const wallets = await db
+    .select()
+    .from(userWallets)
+    .where(eq(userWallets.userId, user.id))
+    .orderBy(sql`${userWallets.isPrimary} DESC, ${userWallets.createdAt} ASC`);
+
+  if (wallets.length === 0) {
+    return { ok: false, wallet: user.wallet, date: todayUtc(), error: "No wallets configured" };
+  }
 
   // Backfill avatar if needed
   if (user.xHandle && !user.xAvatarUrl && shouldCheckAvatar(user.avatarCheckedAt)) {
     void backfillAvatar(user.id, user.xHandle);
   }
 
+  // Fetch data for all wallets in parallel
+  const walletDataList = await Promise.all(wallets.map((w) => fetchWalletData(w.address)));
+
   const date = todayUtc();
-  if (!total && !perf30 && !perfAll) {
+  const hasAnyData = walletDataList.some((wd) => wd.total || wd.perf30 || wd.perfAll);
+  if (!hasAnyData) {
     return { ok: false, wallet: user.wallet, date, error: "Meteora APIs unavailable" };
   }
 
-  const openTotals = (open?.total as Json | undefined) || {};
-  const openPools = asPools(open?.pools);
-  const pools = asPools(portfolio?.pools);
-  const topPool = await resolveTopPool(perf30, pools, openPools);
+  // Aggregate open positions across all wallets
+  const allOpenPools: PortfolioPool[] = [];
+  const openPoolsByAddress = new Map<string, PortfolioPool>();
+  let totalOpenPositions = 0;
+  let totalPortfolioBalances = 0;
+  let totalUnclaimedFees = 0;
 
-  const fees = (p: Json | null) => (p ? num(p.realized_fee_earned_usd) + num(p.unrealized_fee_earned_usd) : null);
-  const hasTrades = (p: Json | null) => (p ? num(p.win_count_usd) + num(p.loss_count_usd) > 0 : false);
+  for (const wd of walletDataList) {
+    if (wd.open) {
+      const openTotals = (wd.open.total as Json | undefined) || {};
+      const pools = asPools(wd.open.pools);
+      allOpenPools.push(...pools);
+      totalOpenPositions += Math.round(num(wd.open.totalPositions ?? openTotals.totalPositions));
+      totalPortfolioBalances += num(openTotals.balances);
+      totalUnclaimedFees += num(openTotals.unclaimedFees);
+
+      // Merge pools by address, summing values and position counts
+      for (const pool of pools) {
+        if (!pool.poolAddress) continue;
+        const existing = openPoolsByAddress.get(pool.poolAddress);
+        if (existing) {
+          existing.balances = num(existing.balances ?? 0) + num(pool.balances ?? 0);
+          existing.unclaimedFees = num(existing.unclaimedFees ?? 0) + num(pool.unclaimedFees ?? 0);
+          existing.openPositionCount = (existing.openPositionCount || 0) + (pool.openPositionCount as number || 0);
+        } else {
+          openPoolsByAddress.set(pool.poolAddress, { ...pool });
+        }
+      }
+    }
+  }
+
+  // Aggregate performance data across all wallets
+  let totalPnlUsd = 0;
+  let pnl7d = 0;
+  let pnl30d = 0;
+  let volumeUsd = 0;
+  let volume7dUsd = 0;
+  let volume30dUsd = 0;
+  let feesUsd = 0;
+  let fees30dUsd = 0;
+  let positionsClosed = 0;
+  
+  // Win rate calculation: total wins / total closed positions across wallets
+  let totalWinCountAll = 0;
+  let totalLossCountAll = 0;
+  let totalWinCount7d = 0;
+  let totalLossCount7d = 0;
+  let totalWinCount30d = 0;
+  let totalLossCount30d = 0;
+
+  // Biggest win across all wallets
+  let biggestPnlPool: string | null = null;
+  let biggestPnlValue = -Infinity;
+
+  // Collect all pools for topPool resolution
+  const allPortfolioPools: PortfolioPool[] = [];
+  
+  for (const wd of walletDataList) {
+    // Total PnL
+    if (wd.total) {
+      totalPnlUsd += num(wd.total.totalPnlUsd);
+    } else if (wd.perfAll) {
+      totalPnlUsd += num(wd.perfAll.pnl_usd);
+    }
+
+    // Closed positions
+    if (wd.total) {
+      positionsClosed += Math.round(num(wd.total.totalClosedPositions));
+    }
+
+    // 7d metrics
+    if (wd.perf7) {
+      pnl7d += num(wd.perf7.pnl_usd);
+      volume7dUsd += num(wd.perf7.total_deposit_usd);
+      totalWinCount7d += num(wd.perf7.win_count_usd);
+      totalLossCount7d += num(wd.perf7.loss_count_usd);
+    }
+
+    // 30d metrics
+    if (wd.perf30) {
+      pnl30d += num(wd.perf30.pnl_usd);
+      volume30dUsd += num(wd.perf30.total_deposit_usd);
+      fees30dUsd += num(wd.perf30.realized_fee_earned_usd) + num(wd.perf30.unrealized_fee_earned_usd);
+      totalWinCount30d += num(wd.perf30.win_count_usd);
+      totalLossCount30d += num(wd.perf30.loss_count_usd);
+      
+      // Check for biggest win
+      const dlmm = wd.perf30.dlmm as Json | undefined;
+      const bigPool = typeof dlmm?.biggest_pnl_usd_pool === "string" ? dlmm.biggest_pnl_usd_pool : null;
+      const bigPnl = typeof dlmm?.biggest_pnl_usd === "number" ? dlmm.biggest_pnl_usd : -Infinity;
+      if (bigPool && bigPnl > biggestPnlValue) {
+        biggestPnlValue = bigPnl;
+        biggestPnlPool = bigPool;
+      }
+    }
+
+    // All-time metrics
+    if (wd.perfAll) {
+      volumeUsd += num(wd.perfAll.total_deposit_usd);
+      feesUsd += num(wd.perfAll.realized_fee_earned_usd) + num(wd.perfAll.unrealized_fee_earned_usd);
+      totalWinCountAll += num(wd.perfAll.win_count_usd);
+      totalLossCountAll += num(wd.perfAll.loss_count_usd);
+    }
+
+    // Collect portfolio pools
+    if (wd.portfolio) {
+      allPortfolioPools.push(...asPools(wd.portfolio.pools));
+    }
+  }
+
+  // Calculate combined win rates (never an average of averages)
+  const totalTradesAll = totalWinCountAll + totalLossCountAll;
+  const totalTrades7d = totalWinCount7d + totalLossCount7d;
+  const totalTrades30d = totalWinCount30d + totalLossCount30d;
+  
+  const winRate = totalTradesAll > 0 ? totalWinCountAll / totalTradesAll : null;
+  const winRate7d = totalTrades7d > 0 ? totalWinCount7d / totalTrades7d : null;
+  const winRate30d = totalTrades30d > 0 ? totalWinCount30d / totalTrades30d : null;
+
+  // Resolve top pool across all wallets
+  const allOpenPoolsArray = Array.from(openPoolsByAddress.values());
+  const topPool = await resolveTopPoolMultiWallet(biggestPnlPool, allPortfolioPools, allOpenPoolsArray);
 
   const snapshot: NewSnapshot = {
     userId: user.id,
     date,
-    // Lifetime DLMM realized PnL (matches Meteora's portfolio "Total PnL").
-    totalPnlUsd: total ? num(total.totalPnlUsd) : perfAll ? num(perfAll.pnl_usd) : null,
-    pnl7d: perf7 ? num(perf7.pnl_usd) : null,
-    pnl30d: perf30 ? num(perf30.pnl_usd) : null,
-    // Meteora doesn't expose LP "volume" per wallet; deposits are the closest proxy.
-    volumeUsd: perfAll ? num(perfAll.total_deposit_usd) : null,
-    volume7dUsd: perf7 ? num(perf7.total_deposit_usd) : null,
-    volume30dUsd: perf30 ? num(perf30.total_deposit_usd) : null,
-    feesUsd: fees(perfAll),
-    fees30dUsd: fees(perf30),
-    winRate: hasTrades(perfAll) ? num(perfAll?.win_rate_usd) : null,
-    winRate7d: hasTrades(perf7) ? num(perf7?.win_rate_usd) : null,
-    winRate30d: hasTrades(perf30) ? num(perf30?.win_rate_usd) : null,
-    positionsOpen: open ? Math.round(num(open.totalPositions ?? openTotals.totalPositions)) : null,
-    positionsClosed: total ? Math.round(num(total.totalClosedPositions)) : null,
-    portfolioValueUsd: open ? num(openTotals.balances) + num(openTotals.unclaimedFees) : null,
+    totalPnlUsd: totalPnlUsd || null,
+    pnl7d: pnl7d || null,
+    pnl30d: pnl30d || null,
+    volumeUsd: volumeUsd || null,
+    volume7dUsd: volume7dUsd || null,
+    volume30dUsd: volume30dUsd || null,
+    feesUsd: feesUsd || null,
+    fees30dUsd: fees30dUsd || null,
+    winRate,
+    winRate7d,
+    winRate30d,
+    positionsOpen: totalOpenPositions || null,
+    positionsClosed: positionsClosed || null,
+    portfolioValueUsd: (totalPortfolioBalances + totalUnclaimedFees) || null,
     topPoolAddress: topPool?.address || null,
     topPoolName: topPool?.name || null,
     topPoolBinStep: topPool?.binStep ?? null,
@@ -179,15 +321,17 @@ export async function syncUser(user: UserRow): Promise<SyncResult> {
     topPoolYIcon: topPool?.yIcon || null,
     source: {
       fetchedAt: new Date().toISOString(),
-      total,
-      openTotals,
-      perf7: perf7 ? stripNested(perf7) : null,
-      perf30: perf30 ? stripNested(perf30) : null,
-      perfAll: perfAll ? stripNested(perfAll) : null,
+      wallets: walletDataList.map((wd) => ({
+        wallet: wd.wallet,
+        total: wd.total,
+        openTotals: wd.open ? ((wd.open.total as Json | undefined) || {}) : null,
+        perf7: wd.perf7 ? stripNested(wd.perf7) : null,
+        perf30: wd.perf30 ? stripNested(wd.perf30) : null,
+        perfAll: wd.perfAll ? stripNested(wd.perfAll) : null,
+      })),
     },
   };
 
-  const db = getDb();
   const { userId: _u, date: _d, ...updatable } = snapshot;
   void _u;
   void _d;
@@ -199,9 +343,10 @@ export async function syncUser(user: UserRow): Promise<SyncResult> {
       set: { ...updatable, updatedAt: sql`now()` },
     });
   
-  // Store open positions
-  if (openPools && openPools.length > 0) {
-    const currentPoolAddresses = openPools.map((p) => p.poolAddress).filter((a): a is string => Boolean(a));
+  // Store aggregated open positions
+  const mergedPools = Array.from(openPoolsByAddress.values());
+  if (mergedPools.length > 0) {
+    const currentPoolAddresses = mergedPools.map((p) => p.poolAddress).filter((a): a is string => Boolean(a));
     
     // Delete positions that are no longer open
     if (currentPoolAddresses.length > 0) {
@@ -214,17 +359,14 @@ export async function syncUser(user: UserRow): Promise<SyncResult> {
           )
         );
     } else {
-      // No open positions, delete all
       await db.delete(openPositions).where(eq(openPositions.userId, user.id));
     }
     
-    // Upsert current open positions
-    for (const pool of openPools) {
+    // Upsert aggregated open positions
+    for (const pool of mergedPools) {
       if (!pool.poolAddress) continue;
       
-      const balances = pool.balances as string | number | undefined;
-      const unclaimedFees = pool.unclaimedFees as string | number | undefined;
-      const valueUsd = num(balances ?? 0) + num(unclaimedFees ?? 0);
+      const valueUsd = num(pool.balances ?? 0) + num(pool.unclaimedFees ?? 0);
       const posCount = pool.openPositionCount as number | undefined;
       
       await db

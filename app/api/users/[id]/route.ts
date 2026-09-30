@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq, sql } from "drizzle-orm";
 import { getDb, hasDb } from "@/lib/db";
 import { users } from "@/lib/db/schema";
-import { findUser, getFollowCounts, isUserFollowing, latestSnapshot, toPublicSnapshot, toPublicUser } from "@/lib/users";
+import { findUser, getFollowCounts, getUserWalletCount, isUserFollowing, latestSnapshot, toPublicSnapshot, toPublicUser } from "@/lib/users";
 import { getSessionWallet } from "@/lib/session";
 import { isCountryCode } from "@/lib/countries";
 
@@ -16,6 +16,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
   
   const snap = await latestSnapshot(user.id);
   const counts = await getFollowCounts(user.id);
+  const walletCount = await getUserWalletCount(user.id);
   
   const sessionWallet = await getSessionWallet();
   let currentUserId: number | null = null;
@@ -32,6 +33,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
     followersCount: counts.followersCount,
     followingCount: counts.followingCount,
     isFollowing,
+    walletCount,
   };
   
   return NextResponse.json({ user: publicUser, snapshot: snap ? toPublicSnapshot(snap) : null });
