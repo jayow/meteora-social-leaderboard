@@ -51,9 +51,8 @@ export default function ProfilePage() {
         <img src={trader.xAvatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${trader.username}`} alt="" className="h-16 w-16 rounded-full border border-zinc-700" />
         <div>
           <h1 className="text-2xl font-semibold">{trader.displayName}</h1>
-          <p className="text-sm text-zinc-500">@{trader.username}</p>
-          <div className="mt-3">
-            <XConnect handle={trader.xHandle} avatarUrl={trader.xAvatarUrl} editable={mine} onChange={reload} />
+          <div className="mt-1">
+            <XConnect handle={trader.xHandle} editable={mine} onChange={reload} placeholderUsername={trader.username} />
           </div>
         </div>
       </div>
