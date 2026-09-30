@@ -6,6 +6,7 @@ import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { Logo, XIcon } from "@/components/ui";
 import { WalletButton } from "@/components/WalletButton";
 import { useMe } from "@/components/MeProvider";
+import { meteoraHomeUrl } from "@/lib/meteora-links";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -39,7 +40,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Link href="/invites" className={`rounded-full px-4 py-1.5 ${onInvites ? "bg-white/[.1] text-white" : "text-mute hover:text-white"}`}>
                 Invites
               </Link>
-              <a href="https://app.meteora.ag" target="_blank" rel="noreferrer" className="rounded-full px-4 py-1.5 text-mute hover:text-white">
+              <a href={meteoraHomeUrl()} target="_blank" rel="noreferrer" className="rounded-full px-4 py-1.5 text-mute hover:text-white">
                 Meteora ↗
               </a>
             </nav>

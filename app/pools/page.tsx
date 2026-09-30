@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { useMe } from "@/components/MeProvider";
 import { fmtUsd } from "@/lib/format";
+import { meteoraPoolUrl } from "@/lib/meteora-links";
 
 interface PoolData {
   poolAddress: string;
@@ -136,10 +137,9 @@ function PoolRow({ pool, hasWallet }: { pool: PoolData; hasWallet: boolean }) {
       : null;
 
   return (
-    <Link
-      href={`/pools/${pool.poolAddress}`}
-      className="glass flex items-center gap-3 rounded-[20px] px-3 py-3 transition hover:bg-white/[.06] sm:px-4"
-    >
+    <div className="glass relative flex items-center gap-3 rounded-[20px] px-3 py-3 transition hover:bg-white/[.06] sm:px-4">
+      <Link href={`/pools/${pool.poolAddress}`} className="absolute inset-0 rounded-[20px]" />
+      
       <div className="flex">
         <TokenDot icon={pool.tokenXIcon} label={x} />
         <TokenDot icon={pool.tokenYIcon} label={y} className="-ml-2" />
@@ -173,7 +173,7 @@ function PoolRow({ pool, hasWallet }: { pool: PoolData; hasWallet: boolean }) {
       </div>
 
       {hasWallet && pool.friendsCount > 0 && pool.friendAvatars.length > 0 && (
-        <div className="flex -space-x-2">
+        <div className="relative z-10 flex -space-x-2">
           {pool.friendAvatars.slice(0, 3).map((avatar, i) => (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -191,6 +191,17 @@ function PoolRow({ pool, hasWallet }: { pool: PoolData; hasWallet: boolean }) {
           )}
         </div>
       )}
-    </Link>
+      
+      <a
+        href={meteoraPoolUrl(pool.poolAddress, pool.protocol || undefined)}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={(e) => e.stopPropagation()}
+        className="group relative z-10 flex items-center gap-1 rounded-full bg-gradient-to-r from-[#FF5C1A] to-[#FF3D7F] px-2.5 py-1 text-[11px] font-bold text-white shadow-md transition hover:shadow-lg hover:shadow-orange/30"
+      >
+        <span className="transition group-hover:scale-110">🏖️</span>
+        <span>Dip in</span>
+      </a>
+    </div>
   );
 }
