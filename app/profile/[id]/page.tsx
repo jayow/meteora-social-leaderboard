@@ -11,13 +11,13 @@ import { PnLCalendar } from "@/components/PnLCalendar";
 import { CountrySelect } from "@/components/CountrySelect";
 import { OpenPositions } from "@/components/OpenPositions";
 import { FollowButton } from "@/components/FollowButton";
+import { SharePnLModal } from "@/components/SharePnLModal";
 import { displayName, fmtPct, fmtUsd, timeAgo } from "@/lib/format";
 import { isValidWalletClient } from "@/lib/wallet-client";
 import { patchCachedProfile } from "@/lib/storage";
 
 type Range = "7d" | "30d" | "all";
 const RANGE_LABEL: Record<Range, string> = { "7d": "7D", "30d": "30D", all: "All-time" };
-const APP_URL = "https://web-production-c8f29.up.railway.app";
 
 export default function ProfilePage() {
   return (
@@ -43,6 +43,7 @@ function Profile() {
   const [syncing, setSyncing] = useState(false);
   const [range, setRange] = useState<Range>("30d");
   const [xNotice, setXNotice] = useState<string | null>(null);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
 
   const load = useCallback(async (id: string) => {
     const res = await fetch(`/api/users/${encodeURIComponent(id)}`, { cache: "no-store" });
@@ -163,9 +164,6 @@ function Profile() {
   const pnlBy: Record<Range, number | null> = { "7d": snap?.pnl7d ?? null, "30d": snap?.pnl30d ?? null, all: snap?.totalPnlUsd ?? null };
   const volBy: Record<Range, number | null> = { "7d": snap?.volume7dUsd ?? null, "30d": snap?.volume30dUsd ?? null, all: snap?.volumeUsd ?? null };
   const winBy: Record<Range, number | null> = { "7d": snap?.winRate7d ?? null, "30d": snap?.winRate30d ?? null, all: snap?.winRate ?? null };
-  const shareUrl = `https://x.com/intent/tweet?text=${encodeURIComponent(
-    `My Meteora LP stats on Pool Party: ${fmtUsd(snap?.pnl30d, { signed: true })} 30D PnL, ${fmtPct(snap?.winRate30d)} win rate 🏊‍♂️🔥`
-  )}&url=${encodeURIComponent(`${APP_URL}/profile/${user.xHandle || user.id}`)}`;
 
   return (
     <main className="mx-auto max-w-[1200px] px-4 pb-10 pt-6 lg:px-6">
@@ -185,13 +183,16 @@ function Profile() {
             <div className="relative z-10 -mt-12 flex items-end justify-between">
               <Avatar user={user} size={96} ring />
               <div className="mb-1 flex gap-2">
-                {mine ? (
-                  <a href={shareUrl} target="_blank" rel="noreferrer" className="h-9 rounded-full bg-white/[.1] px-4 text-[13px] font-semibold leading-9 hover:bg-white/[.16]">
-                    Share
-                  </a>
-                ) : (
-                  <FollowButton targetUser={user} />
+                {snap && (
+                  <button
+                    type="button"
+                    onClick={() => setShareModalOpen(true)}
+                    className={`h-9 rounded-full px-4 text-[13px] font-bold ${mine ? "bg-orange text-white shadow-lg shadow-orange/30 hover:bg-orange-soft" : "bg-white/[.1] hover:bg-white/[.16]"}`}
+                  >
+                    Share PnL
+                  </button>
                 )}
+                {!mine && <FollowButton targetUser={user} />}
                 {user.xHandle && (
                   <a href={`https://x.com/${user.xHandle}`} target="_blank" rel="noreferrer" className="flex h-9 w-9 items-center justify-center rounded-full bg-white/[.08] hover:bg-white/[.14]" title={`@${user.xHandle} on X`}>
                     <XIcon className="h-4 w-4" />
@@ -280,6 +281,15 @@ function Profile() {
           <OpenPositions userId={user.id} />
         </section>
       </div>
+
+      {snap && (
+        <SharePnLModal
+          user={user}
+          snap={snap}
+          isOpen={shareModalOpen}
+          onClose={() => setShareModalOpen(false)}
+        />
+      )}
     </main>
   );
 }
