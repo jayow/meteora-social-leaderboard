@@ -19,6 +19,7 @@ interface Row {
   x_handle: string | null;
   x_name: string | null;
   x_avatar_url: string | null;
+  x_id: string | null;
   country: string | null;
   thesis: string | null;
   date: string;
@@ -54,7 +55,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     with latest as (
       select distinct on (user_id) * from pnl_snapshots order by user_id, date desc
     )
-    select u.id, u.wallet, u.x_handle, u.x_name, u.x_avatar_url, u.country, u.thesis,
+    select u.id, u.wallet, u.x_handle, u.x_name, u.x_avatar_url, u.x_id, u.country, u.thesis,
            s.date::text as date, ${cols.pnl} as pnl, ${cols.volume} as volume, ${cols.winrate} as win_rate,
            ${cols.fees} as fees, s.total_pnl_usd, s.portfolio_value_usd, s.positions_open, s.positions_closed,
            s.top_pool_address, s.top_pool_name, s.top_pool_bin_step, s.top_pool_protocol,
@@ -82,6 +83,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     xHandle: r.x_handle,
     xName: r.x_name,
     xAvatarUrl: r.x_avatar_url,
+    xVerified: Boolean(r.x_id && r.x_handle),
     country: r.country,
     thesis: r.thesis,
     pnl: r.pnl,

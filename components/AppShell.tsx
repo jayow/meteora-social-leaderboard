@@ -48,7 +48,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Mobile bottom tab bar */}
       <nav className="fixed inset-x-3 bottom-3 z-40 lg:hidden">
-        <div className="glass flex items-center justify-around rounded-[26px] bg-[#15131f]/90 px-2 py-2 shadow-2xl">
+        <div className="flex items-center justify-around rounded-[26px] border border-white/[.08] bg-[#15131f] px-2 py-2 shadow-2xl shadow-black/60">
           <Link href="/" className={`flex w-20 flex-col items-center gap-0.5 text-[11px] font-semibold ${onBoard ? "text-orange" : "text-mute"}`}>
             <span className="text-[20px]">🏆</span>Ranks
           </Link>

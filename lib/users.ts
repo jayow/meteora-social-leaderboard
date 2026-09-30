@@ -83,6 +83,7 @@ export interface PublicUser {
   xHandle: string | null;
   xName: string | null;
   xAvatarUrl: string | null;
+  xVerified: boolean;
   country: string | null;
   thesis: string | null;
   createdAt: string;
@@ -96,6 +97,7 @@ export function toPublicUser(u: UserRow): PublicUser {
     xHandle: u.xHandle,
     xName: u.xName,
     xAvatarUrl: u.xAvatarUrl,
+    xVerified: Boolean(u.xId && u.xHandle),
     country: u.country,
     thesis: u.thesis,
     createdAt: u.createdAt.toISOString(),

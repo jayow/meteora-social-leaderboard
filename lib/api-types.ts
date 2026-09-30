@@ -14,6 +14,7 @@ export interface LeaderboardEntry {
   xHandle: string | null;
   xName: string | null;
   xAvatarUrl: string | null;
+  xVerified: boolean;
   country: string | null;
   thesis: string | null;
   pnl: number | null;
@@ -44,6 +45,7 @@ export interface ApiUser {
   xHandle: string | null;
   xName: string | null;
   xAvatarUrl: string | null;
+  xVerified: boolean;
   country: string | null;
   thesis: string | null;
   createdAt: string;

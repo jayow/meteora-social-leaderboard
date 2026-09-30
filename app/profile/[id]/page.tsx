@@ -195,7 +195,7 @@ function Profile() {
             <div className="mt-1 flex flex-wrap items-center gap-2 text-[13px] text-mute">
               {user.xHandle ? (
                 <a href={`https://x.com/${user.xHandle}`} target="_blank" rel="noreferrer" className="flex items-center gap-1 hover:text-white">
-                  @{user.xHandle} · <XIcon className="h-3 w-3" /> verified
+                  @{user.xHandle}{user.xVerified && <> · <XIcon className="h-3 w-3" /> verified</>}
                 </a>
               ) : (
                 <span>X not linked</span>

@@ -12,6 +12,7 @@ export interface CardUser {
   xHandle: string | null;
   xName: string | null;
   xAvatarUrl: string | null;
+  xVerified?: boolean;
   country: string | null;
   thesis: string | null;
 }
@@ -59,7 +60,7 @@ export function ProfileCard({ user, stats, rank, isMe }: { user: CardUser; stats
         <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[13px] text-mute">
           {user.xHandle ? (
             <a href={`https://x.com/${user.xHandle}`} target="_blank" rel="noreferrer" className="flex items-center gap-1 hover:text-white">
-              @{user.xHandle} · <XIcon className="h-3 w-3" /> verified
+              @{user.xHandle}{user.xVerified && <> · <XIcon className="h-3 w-3" /> verified</>}
             </a>
           ) : (
             <span>X not linked</span>
