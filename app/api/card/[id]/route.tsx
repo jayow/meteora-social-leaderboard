@@ -194,6 +194,7 @@ export async function GET(
           >
             <div
               style={{
+                display: "flex",
                 fontSize: "24px",
                 fontWeight: 600,
                 color: "#999",
@@ -202,10 +203,11 @@ export async function GET(
                 textTransform: "uppercase",
               }}
             >
-              {rangeLabel} PnL
+              {`${rangeLabel} PnL`}
             </div>
             <div
               style={{
+                display: "flex",
                 fontSize: "120px",
                 fontWeight: 900,
                 color: pnlColor,
@@ -214,8 +216,7 @@ export async function GET(
                 textShadow: `0 0 80px ${pnlColor}80`,
               }}
             >
-              {pnlSign}
-              {fmtUsd(Math.abs(pnl), { compact: true })}
+              {`${pnlSign}${fmtUsd(Math.abs(pnl), { compact: true })}`}
             </div>
           </div>
 
@@ -239,10 +240,10 @@ export async function GET(
                 border: "1px solid rgba(255, 255, 255, 0.1)",
               }}
             >
-              <div style={{ fontSize: "16px", color: "#999", marginBottom: "8px" }}>
+              <div style={{ display: "flex", fontSize: "16px", color: "#999", marginBottom: "8px" }}>
                 Win Rate
               </div>
-              <div style={{ fontSize: "36px", fontWeight: 800, color: "#FFF4EA" }}>
+              <div style={{ display: "flex", fontSize: "36px", fontWeight: 800, color: "#FFF4EA" }}>
                 {winRate != null ? fmtPct(winRate, 1) : "—"}
               </div>
             </div>
@@ -257,11 +258,11 @@ export async function GET(
                 border: "1px solid rgba(255, 255, 255, 0.1)",
               }}
             >
-              <div style={{ fontSize: "16px", color: "#999", marginBottom: "8px" }}>
+              <div style={{ display: "flex", fontSize: "16px", color: "#999", marginBottom: "8px" }}>
                 Fees Earned
               </div>
               <div
-                style={{ fontSize: "36px", fontWeight: 800, color: "#FF5C1A" }}
+                style={{ display: "flex", fontSize: "36px", fontWeight: 800, color: "#FF5C1A" }}
               >
                 {fmtUsd(fees)}
               </div>
@@ -278,13 +279,13 @@ export async function GET(
                   border: "1px solid rgba(255, 255, 255, 0.1)",
                 }}
               >
-                <div style={{ fontSize: "16px", color: "#999", marginBottom: "8px" }}>
+                <div style={{ display: "flex", fontSize: "16px", color: "#999", marginBottom: "8px" }}>
                   Rank
                 </div>
                 <div
-                  style={{ fontSize: "36px", fontWeight: 800, color: "#8B6CFF" }}
+                  style={{ display: "flex", fontSize: "36px", fontWeight: 800, color: "#8B6CFF" }}
                 >
-                  #{rank}
+                  {`#${rank}`}
                 </div>
               </div>
             )}
@@ -300,11 +301,12 @@ export async function GET(
                   border: "1px solid rgba(255, 255, 255, 0.1)",
                 }}
               >
-                <div style={{ fontSize: "16px", color: "#999", marginBottom: "8px" }}>
+                <div style={{ display: "flex", fontSize: "16px", color: "#999", marginBottom: "8px" }}>
                   Top Pool
                 </div>
                 <div
                   style={{
+                    display: "flex",
                     fontSize: "24px",
                     fontWeight: 700,
                     color: "#FFF4EA",
