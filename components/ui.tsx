@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import type { PoolInfo } from "@/lib/api-types";
 import { flagUrl, countryName } from "@/lib/countries";
 import { avatarFor, fallbackAvatar } from "@/lib/format";
@@ -117,22 +118,9 @@ export function XIcon({ className = "h-3.5 w-3.5" }: { className?: string }) {
 
 export function Logo() {
   return (
-    <span className="flex items-center gap-2">
-      <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden>
-        <defs>
-          <linearGradient id="ppg" x1="0" y1="1" x2="1" y2="0">
-            <stop offset="0" stopColor="#8b6cff" />
-            <stop offset=".5" stopColor="#ff4d8d" />
-            <stop offset="1" stopColor="#ff5c1a" />
-          </linearGradient>
-        </defs>
-        <g stroke="url(#ppg)" strokeWidth="3" strokeLinecap="round">
-          <path d="M4 20 L14 4" />
-          <path d="M9 21 L19 5" />
-          <path d="M14 21 L21 10" />
-        </g>
-      </svg>
-      <span className="text-[18px] font-extrabold tracking-tight">pool party</span>
-    </span>
+    <>
+      <Image src="/logo.svg" alt="Pool Party" width={151} height={32} priority unoptimized className="hidden h-7 w-auto max-[379px]:block sm:hidden sm:h-8 md:block" />
+      <Image src="/logo-mark.svg" alt="Pool Party" width={32} height={28} priority unoptimized className="h-7 w-auto max-[379px]:hidden sm:block md:hidden" />
+    </>
   );
 }

@@ -21,7 +21,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="mx-auto flex h-[64px] max-w-[1320px] items-center gap-6 px-4 lg:px-6">
           <Link href="/" className="flex items-center gap-2">
             <Logo />
-            <span className="hidden rounded-full border border-orange/30 bg-orange/10 px-2 py-0.5 text-[11px] font-semibold text-orange sm:inline">Meteora LP leaderboard</span>
+            <span className="hidden rounded-full border border-orange/30 bg-orange/10 px-2 py-0.5 text-[11px] font-semibold text-orange sm:inline">Party starts here</span>
           </Link>
           <nav className="mx-auto hidden items-center gap-1 rounded-full border border-white/[.06] bg-white/[.03] p-1 text-[14px] font-semibold lg:flex">
             <Link href="/" className={`rounded-full px-4 py-1.5 ${onBoard ? "bg-white/[.1] text-white" : "text-mute hover:text-white"}`}>

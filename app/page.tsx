@@ -20,7 +20,7 @@ const SORT_LABEL: Record<Sort, string> = { pnl: "PnL", volume: "volume", winrate
 const APP_URL = "https://web-production-c8f29.up.railway.app";
 
 function shareText(e: LeaderboardEntry, range: Range): string {
-  return `I'm #${e.rank} on Pool Party, the Meteora LP leaderboard, with ${fmtUsd(e.pnl, { signed: true })} ${RANGE_LABEL[range]} PnL 🏊‍♂️🔥`;
+  return `I'm #${e.rank} on Pool Party with ${fmtUsd(e.pnl, { signed: true })} ${RANGE_LABEL[range]} PnL 🏊‍♂️🔥`;
 }
 
 export default function LeaderboardPage() {
