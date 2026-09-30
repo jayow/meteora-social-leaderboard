@@ -65,10 +65,30 @@ export const users = pgTable(
     uniqueIndex("users_wallet_key").on(t.wallet),
     uniqueIndex("users_member_number_key").on(t.memberNumber),
     index("users_x_handle_idx").on(t.xHandle),
+    index("users_x_id_idx").on(t.xId),
     index("users_country_idx").on(t.country),
     index("users_joined_at_idx").on(t.joinedAt),
     index("users_last_synced_at_idx").on(t.lastSyncedAt.asc()),
     index("users_last_attempted_at_idx").on(t.lastAttemptedAt),
+  ]
+);
+
+export const userWallets = pgTable(
+  "user_wallets",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    address: varchar("address", { length: 64 }).notNull(),
+    label: text("label"),
+    isPrimary: integer("is_primary").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("user_wallets_address_key").on(t.address),
+    index("user_wallets_user_id_idx").on(t.userId),
+    index("user_wallets_user_primary_idx").on(t.userId, t.isPrimary),
   ]
 );
 
@@ -159,6 +179,7 @@ export const openPositions = pgTable(
 export type ProfileBannerRow = typeof profileBanners.$inferSelect;
 export type InviteCodeRow = typeof inviteCodes.$inferSelect;
 export type UserRow = typeof users.$inferSelect;
+export type UserWalletRow = typeof userWallets.$inferSelect;
 export type SnapshotRow = typeof pnlSnapshots.$inferSelect;
 export type NewSnapshot = typeof pnlSnapshots.$inferInsert;
 export type FollowRow = typeof follows.$inferSelect;
