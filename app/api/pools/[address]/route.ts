@@ -139,7 +139,6 @@ export async function GET(
 
   const lps = lpsRes.rows.map((r) => ({
     id: r.user_id,
-    wallet: r.wallet,
     xHandle: r.x_handle,
     xName: r.x_name,
     xAvatarUrl: r.x_avatar_url,

@@ -11,7 +11,7 @@ import { Avatar } from "@/components/ui";
 export function WalletButton({ size = "md" }: { size?: "sm" | "md" }) {
   const { disconnect, connecting } = useWallet();
   const { setVisible } = useWalletModal();
-  const { wallet, cached } = useMe();
+  const { wallet, cached, user: meUser } = useMe();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -36,7 +36,7 @@ export function WalletButton({ size = "md" }: { size?: "sm" | "md" }) {
   return (
     <div ref={ref} className="relative">
       <button type="button" onClick={() => setOpen((o) => !o)} className={`${h} glass flex items-center gap-2 rounded-full pl-1.5 font-semibold`}>
-        <Avatar user={{ wallet, xAvatarUrl: cached.xAvatarUrl }} size={26} />
+        <Avatar user={{ id: meUser?.id, xAvatarUrl: cached.xAvatarUrl }} size={26} />
         <span className="num">{cached.xHandle ? `@${cached.xHandle}` : shortAddr(wallet)}</span>
         <span className="h-2 w-2 rounded-full bg-up" />
       </button>

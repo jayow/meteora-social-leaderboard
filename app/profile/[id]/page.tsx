@@ -2,7 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import type { ApiSnapshot, ApiUser } from "@/lib/api-types";
 import { useMe } from "@/components/MeProvider";
@@ -11,7 +11,7 @@ import { PnLCalendar } from "@/components/PnLCalendar";
 import { CountrySelect } from "@/components/CountrySelect";
 import { OpenPositions } from "@/components/OpenPositions";
 import { FollowButton } from "@/components/FollowButton";
-import { displayName, fmtPct, fmtUsd, shortAddr, timeAgo } from "@/lib/format";
+import { displayName, fmtPct, fmtUsd, timeAgo } from "@/lib/format";
 import { isValidWalletClient } from "@/lib/wallet-client";
 import { patchCachedProfile } from "@/lib/storage";
 
@@ -30,6 +30,7 @@ export default function ProfilePage() {
 function Profile() {
   const params = useParams<{ id: string }>();
   const search = useSearchParams();
+  const router = useRouter();
   const me = useMe();
   const { setVisible } = useWalletModal();
   const rawId = decodeURIComponent(params.id);
@@ -76,7 +77,13 @@ function Profile() {
         if (cancelled) return;
         if (u) {
           setStatus("idle");
-          sync(u.wallet); // refresh stats on profile view (server rate-limits)
+          // Redirect old wallet-based URLs to handle/id-based URLs
+          if (isValidWalletClient(rawId) && rawId !== "me") {
+            const newPath = u.xHandle ? `/profile/${u.xHandle}` : `/profile/${u.id}`;
+            router.replace(newPath + window.location.search);
+            return;
+          }
+          if (u.wallet) sync(u.wallet);
         } else if (isValidWalletClient(target)) {
           await sync(target);
           if (!cancelled) setStatus("idle");
@@ -90,7 +97,7 @@ function Profile() {
     return () => {
       cancelled = true;
     };
-  }, [target, load, sync]);
+  }, [target, load, sync, rawId, router]);
 
   const mine = Boolean(me.wallet && user && user.wallet === me.wallet);
 
@@ -158,7 +165,7 @@ function Profile() {
   const winBy: Record<Range, number | null> = { "7d": snap?.winRate7d ?? null, "30d": snap?.winRate30d ?? null, all: snap?.winRate ?? null };
   const shareUrl = `https://x.com/intent/tweet?text=${encodeURIComponent(
     `My Meteora LP stats on Pool Party: ${fmtUsd(snap?.pnl30d, { signed: true })} 30D PnL, ${fmtPct(snap?.winRate30d)} win rate 🏊‍♂️🔥`
-  )}&url=${encodeURIComponent(`${APP_URL}/profile/${user.wallet}`)}`;
+  )}&url=${encodeURIComponent(`${APP_URL}/profile/${user.xHandle || user.id}`)}`;
 
   return (
     <main className="mx-auto max-w-[1200px] px-4 pb-10 pt-6 lg:px-6">
@@ -203,9 +210,6 @@ function Profile() {
                   @{user.xHandle}{user.xVerified && <> · <XIcon className="h-3 w-3" /> verified</>}
                 </a>
               )}
-              <button type="button" onClick={() => navigator.clipboard?.writeText(user.wallet)} className="num hover:text-white" title="Copy address">
-                {user.xHandle ? "·" : ""} {shortAddr(user.wallet)}
-              </button>
             </div>
             {(user.followersCount !== undefined || user.followingCount !== undefined) && (
               <div className="mt-2 flex gap-4 text-[13px]">

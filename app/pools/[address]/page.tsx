@@ -23,7 +23,6 @@ interface PoolData {
 
 interface LP {
   id: number;
-  wallet: string;
   xHandle: string | null;
   xName: string | null;
   xAvatarUrl: string | null;
@@ -199,7 +198,7 @@ export default function PoolDetailPage() {
         ) : (
           <div className="mt-3 space-y-2">
             {lps.map((lp) => (
-              <LPRow key={lp.wallet} lp={lp} />
+              <LPRow key={lp.id} lp={lp} />
             ))}
           </div>
         )}
@@ -213,7 +212,7 @@ function LPRow({ lp }: { lp: LP }) {
 
   return (
     <Link
-      href={`/profile/${lp.wallet}`}
+      href={`/profile/${lp.xHandle || lp.id}`}
       className="glass flex items-center gap-3 rounded-[20px] px-3 py-2.5 transition hover:bg-white/[.06] sm:px-4"
     >
       <Avatar user={lp} size={42} />

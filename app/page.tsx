@@ -25,7 +25,7 @@ function shareText(e: LeaderboardEntry, range: Range): string {
 
 export default function LeaderboardPage() {
   const router = useRouter();
-  const { wallet, loading: meLoading } = useMe();
+  const { wallet, loading: meLoading, user: myUser } = useMe();
   const { setVisible } = useWalletModal();
   const [range, setRange] = useState<Range>("30d");
   const [sort, setSort] = useState<Sort>("pnl");
@@ -33,6 +33,8 @@ export default function LeaderboardPage() {
   const [data, setData] = useState<LeaderboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<number | null>(null);
+
+  const myId = myUser?.id;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -61,11 +63,11 @@ export default function LeaderboardPage() {
   const entries = useMemo(() => data?.entries ?? [], [data]);
   const podium = entries.slice(0, 3);
   const rest = entries.slice(3);
-  const mine = wallet ? entries.find((e) => e.wallet === wallet) : undefined;
+  const mine = wallet ? entries.find((e) => e.id === myId) : undefined;
   const selected = entries.find((e) => e.id === selectedId) || mine || entries[0];
 
   const onRow = (e: LeaderboardEntry) => {
-    if (typeof window !== "undefined" && window.innerWidth < 1024) router.push(`/profile/${e.wallet}`);
+    if (typeof window !== "undefined" && window.innerWidth < 1024) router.push(`/profile/${e.xHandle || e.id}`);
     else setSelectedId(e.id);
   };
 
@@ -141,7 +143,7 @@ export default function LeaderboardPage() {
             <div className="mt-6 grid grid-cols-3 items-end gap-2 sm:gap-3">
               {[podium[1], podium[0], podium[2]].map((e, idx) =>
                 e ? (
-                  <PodiumCard key={e.id} e={e} first={idx === 1} isMe={e.wallet === wallet} metric={metric(e)} tone={metricTone(e)} onClick={() => onRow(e)} range={range} />
+                  <PodiumCard key={e.id} e={e} first={idx === 1} isMe={e.id === myId} metric={metric(e)} tone={metricTone(e)} onClick={() => onRow(e)} range={range} />
                 ) : (
                   <div key={`empty-${idx}`} className="flex h-44 flex-col items-center justify-center rounded-[26px] border border-dashed border-white/10 text-center text-[12px] text-mute">
                     <span className="text-[22px]">🪑</span>
@@ -156,7 +158,7 @@ export default function LeaderboardPage() {
           {rest.length > 0 && (
             <div className="mt-4 space-y-2">
               {rest.map((e) => (
-                <Row key={e.id} e={e} isMe={e.wallet === wallet} metric={metric(e)} tone={metricTone(e)} onClick={() => onRow(e)} range={range} active={selected?.id === e.id} />
+                <Row key={e.id} e={e} isMe={e.id === myId} metric={metric(e)} tone={metricTone(e)} onClick={() => onRow(e)} range={range} active={selected?.id === e.id} />
               ))}
             </div>
           )}
@@ -175,7 +177,7 @@ export default function LeaderboardPage() {
               <ProfileCard
                 user={selected}
                 rank={selected.rank}
-                isMe={selected.wallet === wallet}
+                isMe={selected.id === myId}
                 stats={{
                   portfolioValue: selected.portfolioValue,
                   totalPnl: selected.totalPnl,

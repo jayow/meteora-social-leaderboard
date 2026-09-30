@@ -79,7 +79,7 @@ export interface PublicPool {
 
 export interface PublicUser {
   id: number;
-  wallet: string;
+  wallet?: string;
   xHandle: string | null;
   xName: string | null;
   xAvatarUrl: string | null;
@@ -93,10 +93,10 @@ export interface PublicUser {
   isFollowing?: boolean;
 }
 
-export function toPublicUser(u: UserRow): PublicUser {
+export function toPublicUser(u: UserRow, includeWallet = false): PublicUser {
   return {
     id: u.id,
-    wallet: u.wallet,
+    ...(includeWallet ? { wallet: u.wallet } : {}),
     xHandle: u.xHandle,
     xName: u.xName,
     xAvatarUrl: u.xAvatarUrl,

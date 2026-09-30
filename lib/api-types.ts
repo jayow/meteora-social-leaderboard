@@ -10,7 +10,6 @@ export interface PoolInfo {
 export interface LeaderboardEntry {
   rank: number;
   id: number;
-  wallet: string;
   xHandle: string | null;
   xName: string | null;
   xAvatarUrl: string | null;
@@ -43,7 +42,7 @@ export interface LeaderboardResponse {
 
 export interface ApiUser {
   id: number;
-  wallet: string;
+  wallet?: string;
   xHandle: string | null;
   xName: string | null;
   xAvatarUrl: string | null;

@@ -26,20 +26,22 @@ export function shortAddr(w: string): string {
   return `${w.slice(0, 4)}…${w.slice(-4)}`;
 }
 
-export function fallbackAvatar(wallet: string): string {
-  return `https://api.dicebear.com/9.x/notionists/svg?seed=${encodeURIComponent(wallet)}&backgroundColor=ffd5c2,d9ccff,ffc9dc`;
+export function fallbackAvatar(seed: string | number): string {
+  return `https://api.dicebear.com/9.x/notionists/svg?seed=${encodeURIComponent(seed)}&backgroundColor=ffd5c2,d9ccff,ffc9dc`;
 }
 
-export function avatarFor(u: { xAvatarUrl?: string | null; wallet: string }): string {
+export function avatarFor(u: { xAvatarUrl?: string | null; id?: number }): string {
   if (u.xAvatarUrl) {
     return u.xAvatarUrl.replace('_normal', '_400x400');
   }
   
-  return fallbackAvatar(u.wallet);
+  return fallbackAvatar(u.id || 'anon');
 }
 
-export function displayName(u: { xHandle?: string | null; wallet: string }): string {
-  return u.xHandle ? `@${u.xHandle}` : shortAddr(u.wallet);
+export function displayName(u: { xHandle?: string | null; id?: number }): string {
+  if (u.xHandle) return `@${u.xHandle}`;
+  if (u.id) return `Anon LP #${u.id}`;
+  return "Anonymous LP";
 }
 
 export function timeAgo(iso: string | null | undefined): string {

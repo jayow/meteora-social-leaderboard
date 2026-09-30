@@ -5,12 +5,12 @@ import type { PoolInfo } from "@/lib/api-types";
 import { flagUrl, countryName } from "@/lib/countries";
 import { avatarFor, fallbackAvatar } from "@/lib/format";
 
-export function Avatar({ user, size = 40, ring = false, className = "" }: { user: { xAvatarUrl?: string | null; wallet: string }; size?: number; ring?: boolean; className?: string }) {
+export function Avatar({ user, size = 40, ring = false, className = "" }: { user: { xAvatarUrl?: string | null; id?: number }; size?: number; ring?: boolean; className?: string }) {
   const [failed, setFailed] = useState(false);
   const img = (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src={failed ? fallbackAvatar(user.wallet) : avatarFor(user)}
+      src={failed ? fallbackAvatar(user.id || 'anon') : avatarFor(user)}
       onError={() => setFailed(true)}
       alt=""
       width={size}

@@ -25,9 +25,10 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
   }
   
   const isFollowing = await isUserFollowing(currentUserId, user.id);
+  const isOwnProfile = currentUserId === user.id;
   
   const publicUser = {
-    ...toPublicUser(user),
+    ...toPublicUser(user, isOwnProfile),
     followersCount: counts.followersCount,
     followingCount: counts.followingCount,
     isFollowing,
@@ -75,12 +76,12 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     set.xName = null;
     set.xAvatarUrl = null;
   }
-  if (!Object.keys(set).length) return NextResponse.json({ user: toPublicUser(user) });
+  if (!Object.keys(set).length) return NextResponse.json({ user: toPublicUser(user, true) });
 
   const rows = await getDb()
     .update(users)
     .set({ ...set, updatedAt: sql`now()` })
     .where(eq(users.id, user.id))
     .returning();
-  return NextResponse.json({ user: toPublicUser(rows[0]) });
+  return NextResponse.json({ user: toPublicUser(rows[0], true) });
 }

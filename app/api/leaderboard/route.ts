@@ -81,7 +81,6 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const entries = rows.map((r, i) => ({
     rank: i + 1,
     id: r.id,
-    wallet: r.wallet,
     xHandle: r.x_handle,
     xName: r.x_name,
     xAvatarUrl: r.x_avatar_url,

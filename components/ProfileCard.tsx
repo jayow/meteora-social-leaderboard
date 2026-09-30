@@ -6,11 +6,11 @@ import { Avatar, Flag, PoolChip, StatTile, XIcon } from "@/components/ui";
 import { PnLCalendar } from "@/components/PnLCalendar";
 import { OpenPositions } from "@/components/OpenPositions";
 import { FollowButton } from "@/components/FollowButton";
-import { displayName, fmtPct, fmtUsd, shortAddr } from "@/lib/format";
+import { displayName, fmtPct, fmtUsd } from "@/lib/format";
 
 export interface CardUser {
   id: number;
-  wallet: string;
+  wallet?: string;
   xHandle: string | null;
   xName: string | null;
   xAvatarUrl: string | null;
@@ -52,7 +52,7 @@ export function ProfileCard({ user, stats, rank, isMe }: { user: CardUser; stats
                 <XIcon className="h-3.5 w-3.5" />
               </a>
             )}
-            <Link href={`/profile/${user.wallet}`} className="h-8 rounded-full bg-white/[.08] px-3.5 text-[13px] font-semibold leading-8 hover:bg-white/[.14]">
+            <Link href={`/profile/${user.xHandle || user.id}`} className="h-8 rounded-full bg-white/[.08] px-3.5 text-[13px] font-semibold leading-8 hover:bg-white/[.14]">
               View
             </Link>
           </div>
@@ -69,9 +69,8 @@ export function ProfileCard({ user, stats, rank, isMe }: { user: CardUser; stats
               @{user.xHandle}{user.xVerified && <> · <XIcon className="h-3 w-3" /> verified</>}
             </a>
           )}
-          <span className="num">{user.xHandle ? "·" : ""} {shortAddr(user.wallet)}</span>
           {user.followersCount !== undefined && user.followersCount > 0 && (
-            <span>· {user.followersCount} {user.followersCount === 1 ? "follower" : "followers"}</span>
+            <span>{user.xHandle ? "·" : ""} {user.followersCount} {user.followersCount === 1 ? "follower" : "followers"}</span>
           )}
         </div>
 
