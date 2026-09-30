@@ -47,7 +47,8 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
     updates.thesis = body.thesis ? body.thesis.slice(0, 1000) : null;
   }
 
-  if (body.unlinkX) {
+  // Only unlink X on explicit unlinkX: true (not accidental field inclusion)
+  if (body.unlinkX === true) {
     updates.xId = null;
     updates.xHandle = null;
     updates.xName = null;
