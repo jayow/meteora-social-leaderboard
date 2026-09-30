@@ -6,6 +6,7 @@ import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { useMe } from "@/components/MeProvider";
 import { fmtUsd } from "@/lib/format";
 import { meteoraPoolUrl } from "@/lib/meteora-links";
+import { PoolMemberAvatars } from "@/components/PoolMemberAvatars";
 
 interface PoolData {
   poolAddress: string;
@@ -24,6 +25,20 @@ interface PoolData {
 
 interface PoolsResponse {
   pools: PoolData[];
+}
+
+interface Member {
+  userId: number;
+  xAvatarUrl: string | null;
+  xHandle: string | null;
+  isFollowed: boolean;
+}
+
+interface PoolMembersResponse {
+  pools: Array<{
+    poolAddress: string;
+    members: Member[];
+  }>;
 }
 
 function TokenDot({ icon, label, className = "" }: { icon: string | null; label: string; className?: string }) {
@@ -46,16 +61,32 @@ function TokenDot({ icon, label, className = "" }: { icon: string | null; label:
 }
 
 export default function PoolsPage() {
-  const { wallet } = useMe();
+  const { wallet, user } = useMe();
   const { setVisible } = useWalletModal();
   const [data, setData] = useState<PoolsResponse | null>(null);
+  const [membersData, setMembersData] = useState<Map<string, Member[]>>(new Map());
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch("/api/pools", { cache: "no-store" });
-      setData((await res.json()) as PoolsResponse);
+      const poolsData = (await res.json()) as PoolsResponse;
+      setData(poolsData);
+
+      if (poolsData.pools.length > 0) {
+        const poolAddresses = poolsData.pools.map((p) => p.poolAddress).join(",");
+        const membersRes = await fetch(`/api/pools/members?pools=${encodeURIComponent(poolAddresses)}`, {
+          cache: "no-store",
+        });
+        const membersResult = (await membersRes.json()) as PoolMembersResponse;
+        
+        const membersMap = new Map<string, Member[]>();
+        for (const pool of membersResult.pools) {
+          membersMap.set(pool.poolAddress, pool.members);
+        }
+        setMembersData(membersMap);
+      }
     } catch {
       setData({ pools: [] });
     } finally {
@@ -121,7 +152,12 @@ export default function PoolsPage() {
       ) : (
         <div className="mt-6 space-y-2">
           {pools.map((p) => (
-            <PoolRow key={p.poolAddress} pool={p} hasWallet={Boolean(wallet)} />
+            <PoolRow
+              key={p.poolAddress}
+              pool={p}
+              members={membersData.get(p.poolAddress) || []}
+              isSignedIn={Boolean(user)}
+            />
           ))}
         </div>
       )}
@@ -129,17 +165,21 @@ export default function PoolsPage() {
   );
 }
 
-function PoolRow({ pool, hasWallet }: { pool: PoolData; hasWallet: boolean }) {
+function PoolRow({
+  pool,
+  members,
+  isSignedIn,
+}: {
+  pool: PoolData;
+  members: Member[];
+  isSignedIn: boolean;
+}) {
   const [x = "?", y = "?"] = [pool.tokenX, pool.tokenY];
-  const friendsText =
-    pool.friendsCount > 0
-      ? `${pool.friendsCount} ${pool.friendsCount === 1 ? "friend" : "friends"} here`
-      : null;
 
   return (
     <div className="glass relative flex items-center gap-3 rounded-[20px] px-3 py-3 transition hover:bg-white/[.06] sm:px-4">
       <Link href={`/pools/${pool.poolAddress}`} className="absolute inset-0 rounded-[20px]" />
-      
+
       <div className="flex">
         <TokenDot icon={pool.tokenXIcon} label={x} />
         <TokenDot icon={pool.tokenYIcon} label={y} className="-ml-2" />
@@ -163,35 +203,15 @@ function PoolRow({ pool, hasWallet }: { pool: PoolData; hasWallet: boolean }) {
           </span>
           <span>·</span>
           <span>{fmtUsd(pool.totalValueUsd)} TVL</span>
-          {hasWallet && friendsText && (
-            <>
-              <span>·</span>
-              <span className="font-semibold text-orange">{friendsText}</span>
-            </>
-          )}
         </div>
       </div>
 
-      {hasWallet && pool.friendsCount > 0 && pool.friendAvatars.length > 0 && (
-        <div className="relative z-10 flex -space-x-2">
-          {pool.friendAvatars.slice(0, 3).map((avatar, i) => (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              key={i}
-              src={avatar.replace("_normal", "_400x400")}
-              alt=""
-              className="h-8 w-8 rounded-full border-2 border-base bg-[#1d1a2a] object-cover"
-              loading="lazy"
-            />
-          ))}
-          {pool.friendsCount > 3 && (
-            <div className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-base bg-purp/40 text-[10px] font-bold">
-              +{pool.friendsCount - 3}
-            </div>
-          )}
+      {members.length > 0 && (
+        <div className="relative z-10">
+          <PoolMemberAvatars poolAddress={pool.poolAddress} members={members} isSignedIn={isSignedIn} />
         </div>
       )}
-      
+
       <a
         href={meteoraPoolUrl(pool.poolAddress, pool.protocol || undefined)}
         target="_blank"

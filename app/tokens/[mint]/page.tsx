@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useMe } from "@/components/MeProvider";
 import { avatarFor, fmtUsd, timeAgo } from "@/lib/format";
 import { meteoraPoolUrl, meteoraHomeUrl } from "@/lib/meteora-links";
+import { PoolMemberAvatars } from "@/components/PoolMemberAvatars";
 
 interface TokenInfo {
   mint: string;
@@ -62,6 +63,20 @@ interface CommentsResponse {
   comments: Comment[];
 }
 
+interface Member {
+  userId: number;
+  xAvatarUrl: string | null;
+  xHandle: string | null;
+  isFollowed: boolean;
+}
+
+interface PoolMembersResponse {
+  pools: Array<{
+    poolAddress: string;
+    members: Member[];
+  }>;
+}
+
 export default function TokenPage() {
   return (
     <Suspense fallback={<div className="mx-auto max-w-[1200px] px-4 py-10">Loading...</div>}>
@@ -92,6 +107,7 @@ function TokenDetail() {
 
   const [tokenData, setTokenData] = useState<TokenResponse | null>(null);
   const [comments, setComments] = useState<CommentsResponse | null>(null);
+  const [membersData, setMembersData] = useState<Map<string, Member[]>>(new Map());
   const [loading, setLoading] = useState(true);
   const [commentText, setCommentText] = useState("");
   const [posting, setPosting] = useState(false);
@@ -104,7 +120,22 @@ function TokenDetail() {
       if (!res.ok) {
         setTokenData({ token: null, pools: [] });
       } else {
-        setTokenData((await res.json()) as TokenResponse);
+        const data = (await res.json()) as TokenResponse;
+        setTokenData(data);
+
+        if (data.pools.length > 0) {
+          const poolAddresses = data.pools.map((p) => p.poolAddress).join(",");
+          const membersRes = await fetch(`/api/pools/members?pools=${encodeURIComponent(poolAddresses)}`, {
+            cache: "no-store",
+          });
+          const membersResult = (await membersRes.json()) as PoolMembersResponse;
+
+          const membersMap = new Map<string, Member[]>();
+          for (const pool of membersResult.pools) {
+            membersMap.set(pool.poolAddress, pool.members);
+          }
+          setMembersData(membersMap);
+        }
       }
     } catch {
       setTokenData({ token: null, pools: [] });
@@ -253,7 +284,12 @@ function TokenDetail() {
           ) : (
             <div className="space-y-3">
               {pools.map((pool) => (
-                <PoolCard key={pool.poolAddress} pool={pool} />
+                <PoolCard
+                  key={pool.poolAddress}
+                  pool={pool}
+                  members={membersData.get(pool.poolAddress) || []}
+                  isSignedIn={Boolean(user)}
+                />
               ))}
             </div>
           )}
@@ -316,7 +352,15 @@ function TokenDetail() {
   );
 }
 
-function PoolCard({ pool }: { pool: PoolData }) {
+function PoolCard({
+  pool,
+  members,
+  isSignedIn,
+}: {
+  pool: PoolData;
+  members: Member[];
+  isSignedIn: boolean;
+}) {
   return (
     <div className="relative rounded-2xl border border-white/[.08] bg-gradient-to-br from-white/[.04] to-transparent p-4 transition hover:border-orange/40 hover:bg-white/[.06]">
       <Link href={`/pools/${pool.poolAddress}`} className="block">
@@ -344,7 +388,7 @@ function PoolCard({ pool }: { pool: PoolData }) {
                 <div className="-ml-2 h-8 w-8 rounded-full border border-base bg-[#222]" />
               )}
             </div>
-            <div>
+            <div className="flex-1">
               <div className="flex items-center gap-2">
                 <span className="text-[15px] font-bold">
                   {pool.tokenX}/{pool.tokenY}
@@ -369,15 +413,12 @@ function PoolCard({ pool }: { pool: PoolData }) {
                     <span className="text-up">{pool.apr.toFixed(2)}% APR</span>
                   </>
                 )}
-                {pool.memberCount > 0 && (
-                  <>
-                    <span>·</span>
-                    <span className="font-semibold text-orange">
-                      {pool.memberCount} friend{pool.memberCount === 1 ? "" : "s"} here
-                    </span>
-                  </>
-                )}
               </div>
+              {members.length > 0 && (
+                <div className="mt-2">
+                  <PoolMemberAvatars poolAddress={pool.poolAddress} members={members} isSignedIn={isSignedIn} />
+                </div>
+              )}
             </div>
           </div>
         </div>
