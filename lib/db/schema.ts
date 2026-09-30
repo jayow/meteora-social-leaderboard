@@ -27,7 +27,12 @@ export const users = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [uniqueIndex("users_wallet_key").on(t.wallet), index("users_x_handle_idx").on(t.xHandle)]
+  (t) => [
+    uniqueIndex("users_wallet_key").on(t.wallet),
+    index("users_x_handle_idx").on(t.xHandle),
+    index("users_country_idx").on(t.country),
+    index("users_last_synced_at_idx").on(t.lastSyncedAt.asc()),
+  ]
 );
 
 export const pnlSnapshots = pgTable(
@@ -62,7 +67,11 @@ export const pnlSnapshots = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [uniqueIndex("pnl_snapshots_user_date_key").on(t.userId, t.date), index("pnl_snapshots_date_idx").on(t.date)]
+  (t) => [
+    uniqueIndex("pnl_snapshots_user_date_key").on(t.userId, t.date),
+    index("pnl_snapshots_date_idx").on(t.date),
+    index("pnl_snapshots_user_date_desc_idx").on(t.userId, t.date.desc()),
+  ]
 );
 
 export const follows = pgTable(

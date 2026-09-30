@@ -17,7 +17,9 @@ export function getDb(): DB {
     const internal = url.includes(".railway.internal") || url.includes("localhost") || url.includes("127.0.0.1");
     globalForDb.__ppPool = new Pool({
       connectionString: url,
-      max: 5,
+      max: 10,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 10000,
       ssl: internal ? undefined : { rejectUnauthorized: false },
     });
     globalForDb.__ppDb = drizzle(globalForDb.__ppPool, { schema });

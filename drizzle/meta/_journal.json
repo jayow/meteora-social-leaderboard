@@ -15,6 +15,13 @@
       "when": 1790783571158,
       "tag": "0001_kind_millenium_guard",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790784007589,
+      "tag": "0002_naive_jamie_braddock",
+      "breakpoints": true
     }
   ]
 }
