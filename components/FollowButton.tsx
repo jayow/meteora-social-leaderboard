@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { useMe } from "@/components/MeProvider";
 
 export function FollowButton({
@@ -13,8 +12,7 @@ export function FollowButton({
   size?: "sm" | "md";
   className?: string;
 }) {
-  const { wallet, ensureSession } = useMe();
-  const { setVisible } = useWalletModal();
+  const { verified } = useMe();
   const [isFollowing, setIsFollowing] = useState(targetUser.isFollowing ?? false);
   const [loading, setLoading] = useState(false);
 
@@ -22,13 +20,11 @@ export function FollowButton({
     e.preventDefault();
     e.stopPropagation();
 
-    if (!wallet) {
-      setVisible(true);
+    if (!verified) {
+      const currentPath = encodeURIComponent(window.location.pathname + window.location.search);
+      window.location.href = `/api/x/login?returnTo=${currentPath}`;
       return;
     }
-
-    const verified = await ensureSession();
-    if (!verified) return;
 
     setLoading(true);
     try {
@@ -42,6 +38,9 @@ export function FollowButton({
 
       if (res.ok) {
         setIsFollowing(!isFollowing);
+      } else if (res.status === 401) {
+        const currentPath = encodeURIComponent(window.location.pathname + window.location.search);
+        window.location.href = `/api/x/login?returnTo=${currentPath}`;
       }
     } catch (error) {
       console.error("Follow action failed:", error);
@@ -52,7 +51,7 @@ export function FollowButton({
 
   const sizeClasses = size === "sm" ? "h-8 px-3.5 text-[13px]" : "h-9 px-4 text-[13px]";
 
-  if (!wallet) {
+  if (!verified) {
     return (
       <button
         type="button"

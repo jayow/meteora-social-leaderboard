@@ -16,7 +16,7 @@ interface MeState {
   ensureSession: () => Promise<boolean>;
   verify: () => Promise<boolean>;
   refresh: () => Promise<void>;
-  update: (patch: { thesis?: string | null; country?: string | null; unlinkX?: boolean }) => Promise<{ ok: boolean; error?: string }>;
+  update: (patch: { thesis?: string | null; country?: string | null; unlinkX?: boolean }) => Promise<{ ok: boolean; error?: string; needsAuth?: boolean }>;
 }
 
 const Ctx = createContext<MeState | null>(null);
@@ -121,13 +121,12 @@ export function MeProvider({ children }: { children: React.ReactNode }) {
 
   const update = useCallback(
     async (patch: { thesis?: string | null; country?: string | null; unlinkX?: boolean }) => {
-      if (!wallet) return { ok: false, error: "Connect your wallet first" };
+      if (!sessionUserId) return { ok: false, error: "Sign in required", needsAuth: true };
       const local: Partial<CachedProfile> = {};
       if (patch.thesis !== undefined) local.thesis = patch.thesis;
       if (patch.country !== undefined) local.country = patch.country;
       if (patch.unlinkX) Object.assign(local, { xHandle: null, xName: null, xAvatarUrl: null });
       setCached(patchCachedProfile(local));
-      if (!(await ensureSession())) return { ok: false, error: "Wallet signature needed to save" };
       const res = await fetch("/api/users/me", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -142,7 +141,7 @@ export function MeProvider({ children }: { children: React.ReactNode }) {
       setUser(d.user);
       return { ok: true };
     },
-    [wallet, ensureSession]
+    [sessionUserId]
   );
 
   const value = useMemo<MeState>(

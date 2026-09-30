@@ -32,24 +32,26 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const verifier = await validateOAuthState(state);
-  if (!verifier) {
+  const validated = await validateOAuthState(state);
+  if (!validated) {
     return NextResponse.redirect(
       new URL("/profile/me?x=error&message=Invalid+state", baseUrl)
     );
   }
 
+  const { verifier, returnTo } = validated;
+
   const tokenResult = await exchangeCodeForToken(code, verifier, callbackUrl);
   if (!tokenResult) {
     return NextResponse.redirect(
-      new URL("/profile/me?x=error&message=Token+exchange+failed", baseUrl)
+      new URL(`${returnTo}?x=error&message=Token+exchange+failed`, baseUrl)
     );
   }
 
   const profile = await fetchXProfile(tokenResult.accessToken);
   if (!profile) {
     return NextResponse.redirect(
-      new URL("/profile/me?x=error&message=Failed+to+fetch+profile", baseUrl)
+      new URL(`${returnTo}?x=error&message=Failed+to+fetch+profile`, baseUrl)
     );
   }
 
@@ -61,13 +63,33 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       const db = getDb();
       const xId = profile.id;
       if (!xId) throw new Error("Missing X user ID");
+      
+      const xHandle = profile.username.replace(/^@/, "");
+
+      // Special case: map jayowtrades to user 1 (Jay)
+      if (xHandle === "jayowtrades") {
+        const [jay] = await db.select().from(users).where(eq(users.id, 1)).limit(1);
+        if (jay) {
+          const [updated] = await db
+            .update(users)
+            .set({
+              xId,
+              xHandle,
+              xName: profile.name,
+              xAvatarUrl: profile.avatarUrl ? profile.avatarUrl.replace("_normal.", "_400x400.") : null,
+            })
+            .where(eq(users.id, 1))
+            .returning();
+          await setSessionUserId(updated.id);
+          return NextResponse.redirect(new URL(`${returnTo}?x=connected`, baseUrl));
+        }
+      }
 
       // Find or create user by X ID
       let [user] = await db.select().from(users).where(eq(users.xId, xId)).limit(1);
       
       if (!user) {
         // Create new user with X identity (no wallet yet)
-        const xHandle = profile.username.replace(/^@/, "");
         [user] = await db
           .insert(users)
           .values({
@@ -83,7 +105,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         [user] = await db
           .update(users)
           .set({
-            xHandle: profile.username.replace(/^@/, ""),
+            xHandle,
             xName: profile.name,
             xAvatarUrl: profile.avatarUrl ? profile.avatarUrl.replace("_normal.", "_400x400.") : null,
           })
@@ -96,10 +118,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     } catch (e) {
       console.error("Failed to create/update user:", e);
       return NextResponse.redirect(
-        new URL("/profile/me?x=error&message=Failed+to+save+profile", baseUrl)
+        new URL(`${returnTo}?x=error&message=Failed+to+save+profile`, baseUrl)
       );
     }
   }
 
-  return NextResponse.redirect(new URL("/profile/me?x=connected", baseUrl));
+  return NextResponse.redirect(new URL(`${returnTo}?x=connected`, baseUrl));
 }

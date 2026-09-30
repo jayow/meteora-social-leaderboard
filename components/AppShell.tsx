@@ -2,21 +2,37 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { Logo, XIcon } from "@/components/ui";
 import { WalletButton } from "@/components/WalletButton";
 import { useMe } from "@/components/MeProvider";
 import { meteoraHomeUrl } from "@/lib/meteora-links";
 
+interface SessionData {
+  userId?: number | null;
+  xHandle?: string | null;
+  xName?: string | null;
+  xAvatarUrl?: string | null;
+}
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { wallet, cached, user } = useMe();
   const { setVisible } = useWalletModal();
+  const [session, setSession] = useState<SessionData | null>(null);
   const onBoard = pathname === "/";
   const onMe = pathname.startsWith("/profile");
   const onPools = pathname.startsWith("/pools");
   const onInvites = pathname === "/invites";
   const isMember = Boolean(user?.memberNumber);
+
+  useEffect(() => {
+    fetch("/api/auth/session")
+      .then((r) => r.json() as Promise<SessionData>)
+      .then((d) => setSession(d))
+      .catch(() => setSession(null));
+  }, []);
 
   return (
     <div className="min-h-screen pb-24 lg:pb-0">
@@ -52,7 +68,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
           )}
           <div className="ml-auto flex items-center gap-2 lg:ml-0">
-            {wallet && isMember && !cached.xHandle && (
+            {session?.userId && session.xHandle && !session.xAvatarUrl && (
+              <Link href="/profile/me" className="flex items-center gap-2 text-[13px] text-mute hover:text-white">
+                @{session.xHandle}
+              </Link>
+            )}
+            {session?.userId && session.xAvatarUrl && (
+              <Link href="/profile/me" className="flex items-center gap-2 rounded-full hover:opacity-80">
+                <img src={session.xAvatarUrl} alt={session.xHandle || ""} className="h-8 w-8 rounded-full" />
+                {session.xHandle && <span className="hidden text-[13px] text-mute sm:inline">@{session.xHandle}</span>}
+              </Link>
+            )}
+            {wallet && isMember && !session?.xHandle && (
               <Link href="/profile/me?connect=x" className="hidden h-10 items-center gap-1.5 rounded-full bg-purp/20 px-4 text-[14px] font-semibold text-purp-soft hover:bg-purp/30 sm:flex">
                 <XIcon /> Connect X
               </Link>

@@ -229,7 +229,8 @@ function Profile() {
 
             {mine && <OwnerControls user={user} focusX={search.get("connect") === "x"} onSaved={(u) => setUser(u)} />}
 
-            {mine && <WalletsSection />}
+            {/* WalletsSection hidden for now - multi-wallet feature parked */}
+            {/* {mine && <WalletsSection />} */}
 
             <Thesis user={user} mine={mine} onSaved={(u) => setUser(u)} />
 
@@ -304,16 +305,9 @@ function OwnerControls({ user, focusX, onSaved }: { user: ApiUser; focusX: boole
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
-  const connectX = async () => {
-    setBusy("x");
-    setErr(null);
-    const ok = await me.verify();
-    if (!ok) {
-      setBusy(null);
-      setErr("Sign the message in your wallet so we can link X to it.");
-      return;
-    }
-    window.location.href = "/api/x/login";
+  const connectX = () => {
+    const currentPath = encodeURIComponent(window.location.pathname + window.location.search);
+    window.location.href = `/api/x/login?returnTo=${currentPath}`;
   };
 
   const saveCountry = async (c: string) => {
@@ -321,6 +315,11 @@ function OwnerControls({ user, focusX, onSaved }: { user: ApiUser; focusX: boole
     setErr(null);
     const r = await me.update({ country: c || null });
     setBusy(null);
+    if (r.needsAuth) {
+      const currentPath = encodeURIComponent(window.location.pathname + window.location.search);
+      window.location.href = `/api/x/login?returnTo=${currentPath}`;
+      return;
+    }
     if (!r.ok) setErr(r.error || "Couldn't save");
     else if (me.user) onSaved({ ...user, country: c || null });
   };
@@ -329,9 +328,31 @@ function OwnerControls({ user, focusX, onSaved }: { user: ApiUser; focusX: boole
     setBusy("unlink");
     const r = await me.update({ unlinkX: true });
     setBusy(null);
+    if (r.needsAuth) {
+      const currentPath = encodeURIComponent(window.location.pathname + window.location.search);
+      window.location.href = `/api/x/login?returnTo=${currentPath}`;
+      return;
+    }
     if (!r.ok) setErr(r.error || "Couldn't unlink");
     else onSaved({ ...user, xHandle: null, xName: null, xAvatarUrl: null });
   };
+
+  if (!me.verified) {
+    return (
+      <div className="mt-4 space-y-2">
+        <div className="rounded-2xl border border-purp/30 bg-purp/10 px-4 py-3 text-center">
+          <p className="text-[13px] text-mute">Sign in with X to edit your profile</p>
+          <button
+            type="button"
+            onClick={connectX}
+            className="mt-2 flex h-9 items-center gap-1.5 rounded-full bg-purp/25 px-4 text-[13px] font-bold text-purp-soft hover:bg-purp/35"
+          >
+            <XIcon /> Sign in with X
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mt-4 space-y-2">
@@ -342,19 +363,18 @@ function OwnerControls({ user, focusX, onSaved }: { user: ApiUser; focusX: boole
           </button>
         ) : (
           <button type="button" onClick={connectX} disabled={busy !== null} className={`flex h-9 items-center gap-1.5 rounded-full px-4 text-[13px] font-bold ${focusX ? "bg-orange text-white shadow-lg shadow-orange/30" : "bg-purp/25 text-purp-soft hover:bg-purp/35"}`}>
-            <XIcon /> {busy === "x" ? "Check your wallet…" : "Connect X"}
+            <XIcon /> {busy === "x" ? "Connecting…" : "Connect X"}
           </button>
         )}
         <CountrySelect value={user.country || ""} onChange={saveCountry} allLabel="Set your country" disabled={busy !== null} />
       </div>
-      {!me.verified && <p className="text-[11px] text-mute">Saving asks your wallet for a free signature to prove it&apos;s you.</p>}
       {err && <p className="text-[12px] text-dn">{err}</p>}
     </div>
   );
 }
 
 function ProfileBanner({ user, mine, onUpdated }: { user: ApiUser; mine: boolean; onUpdated: () => void }) {
-  const { ensureSession } = useMe();
+  const { verified } = useMe();
   const [editing, setEditing] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -387,15 +407,16 @@ function ProfileBanner({ user, mine, onUpdated }: { user: ApiUser; mine: boolean
   const upload = async () => {
     if (!preview) return;
 
+    if (!verified) {
+      const currentPath = encodeURIComponent(window.location.pathname + window.location.search);
+      window.location.href = `/api/x/login?returnTo=${currentPath}`;
+      return;
+    }
+
     setUploading(true);
     setError(null);
 
     try {
-      if (!(await ensureSession())) {
-        setError("Wallet signature needed to upload");
-        return;
-      }
-
       const blob = await fetch(preview).then((r) => r.blob());
       const formData = new FormData();
       formData.append("banner", blob, "banner.webp");
@@ -407,6 +428,11 @@ function ProfileBanner({ user, mine, onUpdated }: { user: ApiUser; mine: boolean
 
       if (!res.ok) {
         const data = await res.json();
+        if (res.status === 401) {
+          const currentPath = encodeURIComponent(window.location.pathname + window.location.search);
+          window.location.href = `/api/x/login?returnTo=${currentPath}`;
+          return;
+        }
         throw new Error(data.error || "Upload failed");
       }
 
@@ -423,16 +449,22 @@ function ProfileBanner({ user, mine, onUpdated }: { user: ApiUser; mine: boolean
   const remove = async () => {
     if (!confirm("Remove your banner?")) return;
 
+    if (!verified) {
+      const currentPath = encodeURIComponent(window.location.pathname + window.location.search);
+      window.location.href = `/api/x/login?returnTo=${currentPath}`;
+      return;
+    }
+
     setUploading(true);
     setError(null);
 
     try {
-      if (!(await ensureSession())) {
-        setError("Wallet signature needed to remove banner");
+      const res = await fetch(`/api/users/${user.id}/banner`, { method: "DELETE" });
+      if (res.status === 401) {
+        const currentPath = encodeURIComponent(window.location.pathname + window.location.search);
+        window.location.href = `/api/x/login?returnTo=${currentPath}`;
         return;
       }
-
-      const res = await fetch(`/api/users/${user.id}/banner`, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to remove banner");
 
       setEditing(false);
@@ -442,6 +474,15 @@ function ProfileBanner({ user, mine, onUpdated }: { user: ApiUser; mine: boolean
     } finally {
       setUploading(false);
     }
+  };
+
+  const handleEditClick = () => {
+    if (!verified) {
+      const currentPath = encodeURIComponent(window.location.pathname + window.location.search);
+      window.location.href = `/api/x/login?returnTo=${currentPath}`;
+      return;
+    }
+    setEditing(true);
   };
 
   return (
@@ -457,7 +498,7 @@ function ProfileBanner({ user, mine, onUpdated }: { user: ApiUser; mine: boolean
         {mine && (
           <button
             type="button"
-            onClick={() => setEditing(true)}
+            onClick={handleEditClick}
             className="absolute right-3 top-3 flex items-center gap-1.5 rounded-full border border-white/20 bg-[#12121C] px-3 py-1.5 text-[12px] font-semibold text-white hover:border-white/30 hover:bg-[#1A1623]"
           >
             <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -735,6 +776,11 @@ function Thesis({ user, mine, onSaved }: { user: ApiUser; mine: boolean; onSaved
     setErr(null);
     const r = await me.update({ thesis: value });
     setBusy(false);
+    if (r.needsAuth) {
+      const currentPath = encodeURIComponent(window.location.pathname + window.location.search);
+      window.location.href = `/api/x/login?returnTo=${currentPath}`;
+      return;
+    }
     if (!r.ok) setErr(r.error || "Couldn't save");
     else {
       onSaved({ ...user, thesis: value.trim() || null });
@@ -742,12 +788,21 @@ function Thesis({ user, mine, onSaved }: { user: ApiUser; mine: boolean; onSaved
     }
   };
 
+  const handleEditClick = () => {
+    if (!me.verified) {
+      const currentPath = encodeURIComponent(window.location.pathname + window.location.search);
+      window.location.href = `/api/x/login?returnTo=${currentPath}`;
+      return;
+    }
+    setEditing(true);
+  };
+
   return (
     <div className="mt-4 rounded-2xl rounded-tl-md border border-purp/20 bg-purp/10 p-3.5">
       <div className="flex items-center justify-between">
         <div className="text-[10px] font-bold uppercase tracking-wider text-purp-soft">Thesis</div>
         {mine && !editing && (
-          <button type="button" onClick={() => setEditing(true)} className="text-[12px] font-semibold text-orange hover:text-orange-soft">
+          <button type="button" onClick={handleEditClick} className="text-[12px] font-semibold text-orange hover:text-orange-soft">
             {user.thesis ? "Edit" : "Write one"}
           </button>
         )}

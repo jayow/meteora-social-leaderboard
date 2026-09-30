@@ -82,9 +82,9 @@ export function getCallbackUrl(req: Request): string {
 }
 
 /**
- * Store OAuth state and verifier in httpOnly cookies
+ * Store OAuth state, verifier, and returnTo in httpOnly cookies
  */
-export async function storeOAuthState(state: string, verifier: string): Promise<void> {
+export async function storeOAuthState(state: string, verifier: string, returnTo?: string): Promise<void> {
   const cookieStore = await cookies();
   cookieStore.set("x_oauth_state", state, {
     httpOnly: true,
@@ -100,15 +100,25 @@ export async function storeOAuthState(state: string, verifier: string): Promise<
     maxAge: 600, // 10 minutes
     path: "/",
   });
+  if (returnTo) {
+    cookieStore.set("x_oauth_return", returnTo, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 600, // 10 minutes
+      path: "/",
+    });
+  }
 }
 
 /**
  * Retrieve and validate OAuth state from cookies
  */
-export async function validateOAuthState(receivedState: string): Promise<string | null> {
+export async function validateOAuthState(receivedState: string): Promise<{ verifier: string; returnTo: string } | null> {
   const cookieStore = await cookies();
   const storedState = cookieStore.get("x_oauth_state")?.value;
   const verifier = cookieStore.get("x_oauth_verifier")?.value;
+  const returnTo = cookieStore.get("x_oauth_return")?.value || "/profile/me";
 
   if (!storedState || !verifier || storedState !== receivedState) {
     return null;
@@ -117,8 +127,9 @@ export async function validateOAuthState(receivedState: string): Promise<string 
   // Clear one-time state and verifier cookies after validation
   cookieStore.delete("x_oauth_state");
   cookieStore.delete("x_oauth_verifier");
+  cookieStore.delete("x_oauth_return");
 
-  return verifier;
+  return { verifier, returnTo };
 }
 
 /**
