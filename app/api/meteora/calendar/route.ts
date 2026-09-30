@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { DailyPnL } from "@/lib/types";
+import { fetchMeteora } from "@/lib/meteora-limiter";
 
 const CALENDAR_BASE = "https://portfolio.datapi.meteora.ag";
 
@@ -40,22 +41,11 @@ export async function GET(request: NextRequest) {
   const month = monthParam || `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
 
   try {
-    const calendarRes = await fetch(
-      `${CALENDAR_BASE}/chart/calendar/${wallet}?month=${month}`,
-      {
-        headers: { Accept: "application/json" },
-        next: { revalidate: 60 },
-      }
-    );
-
-    if (!calendarRes.ok) {
-      return NextResponse.json(
-        { error: `Meteora calendar ${calendarRes.status}` },
-        { status: calendarRes.status }
-      );
-    }
-
-    const calendarData = await calendarRes.json();
+    const url = `${CALENDAR_BASE}/chart/calendar/${wallet}?month=${month}`;
+    const isPastMonth = month < now.toISOString().slice(0, 7);
+    const ttl = isPastMonth ? 3600000 : 120000; // 1h for past months, 2min for current
+    
+    const calendarData = await fetchMeteora<{ data_points?: MeteoraCalendarDataPoint[] }>(url, ttl);
     const dataPoints = Array.isArray(calendarData.data_points) ? calendarData.data_points : [];
 
     const days: DailyPnL[] = dataPoints.map((point: MeteoraCalendarDataPoint) => {
@@ -71,12 +61,21 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    return NextResponse.json({
-      wallet,
-      month,
-      days,
-      note: "Live from Meteora portfolio calendar API",
-    });
+    const maxAge = isPastMonth ? 3600 : 120;
+    
+    return NextResponse.json(
+      {
+        wallet,
+        month,
+        days,
+        note: "Live from Meteora portfolio calendar API",
+      },
+      {
+        headers: {
+          "Cache-Control": `public, s-maxage=${maxAge}, stale-while-revalidate=${maxAge * 2}`,
+        },
+      }
+    );
   } catch (error) {
     console.error("calendar route error", error);
     return NextResponse.json({ error: "Failed to fetch calendar" }, { status: 500 });

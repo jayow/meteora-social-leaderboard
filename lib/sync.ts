@@ -2,6 +2,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { openPositions, pnlSnapshots, users, type NewSnapshot, type UserRow } from "@/lib/db/schema";
 import { num } from "@/lib/meteora";
+import { fetchMeteora } from "@/lib/meteora-limiter";
 
 const DLMM = "https://dlmm.datapi.meteora.ag";
 const PORTFOLIO = "https://portfolio.datapi.meteora.ag";
@@ -21,12 +22,10 @@ function mintOf(t: unknown): string {
   return t && typeof t === "object" && typeof (t as Json).address === "string" ? ((t as Json).address as string) : "";
 }
 
-async function getJson(url: string): Promise<Json | null> {
+async function getJson(url: string, ttlMs = 60000): Promise<Json | null> {
   try {
-    const res = await fetch(url, { headers: { Accept: "application/json" }, cache: "no-store" });
-    if (!res.ok) return null;
-    const data: unknown = await res.json();
-    return data && typeof data === "object" ? (data as Json) : null;
+    const data = await fetchMeteora<Json>(url, ttlMs);
+    return data && typeof data === "object" ? data : null;
   } catch {
     return null;
   }

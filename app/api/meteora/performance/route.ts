@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { fetchMeteora } from "@/lib/meteora-limiter";
 
 const METEORA_PORTFOLIO_API_BASE = "https://portfolio.datapi.meteora.ag";
 
@@ -14,30 +15,24 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  if (!["30d", "all"].includes(timeRange)) {
+  if (!["7d", "30d", "all"].includes(timeRange)) {
     return NextResponse.json(
-      { error: "time_range must be 30d or all" },
+      { error: "time_range must be 7d, 30d or all" },
       { status: 400 }
     );
   }
 
   try {
-    const response = await fetch(
-      `${METEORA_PORTFOLIO_API_BASE}/performances/${wallet}?time_range=${timeRange}`,
-      {
-        headers: {
-          Accept: "application/json",
-        },
-        next: { revalidate: 60 },
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(`Meteora API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    return NextResponse.json(data);
+    const url = `${METEORA_PORTFOLIO_API_BASE}/performances/${wallet}?time_range=${timeRange}`;
+    const ttl = timeRange === "all" ? 300000 : 120000; // 5min for all, 2min for 7d/30d
+    const data = await fetchMeteora(url, ttl);
+    
+    const maxAge = timeRange === "all" ? 300 : 120;
+    return NextResponse.json(data, {
+      headers: {
+        "Cache-Control": `public, s-maxage=${maxAge}, stale-while-revalidate=${maxAge * 2}`,
+      },
+    });
   } catch (error) {
     console.error("Error fetching performance:", error);
     return NextResponse.json(

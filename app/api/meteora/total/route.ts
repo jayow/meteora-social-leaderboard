@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { fetchMeteora } from "@/lib/meteora-limiter";
 
 const METEORA_API_BASE = "https://dlmm.datapi.meteora.ag";
 
@@ -14,22 +15,14 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const response = await fetch(
-      `${METEORA_API_BASE}/portfolio/total?user=${wallet}`,
-      {
-        headers: {
-          Accept: "application/json",
-        },
-        next: { revalidate: 60 },
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(`Meteora API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    return NextResponse.json(data);
+    const url = `${METEORA_API_BASE}/portfolio/total?user=${wallet}`;
+    const data = await fetchMeteora(url, 120000); // 2min TTL
+    
+    return NextResponse.json(data, {
+      headers: {
+        "Cache-Control": "public, s-maxage=120, stale-while-revalidate=240",
+      },
+    });
   } catch (error) {
     console.error("Error fetching total portfolio:", error);
     return NextResponse.json(
