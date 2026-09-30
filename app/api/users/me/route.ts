@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { getDb, hasDb } from "@/lib/db";
 import { users } from "@/lib/db/schema";
-import { getSessionWallet } from "@/lib/session";
+import { getSessionUserId } from "@/lib/session";
 import { isCountryCode } from "@/lib/countries";
 import { toPublicUser } from "@/lib/users";
 
@@ -17,8 +17,8 @@ interface PatchBody {
 export async function PATCH(req: NextRequest): Promise<NextResponse> {
   if (!hasDb()) return NextResponse.json({ error: "Database not configured" }, { status: 503 });
   
-  const wallet = await getSessionWallet();
-  if (!wallet) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  const userId = await getSessionUserId();
+  if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   let body: PatchBody = {};
   try {
@@ -28,7 +28,7 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
   }
 
   const db = getDb();
-  const [user] = await db.select().from(users).where(eq(users.wallet, wallet)).limit(1);
+  const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
   if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
   const updates: Partial<typeof users.$inferInsert> = {};
