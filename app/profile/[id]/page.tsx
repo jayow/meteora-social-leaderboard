@@ -3,6 +3,7 @@
 import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
+import { useWallet } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import type { ApiSnapshot, ApiUser } from "@/lib/api-types";
 import { useMe } from "@/components/MeProvider";
@@ -12,9 +13,10 @@ import { CountrySelect } from "@/components/CountrySelect";
 import { OpenPositions } from "@/components/OpenPositions";
 import { FollowButton } from "@/components/FollowButton";
 import { SharePnLModal } from "@/components/SharePnLModal";
-import { displayName, fmtPct, fmtUsd, timeAgo } from "@/lib/format";
+import { displayName, fmtPct, fmtUsd, shortAddr, timeAgo } from "@/lib/format";
 import { isValidWalletClient } from "@/lib/wallet-client";
 import { patchCachedProfile } from "@/lib/storage";
+import { loginMessage } from "@/lib/login-message";
 
 type Range = "7d" | "30d" | "all";
 const RANGE_LABEL: Record<Range, string> = { "7d": "7D", "30d": "30D", all: "All-time" };
@@ -226,6 +228,8 @@ function Profile() {
             )}
 
             {mine && <OwnerControls user={user} focusX={search.get("connect") === "x"} onSaved={(u) => setUser(u)} />}
+
+            {mine && <WalletsSection />}
 
             <Thesis user={user} mine={mine} onSaved={(u) => setUser(u)} />
 
@@ -522,6 +526,178 @@ function ProfileBanner({ user, mine, onUpdated }: { user: ApiUser; mine: boolean
         </div>
       )}
     </>
+  );
+}
+
+interface UserWallet {
+  id: number;
+  address: string;
+  label: string | null;
+  isPrimary: boolean;
+  createdAt: string;
+}
+
+function WalletsSection() {
+  const { publicKey, signMessage } = useWallet();
+  const [wallets, setWallets] = useState<UserWallet[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [adding, setAdding] = useState(false);
+  const [busy, setBusy] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadWallets = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/wallets");
+      if (res.ok) {
+        const data = (await res.json()) as { wallets: UserWallet[] };
+        setWallets(data.wallets);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadWallets();
+  }, [loadWallets]);
+
+  const addCurrentWallet = async () => {
+    if (!publicKey || !signMessage) return;
+    setAdding(true);
+    setError(null);
+    try {
+      const address = publicKey.toBase58();
+      const issuedAt = new Date().toISOString();
+      const sig = await signMessage(new TextEncoder().encode(loginMessage(address, issuedAt)));
+      const signature = btoa(String.fromCharCode(...sig));
+
+      const res = await fetch("/api/wallets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ address, signature, issuedAt }),
+      });
+
+      if (res.ok) {
+        await loadWallets();
+      } else {
+        const data = (await res.json()) as { error?: string };
+        setError(data.error || "Failed to add wallet");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to add wallet");
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  const removeWallet = async (address: string) => {
+    setBusy(wallets.find((w) => w.address === address)?.id || null);
+    setError(null);
+    try {
+      const res = await fetch(`/api/wallets/${address}`, { method: "DELETE" });
+      if (res.ok) {
+        await loadWallets();
+      } else {
+        const data = (await res.json()) as { error?: string };
+        setError(data.error || "Failed to remove wallet");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to remove wallet");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const setPrimary = async (address: string) => {
+    setBusy(wallets.find((w) => w.address === address)?.id || null);
+    setError(null);
+    try {
+      const res = await fetch(`/api/wallets/${address}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ setPrimary: true }),
+      });
+      if (res.ok) {
+        await loadWallets();
+      } else {
+        const data = (await res.json()) as { error?: string };
+        setError(data.error || "Failed to set primary");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to set primary");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const currentAddress = publicKey?.toBase58();
+  const currentIsLinked = currentAddress && wallets.some((w) => w.address === currentAddress);
+  const canAddMore = wallets.length < 5;
+
+  return (
+    <div className="mt-4 rounded-2xl border border-white/[.08] bg-black/20 p-4">
+      <div className="flex items-center justify-between">
+        <div className="text-[13px] font-bold text-white">Linked Wallets</div>
+        {publicKey && canAddMore && !currentIsLinked && (
+          <button
+            type="button"
+            onClick={addCurrentWallet}
+            disabled={adding}
+            className="h-7 rounded-full bg-purp/25 px-3 text-[12px] font-semibold text-purp-soft hover:bg-purp/35 disabled:opacity-50"
+          >
+            {adding ? "Signing…" : "Link current wallet"}
+          </button>
+        )}
+      </div>
+      
+      {loading ? (
+        <div className="mt-3 text-[12px] text-mute">Loading…</div>
+      ) : wallets.length === 0 ? (
+        <div className="mt-3 text-[12px] text-mute">No wallets linked yet.</div>
+      ) : (
+        <div className="mt-3 space-y-2">
+          {wallets.map((w) => (
+            <div key={w.id} className="flex items-center justify-between rounded-xl border border-white/[.06] bg-white/[.02] px-3 py-2">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="num text-[13px] font-semibold">{shortAddr(w.address)}</span>
+                  {w.isPrimary && <span className="rounded bg-orange/20 px-1.5 py-0.5 text-[10px] font-bold text-orange">PRIMARY</span>}
+                </div>
+                {w.label && <div className="mt-0.5 text-[11px] text-mute">{w.label}</div>}
+              </div>
+              <div className="flex gap-2">
+                {!w.isPrimary && wallets.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => setPrimary(w.address)}
+                    disabled={busy === w.id}
+                    className="text-[11px] font-semibold text-white/70 hover:text-white disabled:opacity-50"
+                  >
+                    Set primary
+                  </button>
+                )}
+                {wallets.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeWallet(w.address)}
+                    disabled={busy === w.id}
+                    className="text-[11px] font-semibold text-dn hover:text-dn-soft disabled:opacity-50"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      
+      {error && <div className="mt-2 text-[12px] text-dn">{error}</div>}
+      {!loading && wallets.length >= 5 && <div className="mt-2 text-[11px] text-mute">Maximum 5 wallets per account</div>}
+    </div>
   );
 }
 

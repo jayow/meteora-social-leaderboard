@@ -43,6 +43,13 @@
       "when": 1790788376362,
       "tag": "0005_fast_the_renegades",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790789531313,
+      "tag": "0006_fancy_carlie_cooper",
+      "breakpoints": true
     }
   ]
 }
