@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 import { NextRequest } from "next/server";
-import { findUser, latestSnapshot } from "@/lib/users";
+import { findUser, latestSnapshot, toPublicSnapshot } from "@/lib/users";
 import { displayName, fmtUsd, fmtPct } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -45,10 +45,12 @@ export async function GET(
       return new Response("User not found", { status: 404 });
     }
 
-    const snap = await latestSnapshot(user.id);
-    if (!snap) {
+    const snapRow = await latestSnapshot(user.id);
+    if (!snapRow) {
       return new Response("No data available", { status: 404 });
     }
+
+    const snap = toPublicSnapshot(snapRow);
 
     // Get PnL, fees, win rate, and top pool based on range
     const pnlMap: Record<string, number | null> = {
@@ -70,7 +72,7 @@ export async function GET(
     const pnl = pnlMap[range] ?? 0;
     const fees = feesMap[range] ?? snap.fees30dUsd ?? 0;
     const winRate = winRateMap[range];
-    const topPool = snap.topPoolName || null;
+    const topPool = snap.topPool?.name || null;
 
     const rank = await getUserRank(user.id, range);
 
@@ -109,7 +111,14 @@ export async function GET(
             }}
           >
             {/* Logo */}
-            <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+              <img
+                src={`${APP_URL}/logo-mark.svg`}
+                width="40"
+                height="35"
+                alt="Pool Party"
+                style={{ flexShrink: 0 }}
+              />
               <svg
                 width="120"
                 height="40"
@@ -242,7 +251,7 @@ export async function GET(
                 Win Rate
               </div>
               <div style={{ fontSize: "36px", fontWeight: 800, color: "#FFF4EA" }}>
-                {winRate != null ? fmtPct(winRate, 1) : "—"}
+                {winRate != null ? fmtPct(winRate * 100, 1) : "—"}
               </div>
             </div>
             <div
