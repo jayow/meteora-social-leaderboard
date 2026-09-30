@@ -83,11 +83,6 @@ export async function GET(
     const pnlColor = pnl >= 0 ? "#00FF94" : "#FF3D7F";
     const pnlSign = pnl > 0 ? "+" : pnl < 0 ? "" : "";
 
-    // Fetch font from Google Fonts CDN (more reliable than gstatic)
-    const fontData = await fetch(
-      "https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap"
-    ).then((r) => r.arrayBuffer()).catch(() => null);
-
     return new ImageResponse(
       (
         <div
@@ -100,6 +95,7 @@ export async function GET(
             backgroundImage:
               "radial-gradient(circle at 30% 20%, rgba(139, 108, 255, 0.15), transparent 40%), radial-gradient(circle at 70% 80%, rgba(255, 92, 26, 0.1), transparent 40%)",
             padding: "60px",
+            fontFamily: fontData ? "Inter" : "system-ui",
           }}
         >
           {/* Header: Logo + Handle */}
@@ -340,6 +336,16 @@ export async function GET(
       {
         width: 1200,
         height: 630,
+        ...(fontData ? {
+          fonts: [
+            {
+              name: "Inter",
+              data: fontData,
+              weight: 400,
+              style: "normal",
+            },
+          ],
+        } : {}),
       }
     );
   } catch (error) {
