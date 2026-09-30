@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { fmtUsd } from "@/lib/format";
+import { meteoraPoolUrl } from "@/lib/meteora-links";
 
 interface MeteoraOpenPool {
   poolAddress: string;
@@ -127,12 +128,11 @@ function PositionCard({ pool }: { pool: MeteoraOpenPool }) {
   const value = pool.valueUsd || 0;
 
   return (
-    <a
-      href={`https://app.meteora.ag/dlmm/${pool.poolAddress}`}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="block rounded-2xl border border-white/[.08] bg-gradient-to-br from-white/[.04] to-transparent p-4 transition hover:border-orange/40 hover:bg-white/[.06]"
-    >
+    <div className="relative rounded-2xl border border-white/[.08] bg-gradient-to-br from-white/[.04] to-transparent p-4 transition hover:border-orange/40 hover:bg-white/[.06]">
+      <a
+        href={`/pools/${pool.poolAddress}`}
+        className="block"
+      >
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2.5">
           <div className="flex items-center">
@@ -171,7 +171,19 @@ function PositionCard({ pool }: { pool: MeteoraOpenPool }) {
           <div className="num mt-0.5 font-semibold">{fmtUsd(value)}</div>
         </div>
       </div>
-    </a>
+      </a>
+      
+      <a
+        href={meteoraPoolUrl(pool.poolAddress, pool.protocol || undefined)}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={(e) => e.stopPropagation()}
+        className="group absolute right-3 top-3 flex items-center gap-1 rounded-full bg-gradient-to-r from-[#FF5C1A] to-[#FF3D7F] px-2.5 py-1 text-[11px] font-bold text-white shadow-md transition hover:shadow-lg hover:shadow-orange/30"
+      >
+        <span className="transition group-hover:scale-110">🏖️</span>
+        <span>Dip in</span>
+      </a>
+    </div>
   );
 }
 
@@ -179,13 +191,11 @@ function PositionCardCompact({ pool }: { pool: MeteoraOpenPool }) {
   const value = pool.valueUsd || 0;
 
   return (
-    <a
-      href={`https://app.meteora.ag/dlmm/${pool.poolAddress}`}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="flex items-center justify-between rounded-xl border border-white/[.08] bg-black/20 p-3 transition hover:border-orange/40"
-    >
-      <div className="flex items-center gap-2">
+    <div className="relative flex items-center justify-between rounded-xl border border-white/[.08] bg-black/20 p-3 transition hover:border-orange/40">
+      <a
+        href={`/pools/${pool.poolAddress}`}
+        className="flex flex-1 items-center gap-2"
+      >
         <div className="flex items-center">
           {pool.tokenXIcon ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -200,14 +210,24 @@ function PositionCardCompact({ pool }: { pool: MeteoraOpenPool }) {
             <div className="-ml-1.5 h-6 w-6 rounded-full border border-base bg-[#222]" />
           )}
         </div>
-        <div>
+        <div className="ml-2">
           <div className="text-[13px] font-semibold">{pool.tokenX}/{pool.tokenY}</div>
           <div className="num text-[11px] text-mute">{fmtUsd(value)}</div>
         </div>
-      </div>
-      <div className="num text-[14px] font-semibold text-white">
+      </a>
+      <div className="num mr-2 text-[14px] font-semibold text-white">
         {pool.positionCount || 0}
       </div>
-    </a>
+      
+      <a
+        href={meteoraPoolUrl(pool.poolAddress, pool.protocol || undefined)}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={(e) => e.stopPropagation()}
+        className="group flex items-center gap-0.5 rounded-full bg-gradient-to-r from-[#FF5C1A] to-[#FF3D7F] px-2 py-0.5 text-[10px] font-bold text-white shadow-sm transition hover:shadow-lg hover:shadow-orange/25"
+      >
+        <span className="transition group-hover:scale-110">🏖️</span>
+      </a>
+    </div>
   );
 }

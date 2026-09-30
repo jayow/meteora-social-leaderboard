@@ -8,6 +8,7 @@ import { useMe } from "@/components/MeProvider";
 import { Avatar, Flag } from "@/components/ui";
 import { FollowButton } from "@/components/FollowButton";
 import { displayName, fmtUsd } from "@/lib/format";
+import { meteoraPoolUrl } from "@/lib/meteora-links";
 
 interface PoolData {
   poolAddress: string;
@@ -119,7 +120,6 @@ export default function PoolDetailPage() {
   }
 
   const [x = "?", y = "?"] = [pool.tokenX, pool.tokenY];
-  const meteoraUrl = `https://app.meteora.ag/dlmm/${pool.poolAddress}`;
 
   return (
     <main className="mx-auto max-w-[900px] px-4 pb-10 pt-6 lg:px-6">
@@ -142,14 +142,18 @@ export default function PoolDetailPage() {
               <div className="mt-1 text-[13px] text-mute">Bin step {pool.binStep}</div>
             )}
           </div>
-          <a
-            href={meteoraUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="h-10 rounded-full bg-orange px-4 text-[14px] font-bold leading-10 shadow-lg shadow-orange/25 hover:bg-orange-soft"
-          >
-            View on Meteora ↗
-          </a>
+          <div className="flex flex-col items-end gap-1.5">
+            <a
+              href={meteoraPoolUrl(pool.poolAddress, pool.protocol || undefined)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group flex items-center gap-2 rounded-full bg-gradient-to-r from-[#FF5C1A] to-[#FF3D7F] px-5 py-2.5 text-[15px] font-bold text-white shadow-lg shadow-orange/30 transition hover:shadow-xl hover:shadow-orange/40"
+            >
+              <span className="transition group-hover:scale-110">🏖️</span>
+              <span>Dip into this pool</span>
+            </a>
+            <span className="text-[10px] text-mute">Opens Meteora</span>
+          </div>
         </div>
 
         <div className="mt-4 grid grid-cols-2 gap-4 rounded-2xl border border-white/[.07] bg-white/[.03] p-4 sm:grid-cols-3">
