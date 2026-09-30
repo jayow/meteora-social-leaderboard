@@ -83,6 +83,11 @@ export async function GET(
     const pnlColor = pnl >= 0 ? "#00FF94" : "#FF3D7F";
     const pnlSign = pnl > 0 ? "+" : pnl < 0 ? "" : "";
 
+    // Fetch font from Google Fonts CDN (more reliable than gstatic)
+    const fontData = await fetch(
+      "https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap"
+    ).then((r) => r.arrayBuffer()).catch(() => null);
+
     return new ImageResponse(
       (
         <div
