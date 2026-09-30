@@ -20,7 +20,6 @@ interface CountryStatsRow {
   total_volume: number | null;
   avg_win_rate: number | null;
   top_lp_id: number | null;
-  top_lp_wallet: string | null;
   top_lp_x_handle: string | null;
   top_lp_x_name: string | null;
   top_lp_x_avatar_url: string | null;
@@ -62,7 +61,6 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       SELECT DISTINCT ON (u.country)
         u.country,
         u.id AS top_lp_id,
-        u.wallet AS top_lp_wallet,
         u.x_handle AS top_lp_x_handle,
         u.x_name AS top_lp_x_name,
         u.x_avatar_url AS top_lp_x_avatar_url,
@@ -80,7 +78,6 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       cs.total_volume,
       cs.avg_win_rate,
       tl.top_lp_id,
-      tl.top_lp_wallet,
       tl.top_lp_x_handle,
       tl.top_lp_x_name,
       tl.top_lp_x_avatar_url,
@@ -104,7 +101,6 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     avgWinRate: r.avg_win_rate,
     topLp: r.top_lp_id ? {
       id: r.top_lp_id,
-      wallet: r.top_lp_wallet,
       xHandle: r.top_lp_x_handle,
       xName: r.top_lp_x_name,
       xAvatarUrl: r.top_lp_x_avatar_url,

@@ -346,7 +346,6 @@ interface CountryLeaderboardEntry {
   avgWinRate: number | null;
   topLp: {
     id: number;
-    wallet: string;
     xHandle: string | null;
     xName: string | null;
     xAvatarUrl: string | null;
