@@ -28,11 +28,16 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     const isPastMonth = month < now.toISOString().slice(0, 7);
     const ttl = isPastMonth ? 3600000 : 120000;
     
-    const data = await fetchMeteora(url, ttl) as Record<string, unknown>;
+    const data = await fetchMeteora(url, ttl) as { data_points?: Array<{ date_time: string; pnl_usd: string; closed_position_count: number }> };
     
-    // Strip wallet/owner fields from response
-    const { wallet: _w, owner: _o, ...cleaned } = data;
-    return NextResponse.json(cleaned);
+    // Transform data_points to days format expected by component
+    const days = (data.data_points || []).map((point) => ({
+      date: point.date_time.slice(0, 10), // Extract YYYY-MM-DD
+      pnl: parseFloat(point.pnl_usd || "0"),
+      positions: point.closed_position_count || 0,
+    }));
+    
+    return NextResponse.json({ days });
   } catch (error) {
     console.error("Calendar fetch error:", error);
     return NextResponse.json({ error: "Failed to fetch calendar" }, { status: 500 });

@@ -74,26 +74,6 @@ export async function GET(
 
     const rank = await getUserRank(user.id, range);
 
-    // Fetch Nunito font with timeout
-    let fontData: ArrayBuffer;
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
-      
-      const fontRes = await fetch(
-        "https://fonts.gstatic.com/s/nunito/v26/XRXI3I6Li01BKofiOc5wtlZ2di8HDLshdTk3j77e.woff",
-        { signal: controller.signal }
-      );
-      clearTimeout(timeoutId);
-      
-      if (!fontRes.ok) throw new Error("Font fetch failed");
-      fontData = await fontRes.arrayBuffer();
-    } catch (error) {
-      console.error("Font fetch error:", error);
-      // Use a fallback or return error
-      return new Response("Font loading failed", { status: 503 });
-    }
-
     const rangeLabel = range === "7d" ? "7D" : range === "30d" ? "30D" : "All-time";
     const handle = displayName(user);
     const avatar = user.xAvatarUrl
@@ -115,7 +95,6 @@ export async function GET(
             backgroundImage:
               "radial-gradient(circle at 30% 20%, rgba(139, 108, 255, 0.15), transparent 40%), radial-gradient(circle at 70% 80%, rgba(255, 92, 26, 0.1), transparent 40%)",
             padding: "60px",
-            fontFamily: "Nunito",
           }}
         >
           {/* Header: Logo + Handle */}
@@ -356,26 +335,6 @@ export async function GET(
       {
         width: 1200,
         height: 630,
-        fonts: [
-          {
-            name: "Nunito",
-            data: fontData,
-            weight: 400,
-            style: "normal",
-          },
-          {
-            name: "Nunito",
-            data: fontData,
-            weight: 700,
-            style: "normal",
-          },
-          {
-            name: "Nunito",
-            data: fontData,
-            weight: 900,
-            style: "normal",
-          },
-        ],
       }
     );
   } catch (error) {
