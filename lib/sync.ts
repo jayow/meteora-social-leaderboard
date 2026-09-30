@@ -1,6 +1,6 @@
 import { and, eq, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { pnlSnapshots, users, type NewSnapshot, type UserRow } from "@/lib/db/schema";
+import { openPositions, pnlSnapshots, users, type NewSnapshot, type UserRow } from "@/lib/db/schema";
 import { num } from "@/lib/meteora";
 
 const DLMM = "https://dlmm.datapi.meteora.ag";
@@ -42,6 +42,9 @@ interface PortfolioPool {
   pnlUsd?: string | number;
   pnl?: string | number;
   lastClosedAt?: number;
+  balances?: string | number;
+  unclaimedFees?: string | number;
+  openPositionCount?: number;
 }
 
 interface TopPool {
@@ -190,6 +193,68 @@ export async function syncUser(user: UserRow): Promise<SyncResult> {
       target: [pnlSnapshots.userId, pnlSnapshots.date],
       set: { ...updatable, updatedAt: sql`now()` },
     });
+  
+  // Store open positions
+  if (openPools && openPools.length > 0) {
+    const currentPoolAddresses = openPools.map((p) => p.poolAddress).filter((a): a is string => Boolean(a));
+    
+    // Delete positions that are no longer open
+    if (currentPoolAddresses.length > 0) {
+      await db
+        .delete(openPositions)
+        .where(
+          and(
+            eq(openPositions.userId, user.id),
+            sql`${openPositions.poolAddress} NOT IN ${currentPoolAddresses}`
+          )
+        );
+    } else {
+      // No open positions, delete all
+      await db.delete(openPositions).where(eq(openPositions.userId, user.id));
+    }
+    
+    // Upsert current open positions
+    for (const pool of openPools) {
+      if (!pool.poolAddress) continue;
+      
+      const balances = pool.balances as string | number | undefined;
+      const unclaimedFees = pool.unclaimedFees as string | number | undefined;
+      const valueUsd = num(balances ?? 0) + num(unclaimedFees ?? 0);
+      const posCount = pool.openPositionCount as number | undefined;
+      
+      await db
+        .insert(openPositions)
+        .values({
+          userId: user.id,
+          poolAddress: pool.poolAddress,
+          tokenX: pool.tokenX || "?",
+          tokenY: pool.tokenY || "?",
+          tokenXIcon: pool.tokenXIcon || null,
+          tokenYIcon: pool.tokenYIcon || null,
+          binStep: pool.binStep != null ? Math.round(num(pool.binStep)) : null,
+          protocol: "dlmm",
+          valueUsd,
+          positionCount: posCount ?? 1,
+        })
+        .onConflictDoUpdate({
+          target: [openPositions.userId, openPositions.poolAddress],
+          set: {
+            tokenX: pool.tokenX || "?",
+            tokenY: pool.tokenY || "?",
+            tokenXIcon: pool.tokenXIcon || null,
+            tokenYIcon: pool.tokenYIcon || null,
+            binStep: pool.binStep != null ? Math.round(num(pool.binStep)) : null,
+            valueUsd,
+            positionCount: posCount ?? 1,
+            updatedAt: sql`now()`,
+          },
+        });
+    }
+  } else {
+    // No open positions, delete all
+    await db.delete(openPositions).where(eq(openPositions.userId, user.id));
+  }
+  
   await db.update(users).set({ lastSyncedAt: sql`now()` }).where(eq(users.id, user.id));
 
   return { ok: true, wallet: user.wallet, date, snapshot };

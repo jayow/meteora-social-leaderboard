@@ -65,6 +65,53 @@ export const pnlSnapshots = pgTable(
   (t) => [uniqueIndex("pnl_snapshots_user_date_key").on(t.userId, t.date), index("pnl_snapshots_date_idx").on(t.date)]
 );
 
+export const follows = pgTable(
+  "follows",
+  {
+    id: serial("id").primaryKey(),
+    followerUserId: integer("follower_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    followeeUserId: integer("followee_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("follows_follower_followee_key").on(t.followerUserId, t.followeeUserId),
+    index("follows_follower_idx").on(t.followerUserId),
+    index("follows_followee_idx").on(t.followeeUserId),
+  ]
+);
+
+export const openPositions = pgTable(
+  "open_positions",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    poolAddress: varchar("pool_address", { length: 64 }).notNull(),
+    tokenX: text("token_x").notNull(),
+    tokenY: text("token_y").notNull(),
+    tokenXIcon: text("token_x_icon"),
+    tokenYIcon: text("token_y_icon"),
+    binStep: integer("bin_step"),
+    protocol: varchar("protocol", { length: 16 }),
+    valueUsd: doublePrecision("value_usd"),
+    positionCount: integer("position_count"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("open_positions_user_pool_key").on(t.userId, t.poolAddress),
+    index("open_positions_pool_idx").on(t.poolAddress),
+    index("open_positions_user_idx").on(t.userId),
+  ]
+);
+
 export type UserRow = typeof users.$inferSelect;
 export type SnapshotRow = typeof pnlSnapshots.$inferSelect;
 export type NewSnapshot = typeof pnlSnapshots.$inferInsert;
+export type FollowRow = typeof follows.$inferSelect;
+export type OpenPositionRow = typeof openPositions.$inferSelect;

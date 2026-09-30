@@ -10,6 +10,7 @@ import { Avatar, Flag, Pills, PoolChip, StatTile, XIcon } from "@/components/ui"
 import { PnLCalendar } from "@/components/PnLCalendar";
 import { CountrySelect } from "@/components/CountrySelect";
 import { OpenPositions } from "@/components/OpenPositions";
+import { FollowButton } from "@/components/FollowButton";
 import { displayName, fmtPct, fmtUsd, shortAddr, timeAgo } from "@/lib/format";
 import { isValidWalletClient } from "@/lib/wallet-client";
 import { patchCachedProfile } from "@/lib/storage";
@@ -181,11 +182,14 @@ function Profile() {
                   <a href={shareUrl} target="_blank" rel="noreferrer" className="h-9 rounded-full bg-white/[.1] px-4 text-[13px] font-semibold leading-9 hover:bg-white/[.16]">
                     Share
                   </a>
-                ) : user.xHandle ? (
-                  <a href={`https://x.com/intent/follow?screen_name=${user.xHandle}`} target="_blank" rel="noreferrer" className="h-9 rounded-full bg-white px-4 text-[13px] font-bold leading-9 text-black hover:bg-white/90">
-                    Follow
+                ) : (
+                  <FollowButton targetUser={user} />
+                )}
+                {user.xHandle && (
+                  <a href={`https://x.com/${user.xHandle}`} target="_blank" rel="noreferrer" className="flex h-9 w-9 items-center justify-center rounded-full bg-white/[.08] hover:bg-white/[.14]" title={`@${user.xHandle} on X`}>
+                    <XIcon className="h-4 w-4" />
                   </a>
-                ) : null}
+                )}
               </div>
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -194,17 +198,29 @@ function Profile() {
               {mine && <span className="rounded-full bg-orange px-2 py-0.5 text-[11px] font-extrabold">YOU</span>}
             </div>
             <div className="mt-1 flex flex-wrap items-center gap-2 text-[13px] text-mute">
-              {user.xHandle ? (
+              {user.xHandle && (
                 <a href={`https://x.com/${user.xHandle}`} target="_blank" rel="noreferrer" className="flex items-center gap-1 hover:text-white">
                   @{user.xHandle}{user.xVerified && <> · <XIcon className="h-3 w-3" /> verified</>}
                 </a>
-              ) : (
-                <span>X not linked</span>
               )}
               <button type="button" onClick={() => navigator.clipboard?.writeText(user.wallet)} className="num hover:text-white" title="Copy address">
-                · {shortAddr(user.wallet)}
+                {user.xHandle ? "·" : ""} {shortAddr(user.wallet)}
               </button>
             </div>
+            {(user.followersCount !== undefined || user.followingCount !== undefined) && (
+              <div className="mt-2 flex gap-4 text-[13px]">
+                {user.followersCount !== undefined && (
+                  <span>
+                    <span className="font-semibold text-white">{user.followersCount}</span> <span className="text-mute">{user.followersCount === 1 ? "follower" : "followers"}</span>
+                  </span>
+                )}
+                {user.followingCount !== undefined && (
+                  <span>
+                    <span className="font-semibold text-white">{user.followingCount}</span> <span className="text-mute">following</span>
+                  </span>
+                )}
+              </div>
+            )}
 
             {mine && <OwnerControls user={user} focusX={search.get("connect") === "x"} onSaved={(u) => setUser(u)} />}
 

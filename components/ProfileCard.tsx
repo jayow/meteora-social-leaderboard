@@ -5,10 +5,11 @@ import type { PoolInfo } from "@/lib/api-types";
 import { Avatar, Flag, PoolChip, StatTile, XIcon } from "@/components/ui";
 import { PnLCalendar } from "@/components/PnLCalendar";
 import { OpenPositions } from "@/components/OpenPositions";
+import { FollowButton } from "@/components/FollowButton";
 import { displayName, fmtPct, fmtUsd, shortAddr } from "@/lib/format";
 
 export interface CardUser {
-  id?: number;
+  id: number;
   wallet: string;
   xHandle: string | null;
   xName: string | null;
@@ -16,6 +17,9 @@ export interface CardUser {
   xVerified?: boolean;
   country: string | null;
   thesis: string | null;
+  isFollowing?: boolean;
+  followersCount?: number;
+  followingCount?: number;
 }
 
 export interface CardStats {
@@ -42,13 +46,14 @@ export function ProfileCard({ user, stats, rank, isMe }: { user: CardUser; stats
         <div className="relative z-10 -mt-10 flex items-end justify-between">
           <Avatar user={user} size={76} ring />
           <div className="mb-1 flex gap-2">
-            {user.xHandle && !isMe && (
-              <a href={`https://x.com/intent/follow?screen_name=${user.xHandle}`} target="_blank" rel="noreferrer" className="h-8 rounded-full bg-white px-3.5 text-[13px] font-bold leading-8 text-black hover:bg-white/90">
-                Follow
+            {!isMe && <FollowButton targetUser={user} size="sm" />}
+            {user.xHandle && (
+              <a href={`https://x.com/${user.xHandle}`} target="_blank" rel="noreferrer" className="flex h-8 w-8 items-center justify-center rounded-full bg-white/[.08] hover:bg-white/[.14]" title={`@${user.xHandle} on X`}>
+                <XIcon className="h-3.5 w-3.5" />
               </a>
             )}
             <Link href={`/profile/${user.wallet}`} className="h-8 rounded-full bg-white/[.08] px-3.5 text-[13px] font-semibold leading-8 hover:bg-white/[.14]">
-              View profile
+              View
             </Link>
           </div>
         </div>
@@ -59,15 +64,27 @@ export function ProfileCard({ user, stats, rank, isMe }: { user: CardUser; stats
           {isMe && <span className="rounded-full bg-purp/25 px-2 py-0.5 text-[11px] font-bold text-purp-soft">YOU</span>}
         </div>
         <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[13px] text-mute">
-          {user.xHandle ? (
+          {user.xHandle && (
             <a href={`https://x.com/${user.xHandle}`} target="_blank" rel="noreferrer" className="flex items-center gap-1 hover:text-white">
               @{user.xHandle}{user.xVerified && <> · <XIcon className="h-3 w-3" /> verified</>}
             </a>
-          ) : (
-            <span>X not linked</span>
           )}
-          <span className="num">· {shortAddr(user.wallet)}</span>
+          <span className="num">{user.xHandle ? "·" : ""} {shortAddr(user.wallet)}</span>
         </div>
+        {(user.followersCount !== undefined || user.followingCount !== undefined) && (
+          <div className="mt-1.5 flex gap-3 text-[12px]">
+            {user.followersCount !== undefined && (
+              <span>
+                <span className="font-semibold text-white">{user.followersCount}</span> <span className="text-mute">{user.followersCount === 1 ? "follower" : "followers"}</span>
+              </span>
+            )}
+            {user.followingCount !== undefined && (
+              <span>
+                <span className="font-semibold text-white">{user.followingCount}</span> <span className="text-mute">following</span>
+              </span>
+            )}
+          </div>
+        )}
 
         <div className="mt-4 rounded-2xl rounded-tl-md border border-purp/20 bg-purp/10 p-3">
           <div className="text-[10px] font-bold uppercase tracking-wider text-purp-soft">Thesis</div>

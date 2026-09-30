@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq, sql } from "drizzle-orm";
 import { getDb, hasDb } from "@/lib/db";
 import { users } from "@/lib/db/schema";
-import { findUser, latestSnapshot, toPublicSnapshot, toPublicUser } from "@/lib/users";
+import { findUser, getFollowCounts, isUserFollowing, latestSnapshot, toPublicSnapshot, toPublicUser } from "@/lib/users";
 import { getSessionWallet } from "@/lib/session";
 import { isCountryCode } from "@/lib/countries";
 
@@ -13,8 +13,27 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
   const { id } = await ctx.params;
   const user = await findUser(decodeURIComponent(id));
   if (!user) return NextResponse.json({ user: null }, { status: 404 });
+  
   const snap = await latestSnapshot(user.id);
-  return NextResponse.json({ user: toPublicUser(user), snapshot: snap ? toPublicSnapshot(snap) : null });
+  const counts = await getFollowCounts(user.id);
+  
+  const sessionWallet = await getSessionWallet();
+  let currentUserId: number | null = null;
+  if (sessionWallet) {
+    const currentUser = await findUser(sessionWallet);
+    currentUserId = currentUser?.id ?? null;
+  }
+  
+  const isFollowing = await isUserFollowing(currentUserId, user.id);
+  
+  const publicUser = {
+    ...toPublicUser(user),
+    followersCount: counts.followersCount,
+    followingCount: counts.followingCount,
+    isFollowing,
+  };
+  
+  return NextResponse.json({ user: publicUser, snapshot: snap ? toPublicSnapshot(snap) : null });
 }
 
 interface PatchBody {

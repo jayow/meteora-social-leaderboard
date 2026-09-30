@@ -1,6 +1,6 @@
 import { desc, eq, ilike, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { pnlSnapshots, users, type SnapshotRow, type UserRow } from "@/lib/db/schema";
+import { follows, pnlSnapshots, users, type SnapshotRow, type UserRow } from "@/lib/db/schema";
 
 export interface XFields {
   xId?: string | null;
@@ -88,6 +88,9 @@ export interface PublicUser {
   thesis: string | null;
   createdAt: string;
   lastSyncedAt: string | null;
+  followersCount?: number;
+  followingCount?: number;
+  isFollowing?: boolean;
 }
 
 export function toPublicUser(u: UserRow): PublicUser {
@@ -137,4 +140,31 @@ export function toPublicSnapshot(s: SnapshotRow): PublicSnapshot {
     topPool: toPublicPool(s),
     updatedAt: s.updatedAt.toISOString(),
   };
+}
+
+export async function getFollowCounts(userId: number): Promise<{ followersCount: number; followingCount: number }> {
+  const db = getDb();
+  const [followersResult] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(follows)
+    .where(eq(follows.followeeUserId, userId));
+  const [followingResult] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(follows)
+    .where(eq(follows.followerUserId, userId));
+  return {
+    followersCount: followersResult?.count ?? 0,
+    followingCount: followingResult?.count ?? 0,
+  };
+}
+
+export async function isUserFollowing(followerId: number | null, followeeId: number): Promise<boolean> {
+  if (!followerId) return false;
+  const db = getDb();
+  const result = await db
+    .select()
+    .from(follows)
+    .where(sql`${follows.followerUserId} = ${followerId} AND ${follows.followeeUserId} = ${followeeId}`)
+    .limit(1);
+  return result.length > 0;
 }

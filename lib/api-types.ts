@@ -50,6 +50,9 @@ export interface ApiUser {
   thesis: string | null;
   createdAt: string;
   lastSyncedAt: string | null;
+  followersCount?: number;
+  followingCount?: number;
+  isFollowing?: boolean;
 }
 
 export interface ApiSnapshot {

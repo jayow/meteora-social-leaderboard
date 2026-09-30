@@ -1,0 +1,95 @@
+import { NextRequest, NextResponse } from "next/server";
+import { and, eq } from "drizzle-orm";
+import { getDb, hasDb } from "@/lib/db";
+import { follows, users } from "@/lib/db/schema";
+import { getSessionWallet } from "@/lib/session";
+
+export const dynamic = "force-dynamic";
+
+interface FollowBody {
+  targetId: number;
+}
+
+export async function POST(req: NextRequest): Promise<NextResponse> {
+  if (!hasDb()) return NextResponse.json({ error: "Database not configured" }, { status: 503 });
+  
+  const sessionWallet = await getSessionWallet();
+  if (!sessionWallet) {
+    return NextResponse.json({ error: "Sign in with your wallet first" }, { status: 401 });
+  }
+
+  let body: FollowBody;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+
+  if (!body.targetId || typeof body.targetId !== "number") {
+    return NextResponse.json({ error: "targetId required" }, { status: 400 });
+  }
+
+  const db = getDb();
+  
+  const [currentUser] = await db.select().from(users).where(eq(users.wallet, sessionWallet)).limit(1);
+  if (!currentUser) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+
+  if (currentUser.id === body.targetId) {
+    return NextResponse.json({ error: "Cannot follow yourself" }, { status: 400 });
+  }
+
+  const [targetUser] = await db.select().from(users).where(eq(users.id, body.targetId)).limit(1);
+  if (!targetUser) {
+    return NextResponse.json({ error: "Target user not found" }, { status: 404 });
+  }
+
+  try {
+    await db.insert(follows).values({
+      followerUserId: currentUser.id,
+      followeeUserId: body.targetId,
+    }).onConflictDoNothing();
+    
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Error creating follow:", error);
+    return NextResponse.json({ error: "Failed to follow user" }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: NextRequest): Promise<NextResponse> {
+  if (!hasDb()) return NextResponse.json({ error: "Database not configured" }, { status: 503 });
+  
+  const sessionWallet = await getSessionWallet();
+  if (!sessionWallet) {
+    return NextResponse.json({ error: "Sign in with your wallet first" }, { status: 401 });
+  }
+
+  let body: FollowBody;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+
+  if (!body.targetId || typeof body.targetId !== "number") {
+    return NextResponse.json({ error: "targetId required" }, { status: 400 });
+  }
+
+  const db = getDb();
+  
+  const [currentUser] = await db.select().from(users).where(eq(users.wallet, sessionWallet)).limit(1);
+  if (!currentUser) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+
+  await db.delete(follows).where(
+    and(
+      eq(follows.followerUserId, currentUser.id),
+      eq(follows.followeeUserId, body.targetId)
+    )
+  );
+
+  return NextResponse.json({ success: true });
+}
