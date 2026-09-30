@@ -1,18 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPool, hasDb } from "@/lib/db";
+import { fetchMeteoraPoolsForToken } from "@/lib/meteora-pools";
 
 export const dynamic = "force-dynamic";
 
-interface PoolRow {
+interface MemberDataRow {
   pool_address: string;
-  token_x: string;
-  token_y: string;
-  token_x_icon: string | null;
-  token_y_icon: string | null;
-  bin_step: number | null;
-  protocol: string | null;
   lp_count: string;
-  total_value_usd: number | null;
+  member_liquidity: number | null;
 }
 
 export async function GET(
@@ -28,57 +23,69 @@ export async function GET(
     });
   }
 
-  const pool = getPool();
+  // Fetch ALL Meteora pools with this token as base
+  const meteoraPools = await fetchMeteoraPoolsForToken(mint);
 
-  // Get all pools where this token is the base token (token_x)
-  const query = `
-    SELECT 
-      op.pool_address,
-      op.token_x,
-      op.token_y,
-      op.token_x_icon,
-      op.token_y_icon,
-      op.bin_step,
-      op.protocol,
-      COUNT(DISTINCT op.user_id)::text AS lp_count,
-      SUM(op.value_usd) AS total_value_usd
-    FROM open_positions op
-    JOIN users u ON u.id = op.user_id
-    WHERE op.token_x = $1 AND u.joined_at IS NOT NULL
-    GROUP BY op.pool_address, op.token_x, op.token_y, op.token_x_icon, op.token_y_icon, op.bin_step, op.protocol
-    ORDER BY COUNT(DISTINCT op.user_id) DESC, SUM(op.value_usd) DESC NULLS LAST
-  `;
-
-  const { rows } = await pool.query<PoolRow>(query, [mint]);
-
-  if (rows.length === 0) {
+  if (meteoraPools.length === 0) {
     return NextResponse.json({ 
       token: null, 
       pools: [] 
     }, { status: 404 });
   }
 
-  const pools = rows.map((r) => ({
-    poolAddress: r.pool_address,
-    tokenX: r.token_x,
-    tokenY: r.token_y,
-    tokenXIcon: r.token_x_icon,
-    tokenYIcon: r.token_y_icon,
-    binStep: r.bin_step,
-    protocol: r.protocol,
-    lpCount: Number(r.lp_count),
-    totalValueUsd: r.total_value_usd,
-  }));
+  // Get member data for these pools
+  const pool = getPool();
+  const poolAddresses = meteoraPools.map(p => p.poolAddress);
+  
+  const memberQuery = `
+    SELECT 
+      op.pool_address,
+      COUNT(DISTINCT op.user_id)::text AS lp_count,
+      SUM(op.value_usd) AS member_liquidity
+    FROM open_positions op
+    JOIN users u ON u.id = op.user_id
+    WHERE op.pool_address = ANY($1) AND u.joined_at IS NOT NULL
+    GROUP BY op.pool_address
+  `;
 
-  // Token info from first pool
+  const { rows: memberRows } = await pool.query<MemberDataRow>(memberQuery, [poolAddresses]);
+  
+  // Create member data map
+  const memberDataMap = new Map<string, { lpCount: number; memberLiquidity: number }>();
+  for (const row of memberRows) {
+    memberDataMap.set(row.pool_address, {
+      lpCount: Number(row.lp_count),
+      memberLiquidity: row.member_liquidity || 0,
+    });
+  }
+
+  // Enrich pools with member data
+  const enrichedPools = meteoraPools.map((p) => {
+    const memberData = memberDataMap.get(p.poolAddress);
+    return {
+      ...p,
+      memberCount: memberData?.lpCount || 0,
+      memberLiquidity: memberData?.memberLiquidity || 0,
+    };
+  });
+
+  // Sort by member count, then TVL
+  enrichedPools.sort((a, b) => {
+    if (b.memberCount !== a.memberCount) return b.memberCount - a.memberCount;
+    return (b.tvl || 0) - (a.tvl || 0);
+  });
+
+  // Token info from first pool or derived
+  const firstPool = enrichedPools[0];
   const token = {
     mint,
-    symbol: rows[0].token_x,
-    icon: rows[0].token_x_icon,
-    poolCount: pools.length,
-    totalTvl: pools.reduce((sum, p) => sum + (p.totalValueUsd || 0), 0),
-    lpCount: pools.reduce((sum, p) => sum + p.lpCount, 0),
+    symbol: firstPool.tokenX,
+    icon: firstPool.tokenXIcon,
+    poolCount: enrichedPools.length,
+    totalTvl: enrichedPools.reduce((sum, p) => sum + (p.tvl || 0), 0),
+    memberLiquidity: enrichedPools.reduce((sum, p) => sum + (p.memberLiquidity || 0), 0),
+    lpCount: enrichedPools.reduce((sum, p) => sum + p.memberCount, 0),
   };
 
-  return NextResponse.json({ token, pools });
+  return NextResponse.json({ token, pools: enrichedPools });
 }

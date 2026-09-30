@@ -42,6 +42,8 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
       poolAddress: p.poolAddress,
       tokenX: p.tokenX,
       tokenY: p.tokenY,
+      tokenXMint: p.tokenXMint,
+      tokenYMint: p.tokenYMint,
       tokenXIcon: p.tokenXIcon,
       tokenYIcon: p.tokenYIcon,
       binStep: p.binStep,

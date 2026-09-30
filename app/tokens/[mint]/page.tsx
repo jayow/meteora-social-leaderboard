@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useMe } from "@/components/MeProvider";
 import { avatarFor, fmtUsd, timeAgo } from "@/lib/format";
-import { meteoraPoolUrl } from "@/lib/meteora-links";
+import { meteoraPoolUrl, meteoraHomeUrl } from "@/lib/meteora-links";
 
 interface TokenInfo {
   mint: string;
@@ -13,6 +13,7 @@ interface TokenInfo {
   icon: string | null;
   poolCount: number;
   totalTvl: number;
+  memberLiquidity: number;
   lpCount: number;
 }
 
@@ -20,12 +21,18 @@ interface PoolData {
   poolAddress: string;
   tokenX: string;
   tokenY: string;
+  tokenXMint: string;
+  tokenYMint: string;
   tokenXIcon: string | null;
   tokenYIcon: string | null;
   binStep: number | null;
-  protocol: string | null;
-  lpCount: number;
-  totalValueUsd: number | null;
+  protocol: string;
+  tvl: number | null;
+  volume24h: number | null;
+  fees24h: number | null;
+  apr: number | null;
+  memberCount: number;
+  memberLiquidity: number;
 }
 
 interface CommentAuthor {
@@ -204,10 +211,20 @@ function TokenDetail() {
               <span>{token.poolCount} pools</span>
               <span>·</span>
               <span>{fmtUsd(token.totalTvl)} TVL</span>
-              <span>·</span>
-              <span>
-                {token.lpCount} LP{token.lpCount === 1 ? "" : "s"}
-              </span>
+              {token.memberLiquidity > 0 && (
+                <>
+                  <span>·</span>
+                  <span>{fmtUsd(token.memberLiquidity)} member liquidity</span>
+                </>
+              )}
+              {token.lpCount > 0 && (
+                <>
+                  <span>·</span>
+                  <span>
+                    {token.lpCount} LP{token.lpCount === 1 ? "" : "s"}
+                  </span>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -323,12 +340,28 @@ function PoolCard({ pool }: { pool: PoolData }) {
                   </span>
                 )}
               </div>
-              <div className="mt-0.5 flex items-center gap-2 text-[12px] text-mute">
-                <span>
-                  {pool.lpCount} LP{pool.lpCount === 1 ? "" : "s"}
-                </span>
-                <span>·</span>
-                <span>{fmtUsd(pool.totalValueUsd)} TVL</span>
+              <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[12px] text-mute">
+                <span>{fmtUsd(pool.tvl)} TVL</span>
+                {pool.volume24h && (
+                  <>
+                    <span>·</span>
+                    <span>{fmtUsd(pool.volume24h)} 24h vol</span>
+                  </>
+                )}
+                {pool.apr && (
+                  <>
+                    <span>·</span>
+                    <span className="text-up">{pool.apr.toFixed(2)}% APR</span>
+                  </>
+                )}
+                {pool.memberCount > 0 && (
+                  <>
+                    <span>·</span>
+                    <span className="font-semibold text-orange">
+                      {pool.memberCount} friend{pool.memberCount === 1 ? "" : "s"} here
+                    </span>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -336,7 +369,7 @@ function PoolCard({ pool }: { pool: PoolData }) {
       </Link>
 
       <a
-        href={`${meteoraPoolUrl(pool.poolAddress, pool.protocol || undefined)}?referral_code=RXXEVMGP7N`}
+        href={meteoraPoolUrl(pool.poolAddress, pool.protocol || undefined)}
         target="_blank"
         rel="noopener noreferrer"
         onClick={(e) => e.stopPropagation()}
@@ -374,7 +407,7 @@ function CommentComposer({
         const res = await fetch(`/api/users/${user.id}/open-positions`);
         const data = await res.json();
         const pools = data.positions || [];
-        const hasPos = pools.some((p: { tokenX: string }) => p.tokenX === token.mint);
+        const hasPos = pools.some((p: { tokenXMint: string }) => p.tokenXMint === token.mint);
         setHasPosition(hasPos);
       } catch {
         setHasPosition(false);
@@ -390,7 +423,7 @@ function CommentComposer({
           Open a position in a {token.symbol} pool to share your thesis
         </p>
         <a
-          href={`${meteoraPoolUrl("", undefined)}?referral_code=RXXEVMGP7N`}
+          href={meteoraHomeUrl()}
           target="_blank"
           rel="noopener noreferrer"
           className="mt-2 inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-[#FF5C1A] to-[#FF3D7F] px-4 py-2 text-[13px] font-bold shadow-md hover:shadow-lg hover:shadow-orange/30"

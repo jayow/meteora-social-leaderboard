@@ -32,7 +32,7 @@ export async function GET(
       op.token_x AS token_symbol,
       op.token_x_icon AS token_icon
     FROM token_comments tc
-    JOIN open_positions op ON op.token_x = tc.token_mint AND op.user_id = tc.user_id
+    JOIN open_positions op ON op.token_x_mint = tc.token_mint AND op.user_id = tc.user_id
     WHERE tc.user_id = $1 AND tc.deleted_at IS NULL
     GROUP BY tc.id, tc.token_mint, tc.body, tc.created_at, op.token_x, op.token_x_icon
     ORDER BY tc.created_at DESC

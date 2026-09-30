@@ -23,6 +23,33 @@ function mintOf(t: unknown): string {
   return t && typeof t === "object" && typeof (t as Json).address === "string" ? ((t as Json).address as string) : "";
 }
 
+async function enrichPoolsWithMints(pools: PortfolioPool[]): Promise<void> {
+  // Fetch pool details to get token mints
+  const poolsNeedingMints = pools.filter((p) => p.poolAddress && (!p.tokenXMint || !p.tokenYMint));
+  
+  for (const pool of poolsNeedingMints) {
+    try {
+      const info = await getJson(`${DLMM}/pools/${pool.poolAddress}`, 600000); // Cache for 10 min
+      if (info) {
+        const xMint = mintOf(info.token_x);
+        const yMint = mintOf(info.token_y);
+        if (xMint) pool.tokenXMint = xMint;
+        if (yMint) pool.tokenYMint = yMint;
+        
+        // Also get icons if not already set
+        if (!pool.tokenXIcon && xMint && KNOWN_ICONS[xMint]) {
+          pool.tokenXIcon = KNOWN_ICONS[xMint];
+        }
+        if (!pool.tokenYIcon && yMint && KNOWN_ICONS[yMint]) {
+          pool.tokenYIcon = KNOWN_ICONS[yMint];
+        }
+      }
+    } catch {
+      // Ignore errors, mints will remain null
+    }
+  }
+}
+
 async function getJson(url: string, ttlMs = 60000): Promise<Json | null> {
   try {
     const data = await fetchMeteora<Json>(url, ttlMs);
@@ -37,6 +64,8 @@ interface PortfolioPool {
   binStep?: string | number;
   tokenX?: string;
   tokenY?: string;
+  tokenXMint?: string;
+  tokenYMint?: string;
   tokenXIcon?: string;
   tokenYIcon?: string;
   pnlUsd?: string | number;
@@ -362,6 +391,9 @@ export async function syncUser(user: UserRow): Promise<SyncResult> {
       await db.delete(openPositions).where(eq(openPositions.userId, user.id));
     }
     
+    // Fetch mints for pools that don't have them yet
+    await enrichPoolsWithMints(mergedPools);
+    
     // Upsert aggregated open positions
     for (const pool of mergedPools) {
       if (!pool.poolAddress) continue;
@@ -376,6 +408,8 @@ export async function syncUser(user: UserRow): Promise<SyncResult> {
           poolAddress: pool.poolAddress,
           tokenX: pool.tokenX || "?",
           tokenY: pool.tokenY || "?",
+          tokenXMint: pool.tokenXMint || null,
+          tokenYMint: pool.tokenYMint || null,
           tokenXIcon: pool.tokenXIcon || null,
           tokenYIcon: pool.tokenYIcon || null,
           binStep: pool.binStep != null ? Math.round(num(pool.binStep)) : null,
@@ -388,6 +422,8 @@ export async function syncUser(user: UserRow): Promise<SyncResult> {
           set: {
             tokenX: pool.tokenX || "?",
             tokenY: pool.tokenY || "?",
+            tokenXMint: pool.tokenXMint || null,
+            tokenYMint: pool.tokenYMint || null,
             tokenXIcon: pool.tokenXIcon || null,
             tokenYIcon: pool.tokenYIcon || null,
             binStep: pool.binStep != null ? Math.round(num(pool.binStep)) : null,

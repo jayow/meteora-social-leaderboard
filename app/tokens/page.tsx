@@ -9,7 +9,7 @@ interface TokenData {
   tokenSymbol: string;
   tokenIcon: string | null;
   poolCount: number;
-  totalTvl: number | null;
+  memberLiquidity: number | null;
   lpCount: number;
   commentCount: number;
 }
@@ -112,12 +112,20 @@ function TokenRow({ token }: { token: TokenData }) {
         </div>
         <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[12px] text-mute">
           <span>{token.poolCount} pools</span>
-          <span>·</span>
-          <span>{fmtUsd(token.totalTvl)} TVL</span>
-          <span>·</span>
-          <span>
-            {token.lpCount} LP{token.lpCount === 1 ? "" : "s"}
-          </span>
+          {token.memberLiquidity && token.memberLiquidity > 0 ? (
+            <>
+              <span>·</span>
+              <span>{fmtUsd(token.memberLiquidity)} member liquidity</span>
+            </>
+          ) : null}
+          {token.lpCount > 0 && (
+            <>
+              <span>·</span>
+              <span>
+                {token.lpCount} LP{token.lpCount === 1 ? "" : "s"}
+              </span>
+            </>
+          )}
           {token.commentCount > 0 && (
             <>
               <span>·</span>

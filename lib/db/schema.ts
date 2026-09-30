@@ -161,6 +161,8 @@ export const openPositions = pgTable(
     poolAddress: varchar("pool_address", { length: 64 }).notNull(),
     tokenX: text("token_x").notNull(),
     tokenY: text("token_y").notNull(),
+    tokenXMint: varchar("token_x_mint", { length: 64 }),
+    tokenYMint: varchar("token_y_mint", { length: 64 }),
     tokenXIcon: text("token_x_icon"),
     tokenYIcon: text("token_y_icon"),
     binStep: integer("bin_step"),
@@ -174,6 +176,7 @@ export const openPositions = pgTable(
     uniqueIndex("open_positions_user_pool_key").on(t.userId, t.poolAddress),
     index("open_positions_pool_idx").on(t.poolAddress),
     index("open_positions_user_idx").on(t.userId),
+    index("open_positions_token_x_mint_idx").on(t.tokenXMint),
   ]
 );
 

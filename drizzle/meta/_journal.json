@@ -64,6 +64,13 @@
       "when": 1790795451650,
       "tag": "0008_faithful_magus",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1790795808721,
+      "tag": "0009_hesitant_toad_men",
+      "breakpoints": true
     }
   ]
 }

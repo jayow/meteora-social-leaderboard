@@ -43,13 +43,13 @@ export async function GET(
       (
         SELECT op.pool_address
         FROM open_positions op
-        WHERE op.user_id = tc.user_id AND op.token_x = tc.token_mint
+        WHERE op.user_id = tc.user_id AND op.token_x_mint = tc.token_mint
         LIMIT 1
       ) AS pool_address,
       (
         SELECT op.token_y
         FROM open_positions op
-        WHERE op.user_id = tc.user_id AND op.token_x = tc.token_mint
+        WHERE op.user_id = tc.user_id AND op.token_x_mint = tc.token_mint
         LIMIT 1
       ) AS token_y
     FROM token_comments tc
@@ -98,14 +98,13 @@ export async function POST(
   const db = getDb();
   const pool = getPool();
 
-  // Check if user has an open position in any pool with this base token
+  // Check if user has an open position in any pool with this base token (by mint)
   const positionCheck = await pool.query<{ has_position: boolean }>(
     `
       SELECT EXISTS(
         SELECT 1 
         FROM open_positions op
-        JOIN user_wallets uw ON uw.user_id = op.user_id
-        WHERE op.user_id = $1 AND op.token_x = $2
+        WHERE op.user_id = $1 AND op.token_x_mint = $2
       ) AS has_position
     `,
     [user.id, mint]
