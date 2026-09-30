@@ -44,6 +44,8 @@ export async function GET(
       pool_address,
       token_x,
       token_y,
+      token_x_mint,
+      token_y_mint,
       token_x_icon,
       token_y_icon,
       bin_step,
@@ -53,7 +55,7 @@ export async function GET(
     FROM open_positions op
     JOIN users u ON u.id = op.user_id
     WHERE op.pool_address = $1 AND u.joined_at IS NOT NULL
-    GROUP BY pool_address, token_x, token_y, token_x_icon, token_y_icon, bin_step, protocol
+    GROUP BY pool_address, token_x, token_y, token_x_mint, token_y_mint, token_x_icon, token_y_icon, bin_step, protocol
   `;
 
   const poolRes = await pool.query(poolSql, [address]);
@@ -65,6 +67,8 @@ export async function GET(
     pool_address: string;
     token_x: string;
     token_y: string;
+    token_x_mint: string | null;
+    token_y_mint: string | null;
     token_x_icon: string | null;
     token_y_icon: string | null;
     bin_step: number | null;
@@ -77,6 +81,8 @@ export async function GET(
     poolAddress: poolRow.pool_address,
     tokenX: poolRow.token_x,
     tokenY: poolRow.token_y,
+    tokenXMint: poolRow.token_x_mint,
+    tokenYMint: poolRow.token_y_mint,
     tokenXIcon: poolRow.token_x_icon,
     tokenYIcon: poolRow.token_y_icon,
     binStep: poolRow.bin_step,

@@ -12,6 +12,8 @@ interface PoolData {
   poolAddress: string;
   tokenX: string;
   tokenY: string;
+  tokenXMint: string | null;
+  tokenYMint: string | null;
   tokenXIcon: string | null;
   tokenYIcon: string | null;
   binStep: number | null;
@@ -188,9 +190,17 @@ function PoolRow({
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 text-[16px] font-bold">
           <span className="truncate">
-            <Link href={`/tokens/${x}`} onClick={(e) => e.stopPropagation()} className="hover:text-orange relative z-10">{x}</Link>
+            {pool.tokenXMint ? (
+              <Link href={`/tokens/${pool.tokenXMint}`} onClick={(e) => e.stopPropagation()} className="hover:text-orange relative z-10">{x}</Link>
+            ) : (
+              <span>{x}</span>
+            )}
             <span>-</span>
-            <Link href={`/tokens/${y}`} onClick={(e) => e.stopPropagation()} className="hover:text-orange relative z-10">{y}</Link>
+            {pool.tokenYMint ? (
+              <Link href={`/tokens/${pool.tokenYMint}`} onClick={(e) => e.stopPropagation()} className="hover:text-orange relative z-10">{y}</Link>
+            ) : (
+              <span>{y}</span>
+            )}
           </span>
           <span className="shrink-0 rounded bg-orange/15 px-1.5 text-[10px] font-bold uppercase text-orange">
             DLMM

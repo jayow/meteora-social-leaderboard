@@ -14,6 +14,8 @@ interface PoolData {
   poolAddress: string;
   tokenX: string;
   tokenY: string;
+  tokenXMint: string | null;
+  tokenYMint: string | null;
   tokenXIcon: string | null;
   tokenYIcon: string | null;
   binStep: number | null;
@@ -132,9 +134,17 @@ export default function PoolDetailPage() {
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 text-[24px] font-extrabold">
               <span className="truncate">
-                <Link href={`/tokens/${x}`} className="hover:text-orange">{x}</Link>
+                {pool.tokenXMint ? (
+                  <Link href={`/tokens/${pool.tokenXMint}`} className="hover:text-orange">{x}</Link>
+                ) : (
+                  <span>{x}</span>
+                )}
                 <span>-</span>
-                <Link href={`/tokens/${y}`} className="hover:text-orange">{y}</Link>
+                {pool.tokenYMint ? (
+                  <Link href={`/tokens/${pool.tokenYMint}`} className="hover:text-orange">{y}</Link>
+                ) : (
+                  <span>{y}</span>
+                )}
               </span>
               <span className="shrink-0 rounded bg-orange/15 px-2 py-0.5 text-[11px] font-bold uppercase text-orange">
                 DLMM

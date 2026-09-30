@@ -391,7 +391,11 @@ function PoolCard({
             <div className="flex-1">
               <div className="flex items-center gap-2">
                 <span className="text-[15px] font-bold">
-                  {pool.tokenX}/<Link href={`/tokens/${pool.tokenY}`} onClick={(e) => e.stopPropagation()} className="hover:text-orange">{pool.tokenY}</Link>
+                  {pool.tokenX}/{pool.tokenYMint ? (
+                    <Link href={`/tokens/${pool.tokenYMint}`} onClick={(e) => e.stopPropagation()} className="hover:text-orange">{pool.tokenY}</Link>
+                  ) : (
+                    <span>{pool.tokenY}</span>
+                  )}
                 </span>
                 {pool.binStep && (
                   <span className="rounded-full bg-orange/20 px-2 py-0.5 text-[10px] font-bold text-orange">

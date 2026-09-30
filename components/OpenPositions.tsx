@@ -11,6 +11,8 @@ interface MeteoraOpenPool {
   protocol: string | null;
   tokenX: string;
   tokenY: string;
+  tokenXMint: string | null;
+  tokenYMint: string | null;
   tokenXIcon: string | null;
   tokenYIcon: string | null;
   valueUsd: number | null;
@@ -153,9 +155,17 @@ function PositionCard({ pool }: { pool: MeteoraOpenPool }) {
           <div>
             <div className="flex items-center gap-2">
               <span className="text-[15px] font-bold">
-                <Link href={`/tokens/${pool.tokenX}`} onClick={(e) => e.stopPropagation()} className="hover:text-orange">{pool.tokenX}</Link>
+                {pool.tokenXMint ? (
+                  <Link href={`/tokens/${pool.tokenXMint}`} onClick={(e) => e.stopPropagation()} className="hover:text-orange">{pool.tokenX}</Link>
+                ) : (
+                  <span>{pool.tokenX}</span>
+                )}
                 <span>/</span>
-                <Link href={`/tokens/${pool.tokenY}`} onClick={(e) => e.stopPropagation()} className="hover:text-orange">{pool.tokenY}</Link>
+                {pool.tokenYMint ? (
+                  <Link href={`/tokens/${pool.tokenYMint}`} onClick={(e) => e.stopPropagation()} className="hover:text-orange">{pool.tokenY}</Link>
+                ) : (
+                  <span>{pool.tokenY}</span>
+                )}
               </span>
               {pool.binStep && (
                 <span className="rounded-full bg-orange/20 px-2 py-0.5 text-[10px] font-bold text-orange">
@@ -217,9 +227,17 @@ function PositionCardCompact({ pool }: { pool: MeteoraOpenPool }) {
         </div>
         <div className="ml-2">
           <div className="text-[13px] font-semibold">
-            <Link href={`/tokens/${pool.tokenX}`} onClick={(e) => e.stopPropagation()} className="hover:text-orange">{pool.tokenX}</Link>
+            {pool.tokenXMint ? (
+              <Link href={`/tokens/${pool.tokenXMint}`} onClick={(e) => e.stopPropagation()} className="hover:text-orange">{pool.tokenX}</Link>
+            ) : (
+              <span>{pool.tokenX}</span>
+            )}
             <span>/</span>
-            <Link href={`/tokens/${pool.tokenY}`} onClick={(e) => e.stopPropagation()} className="hover:text-orange">{pool.tokenY}</Link>
+            {pool.tokenYMint ? (
+              <Link href={`/tokens/${pool.tokenYMint}`} onClick={(e) => e.stopPropagation()} className="hover:text-orange">{pool.tokenY}</Link>
+            ) : (
+              <span>{pool.tokenY}</span>
+            )}
           </div>
           <div className="num text-[11px] text-mute">{fmtUsd(value)}</div>
         </div>

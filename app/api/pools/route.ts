@@ -10,6 +10,8 @@ interface PoolRow {
   pool_address: string;
   token_x: string;
   token_y: string;
+  token_x_mint: string | null;
+  token_y_mint: string | null;
   token_x_icon: string | null;
   token_y_icon: string | null;
   bin_step: number | null;
@@ -43,6 +45,8 @@ export async function GET(_req: NextRequest): Promise<NextResponse> {
         op.pool_address,
         op.token_x,
         op.token_y,
+        op.token_x_mint,
+        op.token_y_mint,
         op.token_x_icon,
         op.token_y_icon,
         op.bin_step,
@@ -52,7 +56,7 @@ export async function GET(_req: NextRequest): Promise<NextResponse> {
       FROM open_positions op
       JOIN users u ON u.id = op.user_id
       WHERE u.joined_at IS NOT NULL
-      GROUP BY op.pool_address, op.token_x, op.token_y, op.token_x_icon, op.token_y_icon, op.bin_step, op.protocol
+      GROUP BY op.pool_address, op.token_x, op.token_y, op.token_x_mint, op.token_y_mint, op.token_x_icon, op.token_y_icon, op.bin_step, op.protocol
     ),
     friends_in_pool AS (
       SELECT 
@@ -81,6 +85,8 @@ export async function GET(_req: NextRequest): Promise<NextResponse> {
       op.pool_address,
       op.token_x,
       op.token_y,
+      op.token_x_mint,
+      op.token_y_mint,
       op.token_x_icon,
       op.token_y_icon,
       op.bin_step,
@@ -93,7 +99,7 @@ export async function GET(_req: NextRequest): Promise<NextResponse> {
     FROM open_positions op
     JOIN users u ON u.id = op.user_id
     WHERE u.joined_at IS NOT NULL
-    GROUP BY op.pool_address, op.token_x, op.token_y, op.token_x_icon, op.token_y_icon, op.bin_step, op.protocol
+    GROUP BY op.pool_address, op.token_x, op.token_y, op.token_x_mint, op.token_y_mint, op.token_x_icon, op.token_y_icon, op.bin_step, op.protocol
     ORDER BY COUNT(DISTINCT op.user_id) DESC, SUM(op.value_usd) DESC NULLS LAST
     LIMIT 100
   `;
@@ -104,6 +110,8 @@ export async function GET(_req: NextRequest): Promise<NextResponse> {
     poolAddress: r.pool_address,
     tokenX: r.token_x,
     tokenY: r.token_y,
+    tokenXMint: r.token_x_mint,
+    tokenYMint: r.token_y_mint,
     tokenXIcon: r.token_x_icon,
     tokenYIcon: r.token_y_icon,
     binStep: r.bin_step,
