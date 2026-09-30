@@ -52,6 +52,7 @@ export interface ApiUser {
   createdAt: string;
   lastSyncedAt: string | null;
   memberNumber?: number | null;
+  bannerUpdatedAt?: string | null;
   followersCount?: number;
   followingCount?: number;
   isFollowing?: boolean;

@@ -89,6 +89,7 @@ export interface PublicUser {
   createdAt: string;
   lastSyncedAt: string | null;
   memberNumber?: number | null;
+  bannerUpdatedAt?: string | null;
   followersCount?: number;
   followingCount?: number;
   isFollowing?: boolean;
@@ -107,6 +108,7 @@ export function toPublicUser(u: UserRow, includeWallet = false): PublicUser {
     createdAt: u.createdAt.toISOString(),
     lastSyncedAt: u.lastSyncedAt ? u.lastSyncedAt.toISOString() : null,
     ...(u.memberNumber ? { memberNumber: u.memberNumber } : {}),
+    ...(u.bannerUpdatedAt ? { bannerUpdatedAt: u.bannerUpdatedAt.toISOString() } : {}),
   };
 }
 

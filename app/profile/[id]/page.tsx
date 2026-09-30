@@ -176,9 +176,7 @@ function Profile() {
       <div className="grid gap-5 lg:grid-cols-[380px_minmax(0,1fr)]">
         {/* Identity card */}
         <section className="glass h-fit overflow-hidden rounded-[28px]">
-          <div className="brand-grad relative h-28">
-            <div className="absolute inset-0 bg-[radial-gradient(60%_120%_at_20%_0%,rgba(255,255,255,.28),transparent)]" />
-          </div>
+          <ProfileBanner user={user} mine={mine} onUpdated={() => load(target!)} />
           <div className="px-5 pb-5">
             <div className="relative z-10 -mt-12 flex items-end justify-between">
               <Avatar user={user} size={96} ring />
@@ -345,6 +343,181 @@ function OwnerControls({ user, focusX, onSaved }: { user: ApiUser; focusX: boole
       {!me.verified && <p className="text-[11px] text-mute">Saving asks your wallet for a free signature to prove it&apos;s you.</p>}
       {err && <p className="text-[12px] text-dn">{err}</p>}
     </div>
+  );
+}
+
+function ProfileBanner({ user, mine, onUpdated }: { user: ApiUser; mine: boolean; onUpdated: () => void }) {
+  const [editing, setEditing] = useState(false);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const bannerUrl = user.bannerUpdatedAt ? `/api/users/${user.id}/banner?v=${new Date(user.bannerUpdatedAt).getTime()}` : null;
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setError("Please upload a JPG, PNG, or WebP image");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setError("File too large. Max 5MB");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setPreview(ev.target?.result as string);
+      setError(null);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const upload = async () => {
+    if (!preview) return;
+
+    setUploading(true);
+    setError(null);
+
+    try {
+      const blob = await fetch(preview).then((r) => r.blob());
+      const formData = new FormData();
+      formData.append("banner", blob, "banner.webp");
+
+      const res = await fetch(`/api/users/${user.id}/banner`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Upload failed");
+      }
+
+      setEditing(false);
+      setPreview(null);
+      onUpdated();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const remove = async () => {
+    if (!confirm("Remove your banner?")) return;
+
+    setUploading(true);
+    setError(null);
+
+    try {
+      const res = await fetch(`/api/users/${user.id}/banner`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to remove banner");
+
+      setEditing(false);
+      onUpdated();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to remove banner");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <>
+      <div className="group relative h-[167px]">
+        {bannerUrl ? (
+          <img src={bannerUrl} alt="" className="h-full w-full object-cover" />
+        ) : (
+          <div className="brand-grad relative h-full">
+            <div className="absolute inset-0 bg-[radial-gradient(60%_120%_at_20%_0%,rgba(255,255,255,.28),transparent)]" />
+          </div>
+        )}
+        {mine && (
+          <button
+            type="button"
+            onClick={() => setEditing(true)}
+            className="absolute right-3 top-3 rounded-full bg-black/60 px-3 py-1.5 text-[12px] font-semibold text-white opacity-0 backdrop-blur-sm transition-opacity hover:bg-black/70 group-hover:opacity-100"
+          >
+            Edit banner
+          </button>
+        )}
+      </div>
+
+      {editing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+          <div className="glass w-full max-w-lg rounded-2xl p-6">
+            <h3 className="text-[18px] font-bold">Profile banner</h3>
+            <p className="mt-1 text-[13px] text-mute">Upload a JPG, PNG, or WebP up to 5MB. It will be cropped to 3:1 aspect ratio.</p>
+
+            <div className="mt-4">
+              {preview ? (
+                <div className="relative aspect-[3/1] overflow-hidden rounded-xl">
+                  <img src={preview} alt="Preview" className="h-full w-full object-cover" />
+                </div>
+              ) : bannerUrl ? (
+                <div className="relative aspect-[3/1] overflow-hidden rounded-xl">
+                  <img src={bannerUrl} alt="Current banner" className="h-full w-full object-cover" />
+                </div>
+              ) : (
+                <div className="brand-grad relative aspect-[3/1] overflow-hidden rounded-xl">
+                  <div className="absolute inset-0 bg-[radial-gradient(60%_120%_at_20%_0%,rgba(255,255,255,.28),transparent)]" />
+                </div>
+              )}
+            </div>
+
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={handleFileChange}
+              className="mt-4 w-full text-[13px] text-mute"
+            />
+
+            {error && <p className="mt-2 text-[12px] text-dn">{error}</p>}
+
+            <div className="mt-4 flex justify-between gap-2">
+              <div>
+                {bannerUrl && (
+                  <button
+                    type="button"
+                    onClick={remove}
+                    disabled={uploading}
+                    className="h-9 rounded-full bg-dn/20 px-4 text-[13px] font-semibold text-dn hover:bg-dn/30 disabled:opacity-60"
+                  >
+                    Remove banner
+                  </button>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditing(false);
+                    setPreview(null);
+                    setError(null);
+                  }}
+                  disabled={uploading}
+                  className="h-9 rounded-full bg-white/[.06] px-4 text-[13px] font-semibold disabled:opacity-60"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={upload}
+                  disabled={!preview || uploading}
+                  className="h-9 rounded-full bg-orange px-4 text-[13px] font-bold disabled:opacity-60"
+                >
+                  {uploading ? "Uploading…" : "Save"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 

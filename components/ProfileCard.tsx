@@ -20,6 +20,7 @@ export interface CardUser {
   isFollowing?: boolean;
   followersCount?: number;
   followingCount?: number;
+  bannerUpdatedAt?: string | null;
 }
 
 export interface CardStats {
@@ -37,11 +38,19 @@ export interface CardStats {
 
 /** Sidebar profile preview (desktop leaderboard). */
 export function ProfileCard({ user, stats, rank, isMe }: { user: CardUser; stats: CardStats; rank?: number; isMe?: boolean }) {
+  const bannerUrl = user.bannerUpdatedAt ? `/api/users/${user.id}/banner?v=${new Date(user.bannerUpdatedAt).getTime()}` : null;
+
   return (
     <div className="glass overflow-hidden rounded-[28px]">
-      <div className="brand-grad relative h-20 opacity-90">
-        <div className="absolute inset-0 bg-[radial-gradient(60%_120%_at_20%_0%,rgba(255,255,255,.25),transparent)]" />
-      </div>
+      {bannerUrl ? (
+        <div className="relative h-20 overflow-hidden">
+          <img src={bannerUrl} alt="" className="h-full w-full object-cover" />
+        </div>
+      ) : (
+        <div className="brand-grad relative h-20 opacity-90">
+          <div className="absolute inset-0 bg-[radial-gradient(60%_120%_at_20%_0%,rgba(255,255,255,.25),transparent)]" />
+        </div>
+      )}
       <div className="px-5 pb-5">
         <div className="relative z-10 -mt-10 flex items-end justify-between">
           <Avatar user={user} size={76} ring />

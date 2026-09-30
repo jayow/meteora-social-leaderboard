@@ -12,6 +12,16 @@ import {
   index,
 } from "drizzle-orm/pg-core";
 
+export const profileBanners = pgTable(
+  "profile_banners",
+  {
+    userId: integer("user_id").primaryKey().notNull().references(() => users.id, { onDelete: "cascade" }),
+    mime: varchar("mime", { length: 32 }).notNull(),
+    data: text("data").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  }
+);
+
 export const inviteCodes = pgTable(
   "invite_codes",
   {
@@ -45,6 +55,7 @@ export const users = pgTable(
     inviteCodeId: integer("invite_code_id"),
     joinedAt: timestamp("joined_at", { withTimezone: true }),
     memberNumber: integer("member_number"),
+    bannerUpdatedAt: timestamp("banner_updated_at", { withTimezone: true }),
     lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
     lastAttemptedAt: timestamp("last_attempted_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -145,6 +156,7 @@ export const openPositions = pgTable(
   ]
 );
 
+export type ProfileBannerRow = typeof profileBanners.$inferSelect;
 export type InviteCodeRow = typeof inviteCodes.$inferSelect;
 export type UserRow = typeof users.$inferSelect;
 export type SnapshotRow = typeof pnlSnapshots.$inferSelect;
