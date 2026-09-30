@@ -521,9 +521,9 @@ function ProfileBanner({ user, mine, onUpdated }: { user: ApiUser; mine: boolean
 
   return (
     <>
-      <div className="relative h-[167px]">
+      <div className="relative aspect-[3/1] overflow-hidden">
         {bannerUrl ? (
-          <img src={bannerUrl} alt="" className="h-full w-full object-cover" />
+          <img src={bannerUrl} alt="" className="h-full w-full object-cover object-center" />
         ) : (
           <div className="brand-grad relative h-full">
             <div className="absolute inset-0 bg-[radial-gradient(60%_120%_at_20%_0%,rgba(255,255,255,.28),transparent)]" />
@@ -564,9 +564,9 @@ function ProfileBanner({ user, mine, onUpdated }: { user: ApiUser; mine: boolean
                 onMouseLeave={() => setHovered(false)}
               >
                 {preview ? (
-                  <img src={preview} alt="Preview" className="h-full w-full object-cover" />
+                  <img src={preview} alt="Preview" className="h-full w-full object-cover object-center" />
                 ) : bannerUrl ? (
-                  <img src={bannerUrl} alt="Current banner" className="h-full w-full object-cover" />
+                  <img src={bannerUrl} alt="Current banner" className="h-full w-full object-cover object-center" />
                 ) : (
                   <div className="brand-grad relative h-full">
                     <div className="absolute inset-0 bg-[radial-gradient(60%_120%_at_20%_0%,rgba(255,255,255,.28),transparent)]" />

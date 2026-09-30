@@ -43,11 +43,11 @@ export function ProfileCard({ user, stats, rank, isMe }: { user: CardUser; stats
   return (
     <div className="glass overflow-hidden rounded-[28px]">
       {bannerUrl ? (
-        <div className="relative h-20 overflow-hidden">
-          <img src={bannerUrl} alt="" className="h-full w-full object-cover" />
+        <div className="relative aspect-[3/1] overflow-hidden">
+          <img src={bannerUrl} alt="" className="h-full w-full object-cover object-center" />
         </div>
       ) : (
-        <div className="brand-grad relative h-20 opacity-90">
+        <div className="brand-grad relative aspect-[3/1] opacity-90">
           <div className="absolute inset-0 bg-[radial-gradient(60%_120%_at_20%_0%,rgba(255,255,255,.25),transparent)]" />
         </div>
       )}
