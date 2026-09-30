@@ -8,7 +8,7 @@ export default function NotFound() {
       <h1 className="mt-8 text-[64px] font-extrabold tracking-tight">
         <span className="brand-text">404</span>
       </h1>
-      <h2 className="mt-2 text-[24px] font-bold">Pool not found</h2>
+      <h2 className="mt-2 text-[24px] font-bold">Page not found</h2>
       <p className="mt-2 max-w-md text-[14px] text-mute">
         This page doesn&apos;t exist or has been moved. Head back to the leaderboard or browse active pools.
       </p>

@@ -15,12 +15,13 @@ let attempt = 0;
 while (true) {
   attempt++;
   try {
-    await migrate(drizzle(pool), { migrationsFolder: "./drizzle" });
-    console.log("[migrate] migrations applied");
+    const result = await migrate(drizzle(pool), { migrationsFolder: "./drizzle" });
+    console.log(`[migrate] ${result?.length ?? 0} migrations applied successfully`);
     break;
   } catch (err) {
     console.error(`[migrate] attempt ${attempt} failed:`, err instanceof Error ? err.message : err);
     if (attempt >= 5) {
+      console.error("[migrate] FATAL: max retries exceeded, exiting with code 1");
       await pool.end();
       process.exit(1);
     }

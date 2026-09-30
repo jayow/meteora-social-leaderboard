@@ -22,6 +22,13 @@
       "when": 1790784007589,
       "tag": "0002_naive_jamie_braddock",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1790784500000,
+      "tag": "0003_add_avatar_and_sync_columns",
+      "breakpoints": true
     }
   ]
 }

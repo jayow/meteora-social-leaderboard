@@ -79,9 +79,11 @@ export default function PoolsPage() {
             All DLMM pools with active LPs · see where your friends are providing liquidity
           </p>
         </div>
-        <div className="text-right">
-          <div className="text-[12px] text-mute">Active pools</div>
-          <div className="num text-[22px] font-bold">{pools.length}</div>
+        <div className="flex flex-wrap items-end justify-between gap-4 sm:flex-nowrap">
+          <div className="flex-1">
+            <div className="text-[12px] text-mute">Active pools</div>
+            <div className="num text-[22px] font-bold">{pools.length}</div>
+          </div>
         </div>
       </div>
 
