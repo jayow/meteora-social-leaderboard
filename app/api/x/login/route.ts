@@ -33,7 +33,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   authUrl.searchParams.set("response_type", "code");
   authUrl.searchParams.set("client_id", clientId);
   authUrl.searchParams.set("redirect_uri", callbackUrl);
-  authUrl.searchParams.set("scope", "users.read tweet.read offline.access");
+  authUrl.searchParams.set("scope", "users.read tweet.read");
   authUrl.searchParams.set("state", state);
   authUrl.searchParams.set("code_challenge", challenge);
   authUrl.searchParams.set("code_challenge_method", "S256");

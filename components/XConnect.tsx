@@ -21,7 +21,10 @@ export function XConnect({ handle, avatarUrl, editable, onChange }: { handle?: s
           }
         })
         .catch(console.error)
-        .finally(() => setConnecting(false));
+        .finally(() => {
+          setConnecting(false);
+          window.history.replaceState(null, "", window.location.pathname);
+        });
     }
   }, [searchParams, handle, onChange]);
 
@@ -52,7 +55,7 @@ export function XConnect({ handle, avatarUrl, editable, onChange }: { handle?: s
       className="rounded-md bg-sky-500 px-4 py-2 text-sm font-medium text-white hover:bg-sky-600 transition-colors"
       onClick={() => { window.location.href = "/api/x/login"; }}
     >
-      Sign in with X
+      Connect X
     </button>
   );
 }

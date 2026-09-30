@@ -6,6 +6,23 @@ export interface XProfile {
   avatarUrl: string;
 }
 
+interface XTokenResponse {
+  access_token?: string;
+  refresh_token?: string;
+  token_type?: string;
+  expires_in?: number;
+  scope?: string;
+}
+
+interface XUsersMeResponse {
+  data?: {
+    id: string;
+    name: string;
+    username: string;
+    profile_image_url?: string;
+  };
+}
+
 /**
  * Generate a random string for OAuth state/verifier
  */
@@ -54,7 +71,7 @@ export function getCallbackUrl(req: Request): string {
 
   // Fall back to constructing from VERCEL_URL, RAILWAY_PUBLIC_DOMAIN, or request host
   const host =
-    process.env.VERCEL_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined) ||
     (process.env.RAILWAY_PUBLIC_DOMAIN
       ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
       : undefined) ||
@@ -96,8 +113,9 @@ export async function validateOAuthState(receivedState: string): Promise<string 
     return null;
   }
 
-  // Clear state cookie after validation
+  // Clear one-time state and verifier cookies after validation
   cookieStore.delete("x_oauth_state");
+  cookieStore.delete("x_oauth_verifier");
 
   return verifier;
 }
@@ -142,7 +160,10 @@ export async function exchangeCodeForToken(
       return null;
     }
 
-    const data = await response.json();
+    const data = (await response.json()) as XTokenResponse;
+    if (!data.access_token) {
+      return null;
+    }
     return {
       accessToken: data.access_token,
       refreshToken: data.refresh_token,
@@ -159,7 +180,7 @@ export async function exchangeCodeForToken(
 export async function fetchXProfile(accessToken: string): Promise<XProfile | null> {
   try {
     const response = await fetch(
-      "https://api.x.com/2/users/me?user.fields=profile_image_url,username,name",
+      "https://api.x.com/2/users/me?user.fields=profile_image_url,name,username",
       {
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -172,8 +193,11 @@ export async function fetchXProfile(accessToken: string): Promise<XProfile | nul
       return null;
     }
 
-    const data = await response.json();
+    const data = (await response.json()) as XUsersMeResponse;
     const user = data.data;
+    if (!user?.username) {
+      return null;
+    }
 
     return {
       username: user.username,

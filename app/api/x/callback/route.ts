@@ -9,6 +9,9 @@ import {
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const { searchParams } = new URL(req.url);
+  // Build redirects from the public callback origin (req.url may carry an internal host behind the proxy)
+  const callbackUrl = getCallbackUrl(req);
+  const baseUrl = new URL(callbackUrl).origin;
   const code = searchParams.get("code");
   const state = searchParams.get("state");
   const error = searchParams.get("error");
@@ -17,14 +20,14 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (error) {
     const errorDescription = searchParams.get("error_description") || error;
     return NextResponse.redirect(
-      new URL(`/profile/me?x=error&message=${encodeURIComponent(errorDescription)}`, req.url)
+      new URL(`/profile/me?x=error&message=${encodeURIComponent(errorDescription)}`, baseUrl)
     );
   }
 
   // Validate required parameters
   if (!code || !state) {
     return NextResponse.redirect(
-      new URL("/profile/me?x=error&message=Missing+code+or+state", req.url)
+      new URL("/profile/me?x=error&message=Missing+code+or+state", baseUrl)
     );
   }
 
@@ -32,17 +35,16 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const verifier = await validateOAuthState(state);
   if (!verifier) {
     return NextResponse.redirect(
-      new URL("/profile/me?x=error&message=Invalid+state", req.url)
+      new URL("/profile/me?x=error&message=Invalid+state", baseUrl)
     );
   }
 
   // Exchange code for token
-  const callbackUrl = getCallbackUrl(req);
   const tokenResult = await exchangeCodeForToken(code, verifier, callbackUrl);
 
   if (!tokenResult) {
     return NextResponse.redirect(
-      new URL("/profile/me?x=error&message=Token+exchange+failed", req.url)
+      new URL("/profile/me?x=error&message=Token+exchange+failed", baseUrl)
     );
   }
 
@@ -51,7 +53,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   if (!profile) {
     return NextResponse.redirect(
-      new URL("/profile/me?x=error&message=Failed+to+fetch+profile", req.url)
+      new URL("/profile/me?x=error&message=Failed+to+fetch+profile", baseUrl)
     );
   }
 
@@ -59,5 +61,5 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   await storeXProfileCookie(profile);
 
   // Redirect back to profile page with success
-  return NextResponse.redirect(new URL("/profile/me?x=connected", req.url));
+  return NextResponse.redirect(new URL("/profile/me?x=connected", baseUrl));
 }
