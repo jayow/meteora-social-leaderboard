@@ -5,7 +5,7 @@ import type { PoolInfo } from "@/lib/api-types";
 import { flagUrl, countryName } from "@/lib/countries";
 import { avatarFor, fallbackAvatar } from "@/lib/format";
 
-export function Avatar({ user, size = 40, ring = false, className = "" }: { user: { xAvatarUrl?: string | null; wallet: string }; size?: number; ring?: boolean; className?: string }) {
+export function Avatar({ user, size = 40, ring = false, className = "" }: { user: { xAvatarUrl?: string | null; xHandle?: string | null; wallet: string }; size?: number; ring?: boolean; className?: string }) {
   const [failed, setFailed] = useState(false);
   const img = (
     // eslint-disable-next-line @next/next/no-img-element

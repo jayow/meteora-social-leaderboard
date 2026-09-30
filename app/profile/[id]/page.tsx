@@ -9,6 +9,7 @@ import { useMe } from "@/components/MeProvider";
 import { Avatar, Flag, Pills, PoolChip, StatTile, XIcon } from "@/components/ui";
 import { PnLCalendar } from "@/components/PnLCalendar";
 import { CountrySelect } from "@/components/CountrySelect";
+import { OpenPositions } from "@/components/OpenPositions";
 import { displayName, fmtPct, fmtUsd, shortAddr, timeAgo } from "@/lib/format";
 import { isValidWalletClient } from "@/lib/wallet-client";
 import { patchCachedProfile } from "@/lib/storage";
@@ -255,6 +256,8 @@ function Profile() {
             <h2 className="mb-3 text-[18px] font-extrabold">PnL calendar</h2>
             <PnLCalendar walletAddress={user.wallet} />
           </div>
+
+          <OpenPositions walletAddress={user.wallet} />
         </section>
       </div>
     </main>

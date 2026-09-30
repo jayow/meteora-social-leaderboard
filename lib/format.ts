@@ -30,8 +30,16 @@ export function fallbackAvatar(wallet: string): string {
   return `https://api.dicebear.com/9.x/notionists/svg?seed=${encodeURIComponent(wallet)}&backgroundColor=ffd5c2,d9ccff,ffc9dc`;
 }
 
-export function avatarFor(u: { xAvatarUrl?: string | null; wallet: string }): string {
-  return u.xAvatarUrl || fallbackAvatar(u.wallet);
+export function avatarFor(u: { xAvatarUrl?: string | null; xHandle?: string | null; wallet: string }): string {
+  if (u.xAvatarUrl) {
+    return u.xAvatarUrl.replace('_normal', '_400x400');
+  }
+  
+  if (u.xHandle) {
+    return `https://unavatar.io/x/${u.xHandle}`;
+  }
+  
+  return fallbackAvatar(u.wallet);
 }
 
 export function displayName(u: { xHandle?: string | null; wallet: string }): string {

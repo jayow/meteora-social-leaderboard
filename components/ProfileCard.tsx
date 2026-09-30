@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { PoolInfo } from "@/lib/api-types";
 import { Avatar, Flag, PoolChip, StatTile, XIcon } from "@/components/ui";
 import { PnLCalendar } from "@/components/PnLCalendar";
+import { OpenPositions } from "@/components/OpenPositions";
 import { displayName, fmtPct, fmtUsd, shortAddr } from "@/lib/format";
 
 export interface CardUser {
@@ -90,6 +91,10 @@ export function ProfileCard({ user, stats, rank, isMe }: { user: CardUser; stats
 
         <div className="mt-4 rounded-2xl border border-white/[.06] bg-black/20 p-3">
           <PnLCalendar walletAddress={user.wallet} compact />
+        </div>
+
+        <div className="mt-3">
+          <OpenPositions walletAddress={user.wallet} compact />
         </div>
       </div>
     </div>

@@ -8,7 +8,7 @@ import { AppShell } from "@/components/AppShell";
 const jakarta = Plus_Jakarta_Sans({ subsets: ["latin"], weight: ["400", "500", "600", "700", "800"], variable: "--font-jakarta" });
 
 export const metadata: Metadata = {
-  title: "Pool Party — FOMO for LPs",
+  title: "Pool Party — Meteora LP Leaderboard",
   description: "The Meteora LP leaderboard. Real PnL, theses, and PnL calendars from Meteora liquidity providers.",
 };
 
