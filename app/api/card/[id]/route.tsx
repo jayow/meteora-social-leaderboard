@@ -111,11 +111,11 @@ export async function GET(
             }}
           >
             {/* Logo */}
-            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
               <img
                 src={`${APP_URL}/logo-mark.svg`}
-                width="40"
-                height="35"
+                width="38"
+                height="33"
                 alt="Pool Party"
                 style={{ flexShrink: 0 }}
               />
