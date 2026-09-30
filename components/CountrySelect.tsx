@@ -1,12 +1,29 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { countryOptions, flagUrl } from "@/lib/countries";
 
-export function CountrySelect({ value, onChange, allLabel = "All countries", disabled = false }: { value: string; onChange: (v: string) => void; allLabel?: string; disabled?: boolean }) {
-  const options = useMemo(() => countryOptions(), []);
+interface CountryOption {
+  code: string;
+  name: string;
+}
+
+export function CountrySelect({ value, onChange, allLabel = "All countries", disabled = false, membersOnly = false }: { value: string; onChange: (v: string) => void; allLabel?: string; disabled?: boolean; membersOnly?: boolean }) {
+  const [apiOptions, setApiOptions] = useState<CountryOption[] | null>(null);
+  const allOptions = useMemo(() => countryOptions(), []);
+  
+  useEffect(() => {
+    if (!membersOnly) return;
+    fetch("/api/countries")
+      .then((r) => r.json() as Promise<{ countries: { code: string; name: string }[] }>)
+      .then((d) => setApiOptions(d.countries))
+      .catch(() => setApiOptions([]));
+  }, [membersOnly]);
+
+  const options = membersOnly ? (apiOptions ?? []) : allOptions;
+
   return (
-    <label className="glass relative flex h-10 shrink-0 items-center gap-2 rounded-full pl-3 pr-8 text-[13px] font-semibold">
+    <label className="relative flex h-10 shrink-0 items-center gap-2 rounded-full border border-white/[.08] bg-[#12121C] pl-3 pr-8 text-[13px] font-semibold shadow-lg" style={{ zIndex: 50 }}>
       {value ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={flagUrl(value, 40)} alt="" className="h-[12px] w-[17px] rounded-[2px] object-cover" />

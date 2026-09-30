@@ -118,7 +118,7 @@ export function MeProvider({ children }: { children: React.ReactNode }) {
       if (patch.unlinkX) Object.assign(local, { xHandle: null, xName: null, xAvatarUrl: null });
       setCached(patchCachedProfile(local));
       if (!(await verify())) return { ok: false, error: "Wallet signature needed to save" };
-      const res = await fetch(`/api/users/${wallet}`, {
+      const res = await fetch("/api/users/me", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(patch),

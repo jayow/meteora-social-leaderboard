@@ -27,6 +27,7 @@ export default function LeaderboardPage() {
   const router = useRouter();
   const { wallet, loading: meLoading, user: myUser } = useMe();
   const { setVisible } = useWalletModal();
+  const [view, setView] = useState<"leaderboard" | "countries">("leaderboard");
   const [range, setRange] = useState<Range>("30d");
   const [sort, setSort] = useState<Sort>("pnl");
   const [country, setCountry] = useState<string>("");
@@ -51,8 +52,8 @@ export default function LeaderboardPage() {
   }, [range, sort, country]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    if (view === "leaderboard") load();
+  }, [load, view]);
 
   // Reload once registration finishes so a freshly connected wallet appears.
   useEffect(() => {
@@ -74,12 +75,37 @@ export default function LeaderboardPage() {
   const metric = (e: LeaderboardEntry) => (sort === "volume" ? fmtUsd(e.volume) : sort === "winrate" ? fmtPct(e.winRate) : fmtUsd(e.pnl, { signed: true }));
   const metricTone = (e: LeaderboardEntry) => (sort === "pnl" ? ((e.pnl ?? 0) >= 0 ? "text-up" : "text-dn") : "text-white");
 
+  const onCountryChange = (c: string) => {
+    setCountry(c);
+    const url = new URL(window.location.href);
+    if (c) url.searchParams.set("country", c);
+    else url.searchParams.delete("country");
+    router.push(url.pathname + url.search);
+  };
+
   return (
     <main className="mx-auto max-w-[1320px] px-4 pb-10 pt-6 lg:px-6">
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_400px]">
         <section className="min-w-0">
-          {/* Hero */}
-          <div className="flex flex-wrap items-end justify-between gap-4">
+          {/* View tabs */}
+          <div className="mb-4 flex gap-2">
+            <Pills
+              value={view}
+              onChange={(v: "leaderboard" | "countries") => {
+                setView(v);
+                if (v === "leaderboard") setCountry("");
+              }}
+              options={[
+                { value: "leaderboard", label: "Leaderboard" },
+                { value: "countries", label: "Countries" },
+              ]}
+            />
+          </div>
+
+          {view === "leaderboard" ? (
+            <>
+              {/* Hero */}
+              <div className="flex flex-wrap items-end justify-between gap-4">{/* existing hero code */}
             <div>
               <h1 className="text-[32px] font-extrabold leading-tight tracking-tight sm:text-[40px]">
                 top <span className="brand-text">LPs</span> {HERO_SUFFIX[range]} 🔥
@@ -107,7 +133,7 @@ export default function LeaderboardPage() {
           {/* Filters */}
           <div className="no-scrollbar -mx-4 mt-5 flex items-center gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
             <Pills value={range} onChange={setRange} options={[{ value: "7d", label: "7D" }, { value: "30d", label: "30D" }, { value: "all", label: "All" }]} />
-            <CountrySelect value={country} onChange={setCountry} allLabel="All countries" />
+            <CountrySelect value={country} onChange={onCountryChange} allLabel="Global" membersOnly />
             <Pills label="Sort" value={sort} onChange={setSort} options={[{ value: "pnl", label: "PnL" }, { value: "volume", label: "Volume" }, { value: "winrate", label: "Win rate" }]} />
           </div>
 
@@ -168,6 +194,10 @@ export default function LeaderboardPage() {
             </p>
           )}
           {data?.error && <p className="mt-4 text-[13px] text-dn">{data.error}</p>}
+            </>
+          ) : (
+            <CountriesView range={range} setRange={setRange} onCountryClick={(c) => { setView("leaderboard"); setCountry(c); onCountryChange(c); }} />
+          )}
         </section>
 
         {/* Side profile card */}
@@ -291,5 +321,114 @@ function EmptyBoard({ country, onConnect, connected }: { country: string; onConn
         </button>
       )}
     </div>
+  );
+}
+
+interface CountryLeaderboardEntry {
+  rank: number;
+  country: string;
+  name: string;
+  members: number;
+  totalPnl: number | null;
+  avgWinRate: number | null;
+  topLp: {
+    id: number;
+    wallet: string;
+    xHandle: string | null;
+    xName: string | null;
+    xAvatarUrl: string | null;
+    pnl: number | null;
+  } | null;
+}
+
+interface CountriesResponse {
+  range: "7d" | "30d" | "all";
+  entries: CountryLeaderboardEntry[];
+}
+
+function CountriesView({ range, setRange, onCountryClick }: { range: Range; setRange: (r: Range) => void; onCountryClick: (country: string) => void }) {
+  const [data, setData] = useState<CountriesResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    fetch(`/api/countries/leaderboard?range=${range}`)
+      .then((r) => r.json() as Promise<CountriesResponse>)
+      .then(setData)
+      .catch(() => setData(null))
+      .finally(() => setLoading(false));
+  }, [range]);
+
+  const entries = data?.entries ?? [];
+
+  return (
+    <>
+      {/* Hero */}
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-[32px] font-extrabold leading-tight tracking-tight sm:text-[40px]">
+            country <span className="brand-text">rankings</span> 🌍
+          </h1>
+          <p className="mt-1 text-[14px] text-mute">
+            Countries ranked by combined {RANGE_LABEL[range]} PnL across all members
+          </p>
+        </div>
+        <div className="flex gap-6 text-right">
+          <div>
+            <div className="text-[12px] text-mute">Countries</div>
+            <div className="num text-[22px] font-bold">{entries.length}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="no-scrollbar -mx-4 mt-5 flex items-center gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
+        <Pills value={range} onChange={setRange} options={[{ value: "7d", label: "7D" }, { value: "30d", label: "30D" }, { value: "all", label: "All" }]} />
+      </div>
+
+      {/* Country rows */}
+      {loading && !data ? (
+        <div className="mt-6 space-y-2">
+          {[0, 1, 2, 3, 4].map((i) => (
+            <div key={i} className="glass h-24 animate-pulse rounded-[20px]" />
+          ))}
+        </div>
+      ) : entries.length === 0 ? (
+        <div className="glass mt-6 rounded-[28px] px-6 py-12 text-center">
+          <div className="text-[46px]">🌍</div>
+          <h2 className="mt-2 text-[22px] font-extrabold">No country data yet</h2>
+          <p className="mx-auto mt-1 max-w-md text-[14px] text-mute">Waiting for LPs to join and set their country.</p>
+        </div>
+      ) : (
+        <div className="mt-6 space-y-2">
+          {entries.map((entry) => (
+            <button
+              key={entry.country}
+              type="button"
+              onClick={() => onCountryClick(entry.country)}
+              className="glass flex w-full cursor-pointer items-center gap-4 rounded-[20px] px-4 py-4 text-left transition hover:bg-white/[.06] sm:px-5"
+            >
+              <span className="num w-8 text-center text-[16px] font-bold text-mute">{entry.rank}</span>
+              <Flag code={entry.country} className="!h-[20px] !w-[28px]" />
+              <div className="min-w-0 flex-1">
+                <div className="text-[17px] font-bold">{entry.name}</div>
+                <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-mute">
+                  <span>{entry.members} {entry.members === 1 ? "member" : "members"}</span>
+                  {entry.topLp && (
+                    <span className="flex items-center gap-1">
+                      Top LP: <Avatar user={entry.topLp} size={16} /> <span className="text-white/80">{displayName(entry.topLp)}</span>
+                    </span>
+                  )}
+                  <span>Avg win rate: <span className="text-white/80">{fmtPct(entry.avgWinRate, 1)}</span></span>
+                </div>
+              </div>
+              <div className={`num text-right text-[22px] font-extrabold sm:text-[28px] ${(entry.totalPnl ?? 0) >= 0 ? "text-up" : "text-dn"}`}>
+                {fmtUsd(entry.totalPnl, { signed: true })}
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </>
   );
 }
