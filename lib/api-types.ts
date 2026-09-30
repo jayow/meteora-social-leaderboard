@@ -43,6 +43,7 @@ export interface LeaderboardResponse {
 export interface ApiUser {
   id: number;
   wallet?: string;
+  signupMethod?: "wallet" | "x" | null;
   xHandle: string | null;
   xName: string | null;
   xAvatarUrl: string | null;

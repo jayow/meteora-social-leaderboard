@@ -94,6 +94,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
           .insert(users)
           .values({
             wallet: `temp_${xId}_${Date.now()}`, // Temporary unique value, will be replaced when wallet added
+            signupMethod: 'x',
             xId,
             xHandle,
             xName: profile.name,

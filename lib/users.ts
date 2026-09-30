@@ -20,7 +20,7 @@ export async function upsertUser(wallet: string, x?: XFields): Promise<UserRow> 
   }
   const rows = await db
     .insert(users)
-    .values({ wallet, ...xSet })
+    .values({ wallet, signupMethod: 'wallet', ...xSet })
     .onConflictDoUpdate({ target: users.wallet, set: { ...xSet, updatedAt: sql`now()` } })
     .returning();
   return rows[0];
@@ -80,6 +80,7 @@ export interface PublicPool {
 export interface PublicUser {
   id: number;
   wallet?: string;
+  signupMethod?: "wallet" | "x" | null;
   xHandle: string | null;
   xName: string | null;
   xAvatarUrl: string | null;
@@ -99,6 +100,7 @@ export function toPublicUser(u: UserRow, includeWallet = false): PublicUser {
   return {
     id: u.id,
     ...(includeWallet ? { wallet: u.wallet } : {}),
+    signupMethod: u.signupMethod as "wallet" | "x" | null,
     xHandle: u.xHandle,
     xName: u.xName,
     xAvatarUrl: u.xAvatarUrl,

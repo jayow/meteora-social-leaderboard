@@ -19,6 +19,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   // Capture returnTo (same-origin paths only)
   const returnTo = req.nextUrl.searchParams.get("returnTo") || "/profile/me";
+  const isLinking = req.nextUrl.searchParams.get("link") === "true";
   const returnUrl = new URL(returnTo, req.nextUrl.origin);
   if (returnUrl.origin !== req.nextUrl.origin) {
     return NextResponse.json({ error: "Invalid returnTo" }, { status: 400 });
@@ -32,8 +33,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // Store state, verifier, and returnTo in httpOnly cookies
   await storeOAuthState(state, verifier, returnUrl.pathname + returnUrl.search);
 
-  // Build callback URL
-  const callbackUrl = getCallbackUrl(req);
+  // Build callback URL - use link-callback if linking, otherwise regular callback
+  const callbackPath = isLinking ? "/api/x/link-callback" : "/api/x/callback";
+  const callbackUrl = new URL(callbackPath, req.nextUrl.origin).toString();
 
   // Build authorization URL
   const authUrl = new URL("https://twitter.com/i/oauth2/authorize");

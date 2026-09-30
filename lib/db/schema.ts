@@ -44,6 +44,7 @@ export const users = pgTable(
   {
     id: serial("id").primaryKey(),
     wallet: varchar("wallet", { length: 64 }).notNull(),
+    signupMethod: varchar("signup_method", { length: 16 }),
     xId: varchar("x_id", { length: 64 }),
     xHandle: varchar("x_handle", { length: 64 }),
     xName: text("x_name"),

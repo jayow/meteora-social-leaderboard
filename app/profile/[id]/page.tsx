@@ -174,6 +174,34 @@ function Profile() {
         <span className="text-[12px] text-mute">{syncing ? "Syncing with Meteora…" : `Stats updated ${timeAgo(snap?.updatedAt)}`}</span>
       </div>
       {xNotice && <div className="mb-4 rounded-2xl border border-purp/30 bg-purp/10 px-4 py-2 text-[13px] text-purp-soft">{xNotice}</div>}
+      
+      {/* Link prompts for missing methods */}
+      {mine && user && (
+        <>
+          {!user.xHandle && (
+            <a
+              href={`/api/x/login?link=true&returnTo=${encodeURIComponent("/profile/me")}`}
+              className="mb-4 flex items-center justify-between rounded-2xl border border-orange/30 bg-orange/10 px-4 py-3 text-[14px] transition hover:bg-orange/15"
+            >
+              <div className="flex items-center gap-2">
+                <XIcon className="h-4 w-4 text-orange" />
+                <span className="font-semibold text-white">Link your X account</span>
+                <span className="text-[13px] text-mute">Show your identity across Pool Party</span>
+              </div>
+              <span className="text-[13px] text-orange">→</span>
+            </a>
+          )}
+          {(user.walletCount === undefined || user.walletCount === 0) && user.wallet && user.wallet.startsWith("temp_") && (
+            <div className="mb-4 rounded-2xl border border-orange/30 bg-orange/10 px-4 py-3">
+              <div className="flex items-center gap-2 text-[14px]">
+                <span className="text-[20px]">👛</span>
+                <span className="font-semibold text-white">Link a wallet</span>
+                <span className="text-[13px] text-mute">Connect your Solana wallet to track your Meteora stats</span>
+              </div>
+            </div>
+          )}
+        </>
+      )}
 
       <div className="grid gap-5 lg:grid-cols-[380px_minmax(0,1fr)]">
         {/* Identity card */}
@@ -211,6 +239,16 @@ function Profile() {
                   @{user.xHandle}{user.xVerified && <> · <XIcon className="h-3 w-3" /> verified</>}
                 </a>
               )}
+              {user.signupMethod && (
+                <span className="rounded-full border border-white/10 bg-white/[.04] px-2 py-0.5 text-[11px] font-medium text-mute">
+                  {user.signupMethod === "x" ? "Signed up with X" : "Signed up with wallet"}
+                </span>
+              )}
+              {user.walletCount !== undefined && user.walletCount > 0 && (
+                <span className="rounded-full border border-white/10 bg-white/[.04] px-2 py-0.5 text-[11px] font-medium text-mute">
+                  Wallet verified
+                </span>
+              )}
             </div>
             {(user.followersCount !== undefined || user.followingCount !== undefined) && (
               <div className="mt-2 flex gap-4 text-[13px]">
@@ -232,7 +270,7 @@ function Profile() {
             {/* WalletsSection hidden for now - multi-wallet feature parked */}
             {/* {mine && <WalletsSection />} */}
 
-            <RecentTheses userId={user.id} />
+            <Thesis user={user} mine={mine} onSaved={(u) => setUser(u)} />
 
             {snap?.topPool && (
               <div className="mt-4 flex items-center justify-between gap-2 text-[12px] text-mute">
@@ -521,9 +559,9 @@ function ProfileBanner({ user, mine, onUpdated }: { user: ApiUser; mine: boolean
 
   return (
     <>
-      <div className="relative aspect-[3/1] overflow-hidden">
+      <div className="relative h-[167px]">
         {bannerUrl ? (
-          <img src={bannerUrl} alt="" className="h-full w-full object-cover object-center" />
+          <img src={bannerUrl} alt="" className="h-full w-full object-cover" />
         ) : (
           <div className="brand-grad relative h-full">
             <div className="absolute inset-0 bg-[radial-gradient(60%_120%_at_20%_0%,rgba(255,255,255,.28),transparent)]" />
@@ -564,9 +602,9 @@ function ProfileBanner({ user, mine, onUpdated }: { user: ApiUser; mine: boolean
                 onMouseLeave={() => setHovered(false)}
               >
                 {preview ? (
-                  <img src={preview} alt="Preview" className="h-full w-full object-cover object-center" />
+                  <img src={preview} alt="Preview" className="h-full w-full object-cover" />
                 ) : bannerUrl ? (
-                  <img src={bannerUrl} alt="Current banner" className="h-full w-full object-cover object-center" />
+                  <img src={bannerUrl} alt="Current banner" className="h-full w-full object-cover" />
                 ) : (
                   <div className="brand-grad relative h-full">
                     <div className="absolute inset-0 bg-[radial-gradient(60%_120%_at_20%_0%,rgba(255,255,255,.28),transparent)]" />
@@ -906,97 +944,6 @@ function Thesis({ user, mine, onSaved }: { user: ApiUser; mine: boolean; onSaved
         </>
       ) : (
         <p className="mt-1 whitespace-pre-wrap text-[15px] leading-snug text-white/90">{user.thesis ? `“${user.thesis}”` : <span className="text-mute">{mine ? "Tell other LPs how you play the pools." : "No thesis yet."}</span>}</p>
-      )}
-    </div>
-  );
-}
-
-interface RecentThesis {
-  id: number;
-  tokenMint: string;
-  body: string;
-  createdAt: string;
-  tokenSymbol: string;
-  tokenIcon: string | null;
-}
-
-function RecentTheses({ userId }: { userId: number }) {
-  const [theses, setTheses] = useState<RecentThesis[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      try {
-        const res = await fetch(`/api/users/${userId}/theses`);
-        if (res.ok) {
-          const data = await res.json();
-          setTheses(data.theses || []);
-        }
-      } catch {
-        setTheses([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
-  }, [userId]);
-
-  if (loading) {
-    return (
-      <div className="mt-4 rounded-2xl rounded-tl-md border border-purp/20 bg-purp/10 p-3.5">
-        <div className="text-[10px] font-bold uppercase tracking-wider text-purp-soft">Recent theses</div>
-        <p className="mt-1 text-[13px] text-mute">Loading...</p>
-      </div>
-    );
-  }
-
-  if (theses.length === 0) {
-    return (
-      <div className="mt-4 rounded-2xl rounded-tl-md border border-purp/20 bg-purp/10 p-3.5">
-        <div className="text-[10px] font-bold uppercase tracking-wider text-purp-soft">Recent theses</div>
-        <p className="mt-1 text-[13px] text-mute">No theses yet. Share your thoughts on token pages.</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="mt-4 rounded-2xl rounded-tl-md border border-purp/20 bg-purp/10 p-3.5">
-      <div className="text-[10px] font-bold uppercase tracking-wider text-purp-soft">Recent theses</div>
-      <div className="mt-2 space-y-3">
-        {theses.slice(0, 3).map((thesis) => (
-          <Link
-            key={thesis.id}
-            href={`/tokens/${thesis.tokenMint}`}
-            className="block rounded-xl border border-white/[.08] bg-black/20 p-3 transition hover:border-orange/40"
-          >
-            <div className="flex items-center gap-2">
-              {thesis.tokenIcon ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={thesis.tokenIcon}
-                  alt={thesis.tokenSymbol}
-                  className="h-6 w-6 rounded-full border border-base bg-[#222] object-cover"
-                />
-              ) : (
-                <div className="flex h-6 w-6 items-center justify-center rounded-full border border-base bg-purp/40 text-[11px] font-bold">
-                  {thesis.tokenSymbol.slice(0, 1)}
-                </div>
-              )}
-              <span className="text-[13px] font-semibold">{thesis.tokenSymbol}</span>
-              <span className="ml-auto text-[11px] text-mute">{timeAgo(thesis.createdAt)}</span>
-            </div>
-            <p className="mt-2 line-clamp-2 text-[13px] leading-snug text-white/90">{thesis.body}</p>
-          </Link>
-        ))}
-      </div>
-      {theses.length > 3 && (
-        <Link
-          href={`/profile/${userId}`}
-          className="mt-2 block text-center text-[12px] font-semibold text-orange hover:text-orange-soft"
-        >
-          View all theses →
-        </Link>
       )}
     </div>
   );

@@ -2,10 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
-import { useWalletModal } from "@solana/wallet-adapter-react-ui";
-import { Logo, XIcon } from "@/components/ui";
-import { WalletButton } from "@/components/WalletButton";
+import { useEffect, useState, useRef } from "react";
+import { Logo, XIcon, Avatar } from "@/components/ui";
+import { SignInModal } from "@/components/SignInModal";
 import { useMe } from "@/components/MeProvider";
 import { meteoraHomeUrl } from "@/lib/meteora-links";
 
@@ -14,19 +13,24 @@ interface SessionData {
   xHandle?: string | null;
   xName?: string | null;
   xAvatarUrl?: string | null;
+  wallets?: string[];
 }
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { wallet, cached, user } = useMe();
-  const { setVisible } = useWalletModal();
+  const { user } = useMe();
   const [session, setSession] = useState<SessionData | null>(null);
+  const [signInOpen, setSignInOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
   const onBoard = pathname === "/";
   const onMe = pathname.startsWith("/profile");
   const onPools = pathname.startsWith("/pools");
-  const onTokens = pathname.startsWith("/tokens");
   const onInvites = pathname === "/invites";
   const isMember = Boolean(user?.memberNumber);
+  const isSignedIn = Boolean(session?.userId);
+  const hasWallet = Boolean(session?.wallets && session.wallets.length > 0);
+  const hasX = Boolean(session?.xHandle);
 
   useEffect(() => {
     fetch("/api/auth/session")
@@ -34,6 +38,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       .then((d) => setSession(d))
       .catch(() => setSession(null));
   }, []);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onDoc = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [menuOpen]);
+
+  const handleSignOut = async () => {
+    await fetch("/api/auth/session", { method: "DELETE" });
+    window.location.href = "/";
+  };
 
   return (
     <div className="min-h-screen pb-24 lg:pb-0">
@@ -50,9 +70,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </Link>
               <Link href="/pools" className={`rounded-full px-4 py-1.5 ${onPools ? "bg-white/[.1] text-white" : "text-mute hover:text-white"}`}>
                 Pools
-              </Link>
-              <Link href="/tokens" className={`rounded-full px-4 py-1.5 ${onTokens ? "bg-white/[.1] text-white" : "text-mute hover:text-white"}`}>
-                Tokens
               </Link>
               <Link href="/profile/me" className={`rounded-full px-4 py-1.5 ${onMe ? "bg-white/[.1] text-white" : "text-mute hover:text-white"}`}>
                 Profile
@@ -71,24 +88,84 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </Link>
             </div>
           )}
+          
           <div className="ml-auto flex items-center gap-2 lg:ml-0">
-            {session?.userId && session.xHandle && !session.xAvatarUrl && (
-              <Link href="/profile/me" className="flex items-center gap-2 text-[13px] text-mute hover:text-white">
-                @{session.xHandle}
-              </Link>
+            {!isSignedIn && (
+              <button
+                type="button"
+                onClick={() => setSignInOpen(true)}
+                className="h-9 rounded-full bg-orange px-4 text-[13px] font-bold text-white shadow-lg shadow-orange/25 transition hover:bg-orange-soft"
+              >
+                Sign in
+              </button>
             )}
-            {session?.userId && session.xAvatarUrl && (
-              <Link href="/profile/me" className="flex items-center gap-2 rounded-full hover:opacity-80">
-                <img src={session.xAvatarUrl} alt={session.xHandle || ""} className="h-8 w-8 rounded-full" />
-                {session.xHandle && <span className="hidden text-[13px] text-mute sm:inline">@{session.xHandle}</span>}
-              </Link>
+
+            {isSignedIn && (
+              <div ref={menuRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => setMenuOpen((o) => !o)}
+                  className="flex h-9 items-center gap-2 rounded-full border border-white/10 bg-white/[.04] pl-1.5 pr-3 text-[13px] font-semibold transition hover:bg-white/[.08]"
+                >
+                  <Avatar 
+                    user={{ id: session?.userId || undefined, xAvatarUrl: session?.xAvatarUrl }} 
+                    size={26} 
+                  />
+                  <span className="num">
+                    {hasX && session?.xHandle 
+                      ? `@${session.xHandle}` 
+                      : session?.userId 
+                        ? `LP #${session.userId}` 
+                        : "User"}
+                  </span>
+                </button>
+
+                {menuOpen && (
+                  <div className="absolute right-0 z-50 mt-2 w-48 overflow-hidden rounded-2xl border border-white/10 bg-[#1A1623]/95 p-1 text-[14px] shadow-xl backdrop-blur-sm">
+                    <Link
+                      href="/profile/me"
+                      onClick={() => setMenuOpen(false)}
+                      className="block rounded-xl px-3 py-2 hover:bg-white/[.06]"
+                    >
+                      Profile
+                    </Link>
+                    {!hasX && (
+                      <a
+                        href={`/api/x/login?link=true&returnTo=${encodeURIComponent("/profile/me")}`}
+                        className="flex items-center gap-2 rounded-xl px-3 py-2 hover:bg-white/[.06]"
+                      >
+                        <XIcon className="h-3.5 w-3.5" />
+                        Link X account
+                      </a>
+                    )}
+                    {!hasWallet && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMenuOpen(false);
+                          // TODO: implement wallet linking flow
+                          alert("Wallet linking coming soon");
+                        }}
+                        className="block w-full rounded-xl px-3 py-2 text-left hover:bg-white/[.06]"
+                      >
+                        Link wallet
+                      </button>
+                    )}
+                    <hr className="my-1 border-white/10" />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMenuOpen(false);
+                        handleSignOut();
+                      }}
+                      className="block w-full rounded-xl px-3 py-2 text-left text-dn hover:bg-white/[.06]"
+                    >
+                      Sign out
+                    </button>
+                  </div>
+                )}
+              </div>
             )}
-            {wallet && isMember && !session?.xHandle && (
-              <Link href="/profile/me?connect=x" className="hidden h-10 items-center gap-1.5 rounded-full bg-purp/20 px-4 text-[14px] font-semibold text-purp-soft hover:bg-purp/30 sm:flex">
-                <XIcon /> Connect X
-              </Link>
-            )}
-            <WalletButton size="sm" />
           </div>
         </div>
       </header>
@@ -105,12 +182,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <Link href="/pools" className={`flex w-16 flex-col items-center gap-0.5 text-[11px] font-semibold ${onPools ? "text-orange" : "text-mute"}`}>
               <span className="text-[20px]">🏊</span>Pools
             </Link>
-            {wallet ? (
+            {isSignedIn ? (
               <Link href="/profile/me" className="brand-grad -mt-7 flex h-14 w-14 items-center justify-center rounded-full border-4 border-base text-[26px] font-bold shadow-lg shadow-orange/30" aria-label="My rank">
                 +
               </Link>
             ) : (
-              <button type="button" onClick={() => setVisible(true)} className="brand-grad -mt-7 flex h-14 w-14 items-center justify-center rounded-full border-4 border-base text-[26px] font-bold shadow-lg shadow-orange/30" aria-label="Connect wallet">
+              <button type="button" onClick={() => setSignInOpen(true)} className="brand-grad -mt-7 flex h-14 w-14 items-center justify-center rounded-full border-4 border-base text-[26px] font-bold shadow-lg shadow-orange/30" aria-label="Sign in">
                 +
               </button>
             )}
@@ -120,6 +197,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </nav>
       )}
+
+      <SignInModal open={signInOpen} onClose={() => setSignInOpen(false)} />
     </div>
   );
 }
