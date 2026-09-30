@@ -35,14 +35,19 @@ export function PnLCalendar({ userId, compact = false }: { userId?: number | nul
         const data = (await res.json()) as { days?: DailyPnL[] };
         const daysData = Array.isArray(data.days) ? data.days : [];
         if (!cancelled) {
-          setDays(daysData);
-          // If this is the first load and current month is empty, try to find most recent month with data
-          if (!initialized && daysData.length === 0 && y === now.getFullYear() && m === now.getMonth()) {
-            // Try previous month
-            const prevMonth = new Date(y, m - 1, 1);
-            setCursor(prevMonth);
+          // Only apply response if cursor still matches the requested month
+          const currentY = cursor.getFullYear();
+          const currentM = cursor.getMonth();
+          if (y === currentY && m === currentM) {
+            setDays(daysData);
+            // If this is the first load and current month is empty, try to find most recent month with data
+            if (!initialized && daysData.length === 0 && y === now.getFullYear() && m === now.getMonth()) {
+              // Try previous month
+              const prevMonth = new Date(y, m - 1, 1);
+              setCursor(prevMonth);
+            }
+            setInitialized(true);
           }
-          setInitialized(true);
         }
       })
       .catch(() => {

@@ -10,9 +10,15 @@ const APP_URL = "https://web-production-c8f29.up.railway.app";
 
 async function getUserRank(userId: number, range: string): Promise<number | null> {
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000); // 3s timeout
+    
     const res = await fetch(`${APP_URL}/api/leaderboard?range=${range}&sort=pnl`, {
       next: { revalidate: 600 },
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
+    
     if (!res.ok) return null;
     const data = await res.json() as { entries: Array<{ id: number; rank: number }> };
     const entry = data.entries.find((e) => e.id === userId);
@@ -68,10 +74,25 @@ export async function GET(
 
     const rank = await getUserRank(user.id, range);
 
-    // Fetch Nunito font
-    const fontData = await fetch(
-      "https://fonts.gstatic.com/s/nunito/v26/XRXI3I6Li01BKofiOc5wtlZ2di8HDLshdTk3j77e.woff"
-    ).then((res) => res.arrayBuffer());
+    // Fetch Nunito font with timeout
+    let fontData: ArrayBuffer;
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
+      
+      const fontRes = await fetch(
+        "https://fonts.gstatic.com/s/nunito/v26/XRXI3I6Li01BKofiOc5wtlZ2di8HDLshdTk3j77e.woff",
+        { signal: controller.signal }
+      );
+      clearTimeout(timeoutId);
+      
+      if (!fontRes.ok) throw new Error("Font fetch failed");
+      fontData = await fontRes.arrayBuffer();
+    } catch (error) {
+      console.error("Font fetch error:", error);
+      // Use a fallback or return error
+      return new Response("Font loading failed", { status: 503 });
+    }
 
     const rangeLabel = range === "7d" ? "7D" : range === "30d" ? "30D" : "All-time";
     const handle = displayName(user);
