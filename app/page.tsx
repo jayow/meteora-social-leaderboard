@@ -8,6 +8,7 @@ import type { LeaderboardEntry, LeaderboardResponse } from "@/lib/api-types";
 import { Avatar, Flag, Pills, PoolChip } from "@/components/ui";
 import { ProfileCard } from "@/components/ProfileCard";
 import { CountrySelect } from "@/components/CountrySelect";
+import { FollowButton } from "@/components/FollowButton";
 import { useMe } from "@/components/MeProvider";
 import { displayName, fmtPct, fmtUsd } from "@/lib/format";
 
@@ -220,6 +221,11 @@ function PodiumCard({ e, first, isMe, metric, tone, onClick, range }: { e: Leade
       </div>
       {isMe && <span className="mt-0.5 rounded-full bg-purp/30 px-2 text-[10px] font-bold text-purp-soft">YOU</span>}
       <div className={`num mt-1 font-extrabold tracking-tight ${first ? "text-[22px] sm:text-[34px]" : "text-[18px] sm:text-[26px]"} ${tone}`}>{metric}</div>
+      {!isMe && (
+        <div className="mt-2">
+          <FollowButton targetUser={e} size="sm" />
+        </div>
+      )}
       <div className="mt-0.5 hidden text-[11px] text-mute sm:block">
         Vol <span className="text-white/80">{fmtUsd(e.volume)}</span> · Win <span className="text-white/80">{fmtPct(e.winRate)}</span>
       </div>
@@ -257,19 +263,15 @@ function Row({ e, isMe, metric, tone, onClick, range, active }: { e: Leaderboard
         </div>
       </div>
       <div className={`num text-right text-[18px] font-extrabold sm:text-[22px] ${tone}`}>{metric}</div>
-      {isMe ? (
-        <a href={share} target="_blank" rel="noreferrer" onClick={(ev) => ev.stopPropagation()} className="hidden h-8 rounded-full bg-white/[.1] px-3.5 text-[13px] font-semibold leading-8 hover:bg-white/[.16] sm:block">
-          Share
-        </a>
-      ) : e.xHandle ? (
-        <a href={`https://x.com/intent/follow?screen_name=${e.xHandle}`} target="_blank" rel="noreferrer" onClick={(ev) => ev.stopPropagation()} className="hidden h-8 rounded-full bg-white px-3.5 text-[13px] font-bold leading-8 text-black hover:bg-white/90 sm:block">
-          Follow
-        </a>
-      ) : (
-        <Link href={`/profile/${e.wallet}`} onClick={(ev) => ev.stopPropagation()} className="hidden h-8 rounded-full bg-white/[.08] px-3.5 text-[13px] font-semibold leading-8 hover:bg-white/[.14] sm:block">
-          View
-        </Link>
-      )}
+      <div className="hidden sm:block" onClick={(ev) => ev.stopPropagation()}>
+        {isMe ? (
+          <a href={share} target="_blank" rel="noreferrer" className="h-8 rounded-full bg-white/[.1] px-3.5 text-[13px] font-semibold leading-8 hover:bg-white/[.16]">
+            Share
+          </a>
+        ) : (
+          <FollowButton targetUser={e} size="sm" />
+        )}
+      </div>
     </div>
   );
 }

@@ -28,6 +28,7 @@ export interface LeaderboardEntry {
   topPool: PoolInfo | null;
   snapshotDate: string;
   updatedAt: string;
+  isFollowing?: boolean;
 }
 
 export interface LeaderboardResponse {
