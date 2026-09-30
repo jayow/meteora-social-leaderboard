@@ -274,10 +274,10 @@ function Profile() {
 
           <div className="glass rounded-[28px] p-5">
             <h2 className="mb-3 text-[18px] font-extrabold">PnL calendar</h2>
-            <PnLCalendar walletAddress={user.wallet} />
+            <PnLCalendar userId={user.id} />
           </div>
 
-          <OpenPositions walletAddress={user.wallet} />
+          <OpenPositions userId={user.id} />
         </section>
       </div>
     </main>

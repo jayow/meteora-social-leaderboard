@@ -5,17 +5,14 @@ import { fmtUsd } from "@/lib/format";
 
 interface MeteoraOpenPool {
   poolAddress: string;
-  binStep: number;
+  binStep: number | null;
+  protocol: string | null;
   tokenX: string;
   tokenY: string;
-  tokenXIcon: string;
-  tokenYIcon: string;
-  balances: string;
-  pnl: string;
-  pnlPctChange: string;
-  unclaimedFees: string;
-  outOfRange: boolean;
-  openPositionCount: number;
+  tokenXIcon: string | null;
+  tokenYIcon: string | null;
+  valueUsd: number | null;
+  positionCount: number;
 }
 
 interface MeteoraOpenPositions {
@@ -23,19 +20,13 @@ interface MeteoraOpenPositions {
   pools: MeteoraOpenPool[];
 }
 
-function num(s: string | number | null | undefined): number {
-  if (s == null) return 0;
-  const n = typeof s === "string" ? parseFloat(s) : s;
-  return Number.isFinite(n) ? n : 0;
-}
-
-export function OpenPositions({ walletAddress, compact }: { walletAddress?: string; compact?: boolean }) {
+export function OpenPositions({ userId, compact }: { userId?: number; compact?: boolean }) {
   const [data, setData] = useState<MeteoraOpenPositions | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!walletAddress) {
+    if (!userId) {
       setData(null);
       setError(null);
       return;
@@ -46,15 +37,16 @@ export function OpenPositions({ walletAddress, compact }: { walletAddress?: stri
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch(`/api/meteora/open?wallet=${walletAddress}`);
+        const res = await fetch(`/api/users/${userId}/open-positions`);
         if (!res.ok) {
           throw new Error("Failed to fetch open positions");
         }
-        const json = await res.json();
+        const json = await res.json() as { positions?: MeteoraOpenPool[] };
         if (!cancelled) {
+          const pools = Array.isArray(json.positions) ? json.positions : [];
           setData({
-            totalPositions: json.totalPositions || 0,
-            pools: Array.isArray(json.pools) ? json.pools : [],
+            totalPositions: pools.reduce((sum, p) => sum + (p.positionCount || 0), 0),
+            pools,
           });
         }
       } catch (e) {
@@ -68,9 +60,9 @@ export function OpenPositions({ walletAddress, compact }: { walletAddress?: stri
     return () => {
       cancelled = true;
     };
-  }, [walletAddress]);
+  }, [userId]);
 
-  if (!walletAddress) {
+  if (!userId) {
     return null;
   }
 
@@ -132,11 +124,7 @@ export function OpenPositions({ walletAddress, compact }: { walletAddress?: stri
 }
 
 function PositionCard({ pool }: { pool: MeteoraOpenPool }) {
-  const pnl = num(pool.pnl);
-  const pnlPct = num(pool.pnlPctChange);
-  const value = num(pool.balances);
-  const fees = num(pool.unclaimedFees);
-  const pnlColor = pnl >= 0 ? "text-up" : "text-dn";
+  const value = pool.valueUsd || 0;
 
   return (
     <a
@@ -148,44 +136,39 @@ function PositionCard({ pool }: { pool: MeteoraOpenPool }) {
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2.5">
           <div className="flex items-center">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={pool.tokenXIcon} alt={pool.tokenX} className="h-8 w-8 rounded-full border border-base bg-[#222] object-cover" />
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={pool.tokenYIcon} alt={pool.tokenY} className="-ml-2 h-8 w-8 rounded-full border border-base bg-[#222] object-cover" />
+            {pool.tokenXIcon ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={pool.tokenXIcon} alt={pool.tokenX} className="h-8 w-8 rounded-full border border-base bg-[#222] object-cover" />
+            ) : (
+              <div className="h-8 w-8 rounded-full border border-base bg-[#222]" />
+            )}
+            {pool.tokenYIcon ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={pool.tokenYIcon} alt={pool.tokenY} className="-ml-2 h-8 w-8 rounded-full border border-base bg-[#222] object-cover" />
+            ) : (
+              <div className="-ml-2 h-8 w-8 rounded-full border border-base bg-[#222]" />
+            )}
           </div>
           <div>
             <div className="flex items-center gap-2">
               <span className="text-[15px] font-bold">{pool.tokenX}/{pool.tokenY}</span>
-              <span className="rounded-full bg-orange/20 px-2 py-0.5 text-[10px] font-bold text-orange">
-                DLMM {pool.binStep}bp
-              </span>
-              {pool.outOfRange && (
-                <span className="rounded-full bg-red-500/20 px-2 py-0.5 text-[10px] font-bold text-red-400">
-                  Out of range
+              {pool.binStep && (
+                <span className="rounded-full bg-orange/20 px-2 py-0.5 text-[10px] font-bold text-orange">
+                  DLMM {pool.binStep}bp
                 </span>
               )}
             </div>
             <div className="mt-0.5 text-[12px] text-mute">
-              {pool.openPositionCount} position{pool.openPositionCount !== 1 ? 's' : ''}
+              {pool.positionCount || 0} position{pool.positionCount !== 1 ? 's' : ''}
             </div>
           </div>
         </div>
       </div>
 
-      <div className="mt-3 grid grid-cols-2 gap-3 text-[13px] sm:grid-cols-3">
+      <div className="mt-3 grid grid-cols-1 gap-3 text-[13px]">
         <div>
           <div className="text-[11px] text-mute">Value</div>
           <div className="num mt-0.5 font-semibold">{fmtUsd(value)}</div>
-        </div>
-        <div>
-          <div className="text-[11px] text-mute">Unrealized PnL</div>
-          <div className={`num mt-0.5 font-semibold ${pnlColor}`}>
-            {fmtUsd(pnl, { signed: true })} ({pnlPct >= 0 ? '+' : ''}{pnlPct.toFixed(2)}%)
-          </div>
-        </div>
-        <div>
-          <div className="text-[11px] text-mute">Unclaimed Fees</div>
-          <div className="num mt-0.5 font-semibold text-orange">{fmtUsd(fees, { signed: true })}</div>
         </div>
       </div>
     </a>
@@ -193,9 +176,7 @@ function PositionCard({ pool }: { pool: MeteoraOpenPool }) {
 }
 
 function PositionCardCompact({ pool }: { pool: MeteoraOpenPool }) {
-  const pnl = num(pool.pnl);
-  const value = num(pool.balances);
-  const pnlColor = pnl >= 0 ? "text-up" : "text-dn";
+  const value = pool.valueUsd || 0;
 
   return (
     <a
@@ -206,18 +187,26 @@ function PositionCardCompact({ pool }: { pool: MeteoraOpenPool }) {
     >
       <div className="flex items-center gap-2">
         <div className="flex items-center">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={pool.tokenXIcon} alt={pool.tokenX} className="h-6 w-6 rounded-full border border-base bg-[#222] object-cover" />
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={pool.tokenYIcon} alt={pool.tokenY} className="-ml-1.5 h-6 w-6 rounded-full border border-base bg-[#222] object-cover" />
+          {pool.tokenXIcon ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={pool.tokenXIcon} alt={pool.tokenX} className="h-6 w-6 rounded-full border border-base bg-[#222] object-cover" />
+          ) : (
+            <div className="h-6 w-6 rounded-full border border-base bg-[#222]" />
+          )}
+          {pool.tokenYIcon ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={pool.tokenYIcon} alt={pool.tokenY} className="-ml-1.5 h-6 w-6 rounded-full border border-base bg-[#222] object-cover" />
+          ) : (
+            <div className="-ml-1.5 h-6 w-6 rounded-full border border-base bg-[#222]" />
+          )}
         </div>
         <div>
           <div className="text-[13px] font-semibold">{pool.tokenX}/{pool.tokenY}</div>
           <div className="num text-[11px] text-mute">{fmtUsd(value)}</div>
         </div>
       </div>
-      <div className={`num text-[14px] font-bold ${pnlColor}`}>
-        {fmtUsd(pnl, { signed: true })}
+      <div className="num text-[14px] font-semibold text-white">
+        {pool.positionCount || 0}
       </div>
     </a>
   );

@@ -41,7 +41,7 @@ export function WalletButton({ size = "md" }: { size?: "sm" | "md" }) {
         <span className="h-2 w-2 rounded-full bg-up" />
       </button>
       {open && (
-        <div className="glass absolute right-0 z-50 mt-2 w-48 overflow-hidden rounded-2xl bg-[#15131f]/95 p-1 text-[14px] shadow-2xl">
+        <div className="absolute right-0 z-50 mt-2 w-48 overflow-hidden rounded-2xl border border-white/10 bg-[#1A1623] p-1 text-[14px] shadow-xl">
           <Link href="/profile/me" onClick={() => setOpen(false)} className="block rounded-xl px-3 py-2 hover:bg-white/[.06]">
             My profile
           </Link>

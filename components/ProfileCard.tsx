@@ -95,11 +95,11 @@ export function ProfileCard({ user, stats, rank, isMe }: { user: CardUser; stats
         )}
 
         <div className="mt-4 rounded-2xl border border-white/[.06] bg-black/20 p-3">
-          <PnLCalendar walletAddress={user.wallet} compact />
+          <PnLCalendar userId={user.id} compact />
         </div>
 
         <div className="mt-3">
-          <OpenPositions walletAddress={user.wallet} compact />
+          <OpenPositions userId={user.id} compact />
         </div>
       </div>
     </div>

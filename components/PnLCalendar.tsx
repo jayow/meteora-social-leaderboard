@@ -7,29 +7,43 @@ import { formatUsd, monthTotal } from "@/lib/pnl";
 const DOW = ["S", "M", "T", "W", "T", "F", "S"];
 const DOW_LONG = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-export function PnLCalendar({ walletAddress, compact = false }: { walletAddress?: string | null; compact?: boolean }) {
-  const now = new Date();
-  const [cursor, setCursor] = useState(new Date(now.getFullYear(), now.getMonth(), 1));
+export function PnLCalendar({ userId, compact = false }: { userId?: number | null; compact?: boolean }) {
+  const [cursor, setCursor] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
   const [days, setDays] = useState<DailyPnL[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [initialized, setInitialized] = useState(false);
 
   useEffect(() => {
-    if (!walletAddress) {
+    if (!userId) {
       setDays([]);
       return;
     }
+    const now = new Date();
     let cancelled = false;
     const y = cursor.getFullYear();
     const m = cursor.getMonth();
     const month = `${y}-${String(m + 1).padStart(2, "0")}`;
     setLoading(true);
     setError(null);
-    fetch(`/api/meteora/calendar?wallet=${walletAddress}&month=${month}`)
+    fetch(`/api/users/${userId}/calendar?month=${month}`)
       .then(async (res) => {
         if (!res.ok) throw new Error("calendar fetch failed");
         const data = (await res.json()) as { days?: DailyPnL[] };
-        if (!cancelled) setDays(Array.isArray(data.days) ? data.days : []);
+        const daysData = Array.isArray(data.days) ? data.days : [];
+        if (!cancelled) {
+          setDays(daysData);
+          // If this is the first load and current month is empty, try to find most recent month with data
+          if (!initialized && daysData.length === 0 && y === now.getFullYear() && m === now.getMonth()) {
+            // Try previous month
+            const prevMonth = new Date(y, m - 1, 1);
+            setCursor(prevMonth);
+          }
+          setInitialized(true);
+        }
       })
       .catch(() => {
         if (!cancelled) {
@@ -43,10 +57,11 @@ export function PnLCalendar({ walletAddress, compact = false }: { walletAddress?
     return () => {
       cancelled = true;
     };
-  }, [walletAddress, cursor]);
+  }, [userId, cursor, initialized]);
 
   const y = cursor.getFullYear();
   const m = cursor.getMonth();
+  const now = new Date();
   const map = useMemo(() => new Map(days.map((d) => [d.date, d])), [days]);
   const total = monthTotal(days, y, m);
   const start = new Date(y, m, 1).getDay();
