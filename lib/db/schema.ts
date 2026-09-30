@@ -176,6 +176,24 @@ export const openPositions = pgTable(
   ]
 );
 
+export const tokenComments = pgTable(
+  "token_comments",
+  {
+    id: serial("id").primaryKey(),
+    tokenMint: varchar("token_mint", { length: 64 }).notNull(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    body: text("body").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+  (t) => [
+    index("token_comments_mint_idx").on(t.tokenMint, t.createdAt.desc()),
+    index("token_comments_user_idx").on(t.userId, t.createdAt.desc()),
+  ]
+);
+
 export type ProfileBannerRow = typeof profileBanners.$inferSelect;
 export type InviteCodeRow = typeof inviteCodes.$inferSelect;
 export type UserRow = typeof users.$inferSelect;
@@ -184,3 +202,4 @@ export type SnapshotRow = typeof pnlSnapshots.$inferSelect;
 export type NewSnapshot = typeof pnlSnapshots.$inferInsert;
 export type FollowRow = typeof follows.$inferSelect;
 export type OpenPositionRow = typeof openPositions.$inferSelect;
+export type TokenCommentRow = typeof tokenComments.$inferSelect;

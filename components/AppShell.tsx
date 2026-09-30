@@ -24,6 +24,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const onBoard = pathname === "/";
   const onMe = pathname.startsWith("/profile");
   const onPools = pathname.startsWith("/pools");
+  const onTokens = pathname.startsWith("/tokens");
   const onInvites = pathname === "/invites";
   const isMember = Boolean(user?.memberNumber);
 
@@ -49,6 +50,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </Link>
               <Link href="/pools" className={`rounded-full px-4 py-1.5 ${onPools ? "bg-white/[.1] text-white" : "text-mute hover:text-white"}`}>
                 Pools
+              </Link>
+              <Link href="/tokens" className={`rounded-full px-4 py-1.5 ${onTokens ? "bg-white/[.1] text-white" : "text-mute hover:text-white"}`}>
+                Tokens
               </Link>
               <Link href="/profile/me" className={`rounded-full px-4 py-1.5 ${onMe ? "bg-white/[.1] text-white" : "text-mute hover:text-white"}`}>
                 Profile
