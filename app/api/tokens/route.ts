@@ -18,12 +18,12 @@ export async function GET(): Promise<NextResponse> {
 
   const pool = getPool();
 
-  // Aggregate tokens from open_positions (base token = token_x_mint)
+  // Aggregate tokens from open_positions (base token = token_x_mint or fallback to symbol)
   // Also get comment counts and tokens with comments
   const query = `
     WITH token_stats AS (
       SELECT 
-        op.token_x_mint AS token_mint,
+        COALESCE(op.token_x_mint, op.token_x) AS token_mint,
         op.token_x AS token_symbol,
         op.token_x_icon AS token_icon,
         COUNT(DISTINCT op.pool_address) AS pool_count,
@@ -31,8 +31,8 @@ export async function GET(): Promise<NextResponse> {
         COUNT(DISTINCT op.user_id) AS lp_count
       FROM open_positions op
       JOIN users u ON u.id = op.user_id
-      WHERE u.joined_at IS NOT NULL AND op.token_x_mint IS NOT NULL
-      GROUP BY op.token_x_mint, op.token_x, op.token_x_icon
+      WHERE u.joined_at IS NOT NULL
+      GROUP BY COALESCE(op.token_x_mint, op.token_x), op.token_x, op.token_x_icon
     ),
     comment_counts AS (
       SELECT 
