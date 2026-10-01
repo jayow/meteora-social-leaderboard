@@ -156,13 +156,13 @@ function PositionCard({ pool }: { pool: MeteoraOpenPool }) {
             <div className="flex items-center gap-2">
               <span className="text-[15px] font-bold">
                 {pool.tokenXMint ? (
-                  <Link href={`/tokens/${pool.tokenXMint}`} onClick={(e) => e.stopPropagation()} className="hover:text-orange">{pool.tokenX}</Link>
+                  <Link href={`/pools?token=${pool.tokenXMint}`} onClick={(e) => e.stopPropagation()} className="hover:text-orange">{pool.tokenX}</Link>
                 ) : (
                   <span>{pool.tokenX}</span>
                 )}
                 <span>/</span>
                 {pool.tokenYMint ? (
-                  <Link href={`/tokens/${pool.tokenYMint}`} onClick={(e) => e.stopPropagation()} className="hover:text-orange">{pool.tokenY}</Link>
+                  <Link href={`/pools?token=${pool.tokenYMint}`} onClick={(e) => e.stopPropagation()} className="hover:text-orange">{pool.tokenY}</Link>
                 ) : (
                   <span>{pool.tokenY}</span>
                 )}
@@ -228,13 +228,13 @@ function PositionCardCompact({ pool }: { pool: MeteoraOpenPool }) {
         <div className="ml-2">
           <div className="text-[13px] font-semibold">
             {pool.tokenXMint ? (
-              <Link href={`/tokens/${pool.tokenXMint}`} onClick={(e) => e.stopPropagation()} className="hover:text-orange">{pool.tokenX}</Link>
+              <Link href={`/pools?token=${pool.tokenXMint}`} onClick={(e) => e.stopPropagation()} className="hover:text-orange">{pool.tokenX}</Link>
             ) : (
               <span>{pool.tokenX}</span>
             )}
             <span>/</span>
             {pool.tokenYMint ? (
-              <Link href={`/tokens/${pool.tokenYMint}`} onClick={(e) => e.stopPropagation()} className="hover:text-orange">{pool.tokenY}</Link>
+              <Link href={`/pools?token=${pool.tokenYMint}`} onClick={(e) => e.stopPropagation()} className="hover:text-orange">{pool.tokenY}</Link>
             ) : (
               <span>{pool.tokenY}</span>
             )}

@@ -7,8 +7,8 @@ import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { useMe } from "@/components/MeProvider";
 import { Avatar, Flag } from "@/components/ui";
 import { FollowButton } from "@/components/FollowButton";
-import { displayName, fmtUsd } from "@/lib/format";
-import { meteoraPoolUrl } from "@/lib/meteora-links";
+import { avatarFor, displayName, fmtUsd, timeAgo } from "@/lib/format";
+import { meteoraPoolUrl, meteoraHomeUrl } from "@/lib/meteora-links";
 
 interface PoolData {
   poolAddress: string;
@@ -41,6 +41,28 @@ interface PoolDetailResponse {
   lps: LP[];
 }
 
+interface CommentAuthor {
+  id: number;
+  xHandle: string | null;
+  xName: string | null;
+  xAvatarUrl: string | null;
+}
+
+interface Comment {
+  id: number;
+  tokenMint: string;
+  userId: number;
+  body: string;
+  createdAt: string;
+  author: CommentAuthor;
+  poolAddress: string | null;
+  tokenY: string | null;
+}
+
+interface CommentsResponse {
+  comments: Comment[];
+}
+
 function TokenDot({ icon, label, className = "" }: { icon: string | null; label: string; className?: string }) {
   if (icon) {
     return (
@@ -63,19 +85,32 @@ function TokenDot({ icon, label, className = "" }: { icon: string | null; label:
 export default function PoolDetailPage() {
   const params = useParams();
   const address = params?.address as string | undefined;
-  const { wallet } = useMe();
+  const { wallet, user } = useMe();
   const { setVisible } = useWalletModal();
   const [data, setData] = useState<PoolDetailResponse | null>(null);
+  const [comments, setComments] = useState<CommentsResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [commentText, setCommentText] = useState("");
+  const [posting, setPosting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!address) return;
     setLoading(true);
     try {
       const res = await fetch(`/api/pools/${address}`, { cache: "no-store" });
-      setData((await res.json()) as PoolDetailResponse);
+      const poolData = (await res.json()) as PoolDetailResponse;
+      setData(poolData);
+      
+      if (poolData.pool?.tokenXMint) {
+        const commentsRes = await fetch(`/api/tokens/${encodeURIComponent(poolData.pool.tokenXMint)}/comments`, {
+          cache: "no-store",
+        });
+        setComments((await commentsRes.json()) as CommentsResponse);
+      }
     } catch {
       setData({ pool: null, lps: [] });
+      setComments({ comments: [] });
     } finally {
       setLoading(false);
     }
@@ -84,6 +119,62 @@ export default function PoolDetailPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  const loadComments = useCallback(async () => {
+    if (!data?.pool?.tokenXMint) return;
+    try {
+      const res = await fetch(`/api/tokens/${encodeURIComponent(data.pool.tokenXMint)}/comments`, {
+        cache: "no-store",
+      });
+      setComments((await res.json()) as CommentsResponse);
+    } catch {
+      setComments({ comments: [] });
+    }
+  }, [data?.pool?.tokenXMint]);
+
+  const postComment = async () => {
+    if (!commentText.trim() || !data?.pool?.tokenXMint) return;
+
+    setPosting(true);
+    setError(null);
+
+    try {
+      const res = await fetch(`/api/tokens/${encodeURIComponent(data.pool.tokenXMint)}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ body: commentText }),
+      });
+
+      if (!res.ok) {
+        const responseData = await res.json();
+        setError(responseData.error || "Failed to post comment");
+        return;
+      }
+
+      setCommentText("");
+      await loadComments();
+    } catch {
+      setError("Failed to post comment");
+    } finally {
+      setPosting(false);
+    }
+  };
+
+  const deleteComment = async (commentId: number) => {
+    if (!confirm("Delete this comment?") || !data?.pool?.tokenXMint) return;
+
+    try {
+      const res = await fetch(`/api/tokens/${encodeURIComponent(data.pool.tokenXMint)}/comments?id=${commentId}`, {
+        method: "DELETE",
+      });
+
+      if (res.ok) {
+        await loadComments();
+      }
+    } catch {
+      // Ignore
+    }
+  };
 
   const pool = data?.pool;
   const lps = data?.lps ?? [];
@@ -135,13 +226,13 @@ export default function PoolDetailPage() {
             <div className="flex items-center gap-2 text-[24px] font-extrabold">
               <span className="truncate">
                 {pool.tokenXMint ? (
-                  <Link href={`/tokens/${pool.tokenXMint}`} className="hover:text-orange">{x}</Link>
+                  <Link href={`/pools?token=${pool.tokenXMint}`} className="hover:text-orange">{x}</Link>
                 ) : (
                   <span>{x}</span>
                 )}
                 <span>-</span>
                 {pool.tokenYMint ? (
-                  <Link href={`/tokens/${pool.tokenYMint}`} className="hover:text-orange">{y}</Link>
+                  <Link href={`/pools?token=${pool.tokenYMint}`} className="hover:text-orange">{y}</Link>
                 ) : (
                   <span>{y}</span>
                 )}
@@ -202,21 +293,68 @@ export default function PoolDetailPage() {
         </div>
       )}
 
-      <div className="mt-6">
-        <h2 className="text-[18px] font-bold">
-          LPs in this pool ({lps.length})
-        </h2>
-        {lps.length === 0 ? (
-          <div className="glass mt-3 rounded-[20px] px-6 py-8 text-center">
-            <div className="text-[32px]">🏊</div>
-            <p className="mt-2 text-[14px] text-mute">No LPs synced for this pool yet.</p>
-          </div>
-        ) : (
-          <div className="mt-3 space-y-2">
-            {lps.map((lp) => (
-              <LPRow key={lp.id} lp={lp} />
-            ))}
-          </div>
+      <div className="mt-6 space-y-6">
+        <section>
+          <h2 className="text-[18px] font-bold">
+            LPs in this pool ({lps.length})
+          </h2>
+          {lps.length === 0 ? (
+            <div className="glass mt-3 rounded-[20px] px-6 py-8 text-center">
+              <div className="text-[32px]">🏊</div>
+              <p className="mt-2 text-[14px] text-mute">No LPs synced for this pool yet.</p>
+            </div>
+          ) : (
+            <div className="mt-3 space-y-2">
+              {lps.map((lp) => (
+                <LPRow key={lp.id} lp={lp} />
+              ))}
+            </div>
+          )}
+        </section>
+
+        {pool.tokenXMint && (
+          <section className="glass rounded-[28px] p-6">
+            <h2 className="mb-4 text-[20px] font-extrabold">
+              {pool.tokenX} Thesis Feed ({comments?.comments.length || 0})
+            </h2>
+            <p className="mb-4 text-[13px] text-mute">
+              Share insights about {pool.tokenX} with other LPs. This feed is shared across all {pool.tokenX} pools.
+            </p>
+
+            {user ? (
+              <CommentComposer
+                tokenMint={pool.tokenXMint}
+                tokenSymbol={pool.tokenX}
+                user={user}
+                commentText={commentText}
+                setCommentText={setCommentText}
+                posting={posting}
+                error={error}
+                onPost={postComment}
+              />
+            ) : (
+              <div className="mb-6 rounded-2xl border border-purp/30 bg-purp/10 px-4 py-3 text-center">
+                <p className="text-[14px] text-mute">Sign in to post</p>
+              </div>
+            )}
+
+            {comments && comments.comments.length === 0 ? (
+              <p className="text-[14px] text-mute">
+                No theses yet. {user ? "Be the first to share yours!" : ""}
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {comments?.comments.map((comment) => (
+                  <CommentCard
+                    key={comment.id}
+                    comment={comment}
+                    canDelete={user?.id === comment.userId}
+                    onDelete={() => deleteComment(comment.id)}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
         )}
       </div>
     </main>
@@ -251,5 +389,149 @@ function LPRow({ lp }: { lp: LP }) {
         <FollowButton targetUser={lp} size="sm" />
       </div>
     </Link>
+  );
+}
+
+function CommentComposer({
+  tokenMint,
+  tokenSymbol,
+  user,
+  commentText,
+  setCommentText,
+  posting,
+  error,
+  onPost,
+}: {
+  tokenMint: string;
+  tokenSymbol: string;
+  user: { id: number; xHandle: string | null; xName: string | null; xAvatarUrl: string | null };
+  commentText: string;
+  setCommentText: (text: string) => void;
+  posting: boolean;
+  error: string | null;
+  onPost: () => void;
+}) {
+  const [hasPosition, setHasPosition] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const checkPosition = async () => {
+      try {
+        const res = await fetch(`/api/users/${user.id}/open-positions`);
+        const posData = await res.json();
+        const pools = posData.positions || [];
+        const hasPos = pools.some((p: { tokenXMint: string }) => p.tokenXMint === tokenMint);
+        setHasPosition(hasPos);
+      } catch {
+        setHasPosition(false);
+      }
+    };
+    checkPosition();
+  }, [user.id, tokenMint]);
+
+  if (hasPosition === false) {
+    return (
+      <div className="mb-6 rounded-2xl border border-orange/30 bg-orange/10 px-4 py-3 text-center">
+        <p className="text-[14px] text-mute">
+          Open a position in any {tokenSymbol} pool to share your thesis
+        </p>
+        <a
+          href={meteoraHomeUrl()}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-2 inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-[#FF5C1A] to-[#FF3D7F] px-4 py-2 text-[13px] font-bold shadow-md hover:shadow-lg hover:shadow-orange/30"
+        >
+          <span>🏖️</span> Dip in
+        </a>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mb-6">
+      <div className="flex gap-3">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={avatarFor(user)}
+          alt=""
+          className="h-10 w-10 rounded-full border border-base bg-[#222] object-cover"
+        />
+        <div className="min-w-0 flex-1">
+          <textarea
+            value={commentText}
+            onChange={(e) => setCommentText(e.target.value)}
+            maxLength={500}
+            rows={3}
+            placeholder={`Share your ${tokenSymbol} thesis...`}
+            disabled={posting || hasPosition === null}
+            className="w-full rounded-xl border border-white/10 bg-black/30 p-3 text-[14px] outline-none focus:border-orange/60 disabled:opacity-60"
+          />
+          <div className="mt-2 flex items-center justify-between">
+            <span className="text-[12px] text-mute">
+              {commentText.length}/500
+            </span>
+            <button
+              type="button"
+              onClick={onPost}
+              disabled={!commentText.trim() || posting || hasPosition === null}
+              className="h-9 rounded-full bg-orange px-5 text-[13px] font-bold disabled:opacity-60"
+            >
+              {posting ? "Posting..." : "Post"}
+            </button>
+          </div>
+          {error && <p className="mt-2 text-[12px] text-dn">{error}</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CommentCard({
+  comment,
+  canDelete,
+  onDelete,
+}: {
+  comment: Comment;
+  canDelete: boolean;
+  onDelete: () => void;
+}) {
+  const authorName = comment.author.xHandle
+    ? `@${comment.author.xHandle}`
+    : comment.author.xName || `LP #${comment.author.id}`;
+
+  return (
+    <div className="rounded-2xl border border-white/[.08] bg-black/20 p-4">
+      <div className="flex gap-3">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={avatarFor(comment.author)}
+          alt=""
+          className="h-10 w-10 rounded-full border border-base bg-[#222] object-cover"
+        />
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-semibold">{authorName}</span>
+            {comment.poolAddress && comment.tokenY && (
+              <Link
+                href={`/pools/${comment.poolAddress}`}
+                className="flex items-center gap-1 rounded-full bg-white/[.06] px-2 py-0.5 text-[11px] font-semibold text-mute hover:text-white"
+              >
+                from {comment.tokenY}
+              </Link>
+            )}
+            <span className="text-[12px] text-mute">{timeAgo(comment.createdAt)}</span>
+            {canDelete && (
+              <button
+                type="button"
+                onClick={onDelete}
+                className="ml-auto text-[12px] text-dn hover:text-dn-soft"
+              >
+                Delete
+              </button>
+            )}
+          </div>
+          <p className="mt-2 whitespace-pre-wrap text-[15px] leading-snug">{comment.body}</p>
+        </div>
+      </div>
+    </div>
   );
 }

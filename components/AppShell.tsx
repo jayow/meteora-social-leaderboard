@@ -26,7 +26,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const onBoard = pathname === "/";
   const onMe = pathname.startsWith("/profile");
   const onPools = pathname.startsWith("/pools");
-  const onTokens = pathname.startsWith("/tokens");
   const onInvites = pathname === "/invites";
   const isMember = Boolean(user?.memberNumber);
   const isSignedIn = Boolean(session?.userId);
@@ -71,9 +70,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </Link>
               <Link href="/pools" className={`rounded-full px-4 py-1.5 ${onPools ? "bg-white/[.1] text-white" : "text-mute hover:text-white"}`}>
                 Pools
-              </Link>
-              <Link href="/tokens" className={`rounded-full px-4 py-1.5 ${onTokens ? "bg-white/[.1] text-white" : "text-mute hover:text-white"}`}>
-                Tokens
               </Link>
               <Link href="/profile/me" className={`rounded-full px-4 py-1.5 ${onMe ? "bg-white/[.1] text-white" : "text-mute hover:text-white"}`}>
                 Profile
@@ -186,8 +182,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <Link href="/pools" className={`flex w-14 flex-col items-center gap-0.5 text-[11px] font-semibold ${onPools ? "text-orange" : "text-mute"}`}>
               <span className="text-[20px]">🏊</span>Pools
             </Link>
-            <Link href="/tokens" className={`flex w-14 flex-col items-center gap-0.5 text-[11px] font-semibold ${onTokens ? "text-orange" : "text-mute"}`}>
-              <span className="text-[20px]">🪙</span>Tokens
+            <Link href="/invites" className={`flex w-14 flex-col items-center gap-0.5 text-[11px] font-semibold ${onInvites ? "text-orange" : "text-mute"}`}>
+              <span className="text-[20px]">🎟️</span>Invites
             </Link>
             {isSignedIn ? (
               <Link href="/profile/me" className="brand-grad -mt-7 flex h-14 w-14 items-center justify-center rounded-full border-4 border-base text-[26px] font-bold shadow-lg shadow-orange/30" aria-label="My rank">

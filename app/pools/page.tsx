@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { useMe } from "@/components/MeProvider";
 import { fmtUsd } from "@/lib/format";
@@ -62,22 +63,68 @@ function TokenDot({ icon, label, className = "" }: { icon: string | null; label:
   );
 }
 
+interface TokenInfo {
+  mint: string;
+  symbol: string;
+  icon: string | null;
+  poolCount: number;
+  totalTvl: number;
+}
+
 export default function PoolsPage() {
+  return (
+    <Suspense fallback={<div className="mx-auto max-w-[1320px] px-4 py-10 text-mute">Loading...</div>}>
+      <PoolsContent />
+    </Suspense>
+  );
+}
+
+function PoolsContent() {
   const { wallet, user } = useMe();
   const { setVisible } = useWalletModal();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const tokenMint = searchParams.get("token");
+  
   const [data, setData] = useState<PoolsResponse | null>(null);
+  const [tokenInfo, setTokenInfo] = useState<TokenInfo | null>(null);
   const [membersData, setMembersData] = useState<Map<string, Member[]>>(new Map());
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/pools", { cache: "no-store" });
-      const poolsData = (await res.json()) as PoolsResponse;
-      setData(poolsData);
+      const url = tokenMint 
+        ? `/api/tokens/${encodeURIComponent(tokenMint)}`
+        : "/api/pools";
+      
+      const res = await fetch(url, { cache: "no-store" });
+      if (!res.ok) {
+        setData({ pools: [] });
+        setTokenInfo(null);
+        return;
+      }
+      
+      const result = await res.json();
+      
+      if (tokenMint && result.token && result.pools) {
+        setTokenInfo({
+          mint: result.token.mint,
+          symbol: result.token.symbol,
+          icon: result.token.icon,
+          poolCount: result.token.poolCount,
+          totalTvl: result.token.totalTvl,
+        });
+        setData({ pools: result.pools });
+      } else {
+        setData(result as PoolsResponse);
+        setTokenInfo(null);
+      }
 
-      if (poolsData.pools.length > 0) {
-        const poolAddresses = poolsData.pools.map((p) => p.poolAddress).join(",");
+      const pools = tokenMint ? result.pools : (result as PoolsResponse).pools;
+      if (pools && pools.length > 0) {
+        const poolAddresses = pools.map((p: PoolData) => p.poolAddress).join(",");
         const membersRes = await fetch(`/api/pools/members?pools=${encodeURIComponent(poolAddresses)}`, {
           cache: "no-store",
         });
@@ -91,33 +138,129 @@ export default function PoolsPage() {
       }
     } catch {
       setData({ pools: [] });
+      setTokenInfo(null);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [tokenMint]);
 
   useEffect(() => {
     load();
   }, [load]);
 
+  const handleSearch = (term: string) => {
+    if (!term.trim()) {
+      if (tokenMint) {
+        router.push("/pools");
+      }
+      return;
+    }
+    
+    if (term.length >= 32 && /^[1-9A-HJ-NP-Za-km-z]+$/.test(term)) {
+      router.push(`/pools?token=${encodeURIComponent(term)}`);
+    } else {
+      fetch(`/api/tokens/symbol/${encodeURIComponent(term)}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.mint) {
+            router.push(`/pools?token=${encodeURIComponent(data.mint)}`);
+          }
+        })
+        .catch(() => {});
+    }
+  };
+
   const pools = data?.pools ?? [];
 
   return (
     <main className="mx-auto max-w-[1320px] px-4 pb-10 pt-6 lg:px-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-[32px] font-extrabold leading-tight tracking-tight sm:text-[40px]">
-            <span className="brand-text">Pools</span> 🏊
-          </h1>
-          <p className="mt-1 text-[14px] text-mute">
-            All DLMM pools with active LPs · see where your friends are providing liquidity
-          </p>
+      {tokenMint && tokenInfo && (
+        <div className="mb-4">
+          <Link href="/pools" className="text-[13px] font-semibold text-mute hover:text-white">
+            ← All pools
+          </Link>
         </div>
-        <div className="flex flex-wrap items-end justify-between gap-4 sm:flex-nowrap">
-          <div className="flex-1">
-            <div className="text-[12px] text-mute">Active pools</div>
-            <div className="num text-[22px] font-bold">{pools.length}</div>
+      )}
+      
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div className="flex-1">
+          {tokenInfo ? (
+            <div className="glass flex items-center gap-4 rounded-[24px] p-4">
+              {tokenInfo.icon ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={tokenInfo.icon}
+                  alt={tokenInfo.symbol}
+                  className="h-14 w-14 rounded-full border-2 border-base bg-[#222] object-cover"
+                />
+              ) : (
+                <div className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-base bg-purp/40 text-[20px] font-bold">
+                  {tokenInfo.symbol.slice(0, 1)}
+                </div>
+              )}
+              <div>
+                <h1 className="text-[28px] font-extrabold">{tokenInfo.symbol} Pools</h1>
+                <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[13px] text-mute">
+                  <span>{tokenInfo.poolCount} pools</span>
+                  <span>·</span>
+                  <span>{fmtUsd(tokenInfo.totalTvl)} total TVL</span>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <>
+              <h1 className="text-[32px] font-extrabold leading-tight tracking-tight sm:text-[40px]">
+                <span className="brand-text">Pools</span> 🏊
+              </h1>
+              <p className="mt-1 text-[14px] text-mute">
+                All DLMM pools with active LPs · see where your friends are providing liquidity
+              </p>
+            </>
+          )}
+        </div>
+        {!tokenInfo && (
+          <div className="flex flex-wrap items-end justify-between gap-4 sm:flex-nowrap">
+            <div className="flex-1">
+              <div className="text-[12px] text-mute">Active pools</div>
+              <div className="num text-[22px] font-bold">{pools.length}</div>
+            </div>
           </div>
+        )}
+      </div>
+
+      <div className="mt-4">
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                handleSearch(searchTerm);
+              }
+            }}
+            placeholder="Filter by token symbol or mint address..."
+            className="h-11 flex-1 rounded-full border border-white/10 bg-black/30 px-5 text-[14px] outline-none placeholder:text-mute focus:border-orange/60"
+          />
+          <button
+            type="button"
+            onClick={() => handleSearch(searchTerm)}
+            className="h-11 rounded-full bg-orange px-6 text-[14px] font-bold hover:bg-orange-soft"
+          >
+            Filter
+          </button>
+          {tokenMint && (
+            <button
+              type="button"
+              onClick={() => {
+                setSearchTerm("");
+                router.push("/pools");
+              }}
+              className="h-11 rounded-full bg-white/[.08] px-5 text-[14px] font-semibold hover:bg-white/[.14]"
+            >
+              Clear
+            </button>
+          )}
         </div>
       </div>
 
@@ -146,9 +289,13 @@ export default function PoolsPage() {
       ) : pools.length === 0 ? (
         <div className="glass mt-6 rounded-[28px] px-6 py-12 text-center">
           <div className="text-[46px]">🏊</div>
-          <h2 className="mt-2 text-[22px] font-extrabold">No pools yet</h2>
+          <h2 className="mt-2 text-[22px] font-extrabold">
+            {tokenInfo ? `No ${tokenInfo.symbol} pools found` : "No pools yet"}
+          </h2>
           <p className="mx-auto mt-1 max-w-md text-[14px] text-mute">
-            Pools will appear here as LPs sync their positions.
+            {tokenInfo 
+              ? "This token doesn't have any active Meteora positions yet."
+              : "Pools will appear here as LPs sync their positions."}
           </p>
         </div>
       ) : (
@@ -191,13 +338,13 @@ function PoolRow({
         <div className="flex items-center gap-2 text-[16px] font-bold">
           <span className="truncate">
             {pool.tokenXMint ? (
-              <Link href={`/tokens/${pool.tokenXMint}`} onClick={(e) => e.stopPropagation()} className="hover:text-orange relative z-10">{x}</Link>
+              <Link href={`/pools?token=${pool.tokenXMint}`} onClick={(e) => e.stopPropagation()} className="hover:text-orange relative z-10">{x}</Link>
             ) : (
               <span>{x}</span>
             )}
             <span>-</span>
             {pool.tokenYMint ? (
-              <Link href={`/tokens/${pool.tokenYMint}`} onClick={(e) => e.stopPropagation()} className="hover:text-orange relative z-10">{y}</Link>
+              <Link href={`/pools?token=${pool.tokenYMint}`} onClick={(e) => e.stopPropagation()} className="hover:text-orange relative z-10">{y}</Link>
             ) : (
               <span>{y}</span>
             )}
