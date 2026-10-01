@@ -52,8 +52,9 @@ export function OpenPositions({ userId, compact, mine = false, refreshKey }: { u
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
-  const [collapsed, setCollapsed] = useState(false);
-  const bodyId = useId();
+  // One toggle (on the section header) shows or hides the per-position rows of every pool.
+  const [open, setOpen] = useState(false);
+  const panelBase = useId();
 
   useEffect(() => {
     if (!userId) {
@@ -96,28 +97,31 @@ export function OpenPositions({ userId, compact, mine = false, refreshKey }: { u
   // Spell out the grouping only when some pool holds several positions (otherwise rows = positions).
   const summary = data && total > poolCount ? `${fmtPositions(total)} in ${poolCount} pool${poolCount === 1 ? "" : "s"}` : null;
 
-  // The full list's header collapses the whole section; the compact card has no toggle.
+  const visible = data ? (showAll ? data.pools : data.pools.slice(0, INITIAL_POOLS)) : [];
+  const panelIds = visible.filter(hasPositionRows).map((p) => `${panelBase}-${p.poolAddress}`);
+  const title = (
+    <>
+      Open Positions{data ? <span className="num"> ({total})</span> : null}
+    </>
+  );
+
   const header = (
-    <div className={`flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 ${collapsed && !compact ? "" : "mb-4"}`}>
+    <div className="mb-4 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
       <h2 className="text-[18px] font-extrabold">
-        {compact ? (
-          <>Open Positions{data ? <span className="num"> ({total})</span> : null}</>
-        ) : (
+        {!compact && panelIds.length > 0 ? (
           <button
             type="button"
-            onClick={() => setCollapsed((v) => !v)}
-            aria-expanded={!collapsed}
-            aria-controls={bodyId}
+            onClick={() => setOpen((v) => !v)}
+            aria-expanded={open}
+            aria-controls={panelIds.join(" ")}
             className="flex items-center gap-2 rounded text-left hover:text-fg-secondary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mute"
-            data-testid="open-positions-collapse"
+            data-testid="open-positions-toggle-details"
           >
-            <span>
-              Open Positions{data ? <span className="num"> ({total})</span> : null}
-            </span>
+            <span>{title}</span>
             <svg
               aria-hidden="true"
               viewBox="0 0 20 20"
-              className={`h-4 w-4 shrink-0 text-mute transition-transform ${collapsed ? "-rotate-90" : ""}`}
+              className={`h-4 w-4 shrink-0 text-mute transition-transform ${open ? "rotate-180" : ""}`}
               fill="none"
               stroke="currentColor"
               strokeWidth="2"
@@ -125,6 +129,8 @@ export function OpenPositions({ userId, compact, mine = false, refreshKey }: { u
               <path d="M5 7.5l5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
+        ) : (
+          title
         )}
       </h2>
       {summary && (
@@ -135,20 +141,11 @@ export function OpenPositions({ userId, compact, mine = false, refreshKey }: { u
     </div>
   );
 
-  if (collapsed && !compact) {
-    return (
-      <div className="glass rounded-[28px] p-5" data-testid="open-positions">
-        {header}
-        <div id={bodyId} hidden />
-      </div>
-    );
-  }
-
   if (!data && loading) {
     return (
       <div className="glass rounded-[28px] p-5" data-testid="open-positions">
         {header}
-        <p id={bodyId} className="text-[12px] text-mute">Loading…</p>
+        <p className="text-[12px] text-mute">Loading…</p>
       </div>
     );
   }
@@ -157,7 +154,7 @@ export function OpenPositions({ userId, compact, mine = false, refreshKey }: { u
     return (
       <div className="glass rounded-[28px] p-5" data-testid="open-positions">
         {header}
-        <p id={bodyId} className="text-[12px] text-dn">{error}</p>
+        <p className="text-[12px] text-dn">{error}</p>
       </div>
     );
   }
@@ -166,7 +163,7 @@ export function OpenPositions({ userId, compact, mine = false, refreshKey }: { u
     return (
       <div className="glass rounded-[28px] p-5" data-testid="open-positions">
         {header}
-        <p id={bodyId} className="text-[13px] text-mute">{mine ? "You have no open positions right now." : "No open positions right now."}</p>
+        <p className="text-[13px] text-mute">{mine ? "You have no open positions right now." : "No open positions right now."}</p>
       </div>
     );
   }
@@ -189,13 +186,12 @@ export function OpenPositions({ userId, compact, mine = false, refreshKey }: { u
     );
   }
 
-  const visible = showAll ? data.pools : data.pools.slice(0, INITIAL_POOLS);
   return (
     <div className="glass rounded-[28px] p-5" data-testid="open-positions">
       {header}
-      <div id={bodyId} className="space-y-3">
+      <div className="space-y-3">
         {visible.map((pool) => (
-          <PositionCard key={pool.poolAddress} pool={pool} />
+          <PositionCard key={pool.poolAddress} pool={pool} open={open} panelId={`${panelBase}-${pool.poolAddress}`} />
         ))}
       </div>
       {data.pools.length > INITIAL_POOLS && (
@@ -436,7 +432,12 @@ function Stat({ label, children, className = "" }: { label: string; children: Re
   );
 }
 
-function PositionCard({ pool }: { pool: OpenPool }) {
+/** Pools with several positions list a row each (shown via the section header's toggle). */
+function hasPositionRows(pool: OpenPool): boolean {
+  return (pool.positionCount || 1) > 1 && (pool.positions ?? []).length > 0;
+}
+
+function PositionCard({ pool, open, panelId }: { pool: OpenPool; open: boolean; panelId: string }) {
   const count = pool.positionCount || 1;
   const details = pool.positions ?? [];
   const pair = `${pool.tokenX}/${pool.tokenY}`;
@@ -444,26 +445,12 @@ function PositionCard({ pool }: { pool: OpenPool }) {
   const totals = poolTotals(pool);
   const scale = priceScale(details);
   const price = poolPriceOf(details);
-  // Pools with several positions expand to a row each; a single position shows its range bar inline.
-  const expandable = count > 1 && details.length > 0;
-  const [open, setOpen] = useState(false);
-  const panelId = useId();
+  // Pools with several positions list a row each; a single position shows its range bar inline.
+  const expandable = hasPositionRows(pool);
   return (
     <div className="relative rounded-2xl border border-border bg-surface-raised p-4 transition hover:border-border-strong" data-testid="open-position-row">
       {/* Whole-card overlay (not a wrapper) so the token links aren't nested in it. */}
-      {expandable ? (
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          aria-expanded={open}
-          aria-controls={panelId}
-          aria-label={`${pair} pool, ${fmtPositions(count)}. ${open ? "Hide" : "Show"} positions`}
-          className="absolute inset-0 rounded-2xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mute"
-          data-testid="open-position-expand"
-        />
-      ) : (
-        <Link href={`/pools/${pool.poolAddress}`} aria-label={`${pair} pool, ${fmtPositions(count)}`} className="absolute inset-0 rounded-2xl" />
-      )}
+      <Link href={`/pools/${pool.poolAddress}`} aria-label={`${pair} pool, ${fmtPositions(count)}`} className="absolute inset-0 rounded-2xl" />
 
       <div className="flex items-center gap-3 pr-16">
         <PoolIcons pool={pool} size="md" />
@@ -507,18 +494,6 @@ function PositionCard({ pool }: { pool: OpenPool }) {
             </>
           )}
         </div>
-        {expandable && (
-          <svg
-            aria-hidden="true"
-            viewBox="0 0 20 20"
-            className={`mb-1 h-4 w-4 shrink-0 text-mute transition-transform ${open ? "rotate-180" : ""}`}
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <path d="M5 7.5l5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        )}
       </div>
 
       {count === 1 && details.length === 1 && scale && (
@@ -528,7 +503,7 @@ function PositionCard({ pool }: { pool: OpenPool }) {
       )}
 
       {expandable && (
-        // Above the overlay so clicks inside the list don't collapse it.
+        // Above the overlay so clicks inside the list don't open the pool page.
         <div id={panelId} hidden={!open} className="relative z-10 mt-4 border-t border-border pt-3" data-testid="open-position-details">
           {price != null && scale && (
             <div className="flex items-center gap-1.5 text-[12px] text-mute">
