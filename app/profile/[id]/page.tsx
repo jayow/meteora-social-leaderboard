@@ -2,7 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useParams, useSearchParams, useRouter } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useWallet } from "@solana/wallet-adapter-react";
 import type { ApiSnapshot, ApiUser } from "@/lib/api-types";
 import { useMe } from "@/components/MeProvider";
@@ -14,7 +14,6 @@ import { FollowButton } from "@/components/FollowButton";
 import { FollowListModal, type FollowListKind } from "@/components/FollowListModal";
 import { SharePnLModal } from "@/components/SharePnLModal";
 import { displayName, fmtPct, fmtUsd, shortAddr, timeAgo } from "@/lib/format";
-import { isValidWalletClient } from "@/lib/wallet-client";
 import { patchCachedProfile } from "@/lib/storage";
 import { loginMessage } from "@/lib/login-message";
 import { meteoraHomeUrl } from "@/lib/meteora-links";
@@ -49,13 +48,12 @@ export default function ProfilePage() {
 function Profile() {
   const params = useParams<{ id: string }>();
   const search = useSearchParams();
-  const router = useRouter();
   const me = useMe();
   const rawId = decodeURIComponent(params.id);
   const isMeRoute = rawId === "me";
-  // /profile/me is the signed-in user (wallet or X session), not whatever account the wallet
-  // extension currently exposes; the connected wallet is only a fallback when signed out.
-  const meKey = me.userId ? String(me.userId) : me.sessionChecked ? me.wallet : null;
+  // /profile/me is the signed-in user (wallet or X session), never whatever account the wallet
+  // extension currently exposes. A connected-but-unsigned wallet gets the sign-in prompt.
+  const meKey = me.userId ? String(me.userId) : null;
   const target = isMeRoute ? meKey : rawId;
 
   const [user, setUser] = useState<ApiUser | null>(null);
@@ -80,12 +78,12 @@ function Profile() {
   }, []);
 
   const sync = useCallback(
-    async (wallet: string) => {
+    async (wallet: string, userId: number) => {
       setSyncing(true);
       try {
-        // A failed sync must not break the page; we just show whatever is stored.
+        // Owner-only stats refresh. A failed sync must not break the page; we just show what's stored.
         await fetch(`/api/sync/${wallet}`, { method: "POST" }).catch(() => null);
-        await load(wallet).catch(() => null);
+        await load(String(userId)).catch(() => null);
       } finally {
         setSyncing(false);
       }
@@ -99,28 +97,17 @@ function Profile() {
     setStatus("loading");
     (async () => {
       try {
-        let u = await load(target);
+        // Profiles resolve by user id or X handle only. Wallet URLs are "not found" (no wallet ->
+        // account lookup), and visiting never creates an account or triggers a public sync.
+        const u = await load(target);
         if (cancelled) return;
-        if (!u && isValidWalletClient(target)) {
-          // Unknown wallet: register + pull stats once, then look it up again.
-          await sync(target);
-          if (cancelled) return;
-          u = await load(target);
-          if (cancelled) return;
-        }
         if (!u) {
           setStatus("notfound");
           return;
         }
         setStatus("idle");
-        // Redirect old wallet-based URLs to handle/id-based URLs
-        if (isValidWalletClient(rawId) && rawId !== "me") {
-          const newPath = u.xHandle ? `/profile/${u.xHandle}` : `/profile/${u.id}`;
-          router.replace(newPath + window.location.search);
-          return;
-        }
         // Only the owner gets `wallet` back; refresh their stats in the background.
-        if (u.wallet && !u.wallet.startsWith("temp_")) void sync(u.wallet);
+        if (u.wallet && !u.wallet.startsWith("temp_")) void sync(u.wallet, u.id);
       } catch {
         if (!cancelled) setStatus("error");
       }
@@ -128,7 +115,7 @@ function Profile() {
     return () => {
       cancelled = true;
     };
-  }, [target, load, sync, rawId, router, reloadKey]);
+  }, [target, load, sync, reloadKey]);
 
   // Re-fetch when the signed-in user changes (e.g. just joined the beta) so the join prompt clears right away.
   useEffect(() => onSessionChanged(() => setReloadKey((k) => k + 1)), []);
@@ -182,13 +169,15 @@ function Profile() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search]);
 
-  if (isMeRoute && me.sessionChecked && !me.userId && !me.wallet) {
+  if (isMeRoute && me.sessionChecked && !me.userId) {
     return (
       <main className="mx-auto max-w-[640px] px-4 py-16">
         <div className="glass rounded-[28px] px-6 py-12 text-center">
           <div className="text-[46px]">👛</div>
           <h1 className="mt-2 text-[24px] font-extrabold">Your LP profile</h1>
-          <p className="mx-auto mt-1 max-w-sm text-[14px] text-mute">Connect Phantom or Solflare to pull your Meteora stats, claim your rank and post your thesis.</p>
+          <p className="mx-auto mt-1 max-w-sm text-[14px] text-mute">
+            {me.wallet ? "Sign in with your connected wallet to see your profile, claim your rank and post your thesis." : "Connect Phantom or Solflare to pull your Meteora stats, claim your rank and post your thesis."}
+          </p>
           <button type="button" onClick={() => requestSignIn()} className="mt-5 h-11 rounded-full bg-orange px-6 text-[14px] font-bold shadow-lg shadow-orange/30 hover:bg-orange-soft">
             Sign in
           </button>

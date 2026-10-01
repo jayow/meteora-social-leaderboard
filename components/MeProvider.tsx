@@ -81,23 +81,30 @@ export function MeProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Register the connected wallet on connect (idempotent upsert + stats sync).
+  // After sign-in, refresh the signed-in user's Meteora stats for the connected wallet (if it's
+  // theirs). Never creates an account: a bare connect stays anonymous until a real sign-in
+  // (signature / X) or join, so nothing happens while signed out.
   const [reloadTick, setReloadTick] = useState(0);
   useEffect(() => {
-    if (!wallet || registered.current === wallet) return;
-    registered.current = wallet;
+    if (!wallet || !sessionUserId) return;
+    const key = `${wallet}:${sessionUserId}`;
+    if (registered.current === key) return;
+    registered.current = key;
     setLoading(true);
     setCached(patchCachedProfile({ wallet }));
     fetch("/api/users", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ wallet }) })
+      .then((r) => (r.ok ? (r.json() as Promise<{ user: ApiUser | null; synced?: boolean | string }>) : null))
       .catch(() => null)
-      .then(() => setReloadTick((t) => t + 1))
+      .then((d) => {
+        // Only refetch when there was an account to refresh.
+        if (d?.synced === true) setReloadTick((t) => t + 1);
+      })
       .finally(() => setLoading(false));
-  }, [wallet]);
+  }, [wallet, sessionUserId]);
 
-  // "Me" is the signed-in user (wallet or X session). The extension can expose a different account
-  // than the one that signed in (account switch, autoConnect), so only fall back to the connected
-  // wallet when there's no session at all.
-  const profileKey = sessionUserId ? String(sessionUserId) : sessionChecked ? wallet : null;
+  // "Me" is the signed-in user (wallet or X session) only. A connected-but-unsigned wallet is not an
+  // account, and profiles are never looked up by wallet address.
+  const profileKey = sessionUserId ? String(sessionUserId) : null;
   useEffect(() => {
     if (!profileKey) {
       setUser(null);

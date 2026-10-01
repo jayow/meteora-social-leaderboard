@@ -76,10 +76,10 @@ Repo: `jayow/meteora-social-leaderboard`
 - **DB:** Railway Postgres via `DATABASE_URL`. Schema in `lib/db/schema.ts` (Drizzle); SQL migrations in `drizzle/` run on every start (`scripts/migrate.mjs`).
 - **Tables:** `users` (wallet unique, X identity, country, thesis) and `pnl_snapshots` (one row per user per UTC day: lifetime/7D/30D PnL, deposit volume, fees, win rates, positions, top pool, raw source JSON).
 - **Endpoints:**
-  - `POST /api/users` `{wallet}`: register a wallet (upsert + first sync). Operator fields (xHandle, country, thesis) need `Authorization: Bearer $CRON_SECRET`.
+  - `POST /api/users` `{wallet}`: refresh the signed-in owner's stats for that wallet; never creates an account (accounts come from a real sign-in or join). With `Authorization: Bearer $CRON_SECRET` the operator can register wallets and set xHandle, country, thesis.
   - `GET/PATCH /api/users/:id` (id = wallet, numeric id or X handle). PATCH (thesis, country, unlinkX) needs a wallet-signed session.
   - `POST /api/auth/wallet` `{wallet, issuedAt, signature}`: verify a signed message and set the `pp_session` cookie. `GET/DELETE /api/auth/session`.
-  - `POST|GET /api/sync/:wallet`: pull Meteora stats and upsert today's snapshot (rate-limited to once per 5 min unless called with the cron secret).
+  - `POST|GET /api/sync/:wallet`: pull Meteora stats and upsert today's snapshot for the signed-in owner's existing account (rate-limited to once per 5 min); unknown wallets are not created unless called with the cron secret.
   - `POST|GET /api/cron/sync-all` with `Authorization: Bearer $CRON_SECRET`: refresh every user (daily Railway cron service).
   - `GET /api/leaderboard?range=7d|30d|all&country=XX&sort=pnl|volume|winrate`.
   - `GET /api/health`: DB status, tables, migration count.

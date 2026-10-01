@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { getDb, hasDb } from "@/lib/db";
-import { users, userWallets } from "@/lib/db/schema";
+import { users } from "@/lib/db/schema";
 import { isCountryCode } from "@/lib/countries";
 import { isValidWallet } from "@/lib/wallet";
-import { toPublicUser, upsertUser } from "@/lib/users";
+import { findUserByWallet, toPublicUser, upsertUser } from "@/lib/users";
+import { getSessionUserId } from "@/lib/session";
 import { syncUser } from "@/lib/sync";
 
 export const dynamic = "force-dynamic";
@@ -26,10 +27,11 @@ function isOperator(req: NextRequest): boolean {
 }
 
 /**
- * Register a wallet (public Meteora data only). Idempotent upsert, then a best-effort
- * stats sync so the wallet shows up on the leaderboard right away.
- * X identity, thesis and country are only written through verified routes
- * (wallet-signed session, X OAuth callback) or by the operator with CRON_SECRET.
+ * Refresh the signed-in user's Meteora stats for one of their wallets. Never creates an account:
+ * accounts come from a real sign-in (/api/auth/wallet, X OAuth) and join. Wallets that aren't the
+ * caller's own get the same `{ user: null }` answer whether or not an account exists, so this can't
+ * be used to map wallets to accounts. The operator (Authorization: Bearer CRON_SECRET) can still
+ * register wallets and set X identity / thesis / country.
  */
 export async function POST(req: NextRequest): Promise<NextResponse> {
   if (!hasDb()) return NextResponse.json({ error: "Database not configured" }, { status: 503 });
@@ -42,24 +44,25 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const wallet = body.wallet?.trim();
   if (!isValidWallet(wallet)) return NextResponse.json({ error: "Invalid wallet" }, { status: 400 });
 
-  const db = getDb();
-  const [linked] = await db.select().from(userWallets).where(eq(userWallets.address, wallet)).limit(1);
-  if (linked) {
-    const [existingUser] = await db.select().from(users).where(eq(users.id, linked.userId)).limit(1);
-    if (existingUser) {
-      return NextResponse.json({ user: toPublicUser(existingUser), synced: "cached" });
-    }
+  const operator = isOperator(req);
+  let user = operator
+    ? await upsertUser(wallet, body.xHandle ? { xId: body.xId, xHandle: body.xHandle, xName: body.xName, xAvatarUrl: body.xAvatarUrl } : undefined)
+    : await findUserByWallet(wallet);
+  if (!operator) {
+    const sessionUserId = await getSessionUserId();
+    if (!user || !sessionUserId || user.id !== sessionUserId) return NextResponse.json({ user: null, synced: false });
   }
+  if (!user) return NextResponse.json({ user: null, synced: false });
 
-  let user = await upsertUser(wallet, isOperator(req) && body.xHandle ? { xId: body.xId, xHandle: body.xHandle, xName: body.xName, xAvatarUrl: body.xAvatarUrl } : undefined);
-  if (isOperator(req) && (body.country !== undefined || body.thesis !== undefined)) {
+  if (operator && (body.country !== undefined || body.thesis !== undefined)) {
     const set: { country?: string | null; thesis?: string | null } = {};
     if (body.country !== undefined) set.country = body.country && isCountryCode(body.country) ? body.country.toUpperCase() : null;
     if (body.thesis !== undefined) set.thesis = body.thesis ? body.thesis.slice(0, 1000) : null;
-    const rows = await db.update(users).set(set).where(eq(users.id, user.id)).returning();
+    const rows = await getDb().update(users).set(set).where(eq(users.id, user.id)).returning();
     user = rows[0];
   }
   const fresh = user.lastSyncedAt && Date.now() - user.lastSyncedAt.getTime() < 10 * 60 * 1000;
   const sync = fresh ? null : await syncUser(user).catch((e: unknown) => ({ ok: false, error: e instanceof Error ? e.message : "sync failed" }));
+  // Only the owner (or operator) gets here; toPublicUser never includes the wallet.
   return NextResponse.json({ user: toPublicUser(user), synced: sync ? sync.ok : "cached" });
 }
