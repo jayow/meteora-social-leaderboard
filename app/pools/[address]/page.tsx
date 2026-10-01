@@ -9,6 +9,7 @@ import { Avatar, Flag } from "@/components/ui";
 import { FollowButton } from "@/components/FollowButton";
 import { avatarFor, displayName, fmtUsd, timeAgo } from "@/lib/format";
 import { meteoraPoolUrl, meteoraHomeUrl } from "@/lib/meteora-links";
+import { applyFollowChange, onFollowChanged } from "@/lib/session-events";
 
 interface PoolData {
   poolAddress: string;
@@ -90,6 +91,12 @@ export default function PoolDetailPage() {
   const { wallet, user } = useMe();
   const { setVisible } = useWalletModal();
   const [data, setData] = useState<PoolDetailResponse | null>(null);
+
+  // Keep LP rows' follow state in sync with Follow clicks anywhere on the page.
+  useEffect(
+    () => onFollowChanged((change) => setData((d) => (d ? { ...d, lps: d.lps.map((lp) => applyFollowChange(lp, change)) } : d))),
+    []
+  );
   const [comments, setComments] = useState<CommentsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [commentText, setCommentText] = useState("");

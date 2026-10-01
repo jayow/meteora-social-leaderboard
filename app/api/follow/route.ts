@@ -3,6 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { getDb, hasDb } from "@/lib/db";
 import { follows, users } from "@/lib/db/schema";
 import { getSessionUser } from "@/lib/session";
+import { getFollowCounts } from "@/lib/users";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +16,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   
   const currentUser = await getSessionUser();
   if (!currentUser) {
-    return NextResponse.json({ error: "Sign in with your wallet first" }, { status: 401 });
+    return NextResponse.json({ error: "Sign in first" }, { status: 401 });
   }
 
   let body: FollowBody;
@@ -36,7 +37,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   const [targetUser] = await db.select().from(users).where(eq(users.id, body.targetId)).limit(1);
-  if (!targetUser) {
+  // Not-yet-joined accounts are private (owner-only), so they can't be followed. The follower only
+  // needs a valid session (wallet or X); unjoined followers are allowed.
+  if (!targetUser || !targetUser.joinedAt) {
     return NextResponse.json({ error: "Target user not found" }, { status: 404 });
   }
 
@@ -45,8 +48,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       followerUserId: currentUser.id,
       followeeUserId: body.targetId,
     }).onConflictDoNothing();
-    
-    return NextResponse.json({ success: true });
+
+    const { followersCount } = await getFollowCounts(body.targetId);
+    return NextResponse.json({ success: true, following: true, followersCount });
   } catch (error) {
     console.error("Error creating follow:", error);
     return NextResponse.json({ error: "Failed to follow user" }, { status: 500 });
@@ -58,7 +62,7 @@ export async function DELETE(req: NextRequest): Promise<NextResponse> {
   
   const currentUser = await getSessionUser();
   if (!currentUser) {
-    return NextResponse.json({ error: "Sign in with your wallet first" }, { status: 401 });
+    return NextResponse.json({ error: "Sign in first" }, { status: 401 });
   }
 
   let body: FollowBody;
@@ -81,5 +85,6 @@ export async function DELETE(req: NextRequest): Promise<NextResponse> {
     )
   );
 
-  return NextResponse.json({ success: true });
+  const { followersCount } = await getFollowCounts(body.targetId);
+  return NextResponse.json({ success: true, following: false, followersCount });
 }

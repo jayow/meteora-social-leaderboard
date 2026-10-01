@@ -10,6 +10,7 @@ import { CountrySelect } from "@/components/CountrySelect";
 import { FollowButton } from "@/components/FollowButton";
 import { useMe } from "@/components/MeProvider";
 import { displayName, fmtPct, fmtUsd } from "@/lib/format";
+import { applyFollowChange, onFollowChanged } from "@/lib/session-events";
 
 type Range = "7d" | "30d" | "all";
 type Sort = "pnl" | "volume" | "winrate" | "fees";
@@ -25,7 +26,7 @@ function shareText(e: LeaderboardEntry, range: Range): string {
 
 export default function LeaderboardPage() {
   const router = useRouter();
-  const { wallet, loading: meLoading, user: myUser } = useMe();
+  const { wallet, loading: meLoading, user: myUser, userId: sessionUserId } = useMe();
   const { setVisible } = useWalletModal();
   const [view, setView] = useState<"leaderboard" | "countries">("leaderboard");
   const [range, setRange] = useState<Range>("30d");
@@ -35,7 +36,7 @@ export default function LeaderboardPage() {
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<number | null>(null);
 
-  const myId = myUser?.id;
+  const myId = sessionUserId ?? myUser?.id;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -64,6 +65,15 @@ export default function LeaderboardPage() {
     if (wallet && !meLoading) load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wallet, meLoading]);
+
+  // Follow/unfollow anywhere on the page updates isFollowing + follower counts (podium, rows, card).
+  useEffect(
+    () =>
+      onFollowChanged((change) =>
+        setData((d) => (d ? { ...d, entries: d.entries.map((e) => applyFollowChange(e, change)) } : d))
+      ),
+    []
+  );
 
   const entries = useMemo(() => data?.entries ?? [], [data]);
   const podium = entries.slice(0, 3);
@@ -242,10 +252,17 @@ export default function LeaderboardPage() {
 function PodiumCard({ e, first, isMe, metric, tone, onClick, range }: { e: LeaderboardEntry; first: boolean; isMe: boolean; metric: string; tone: string; onClick: () => void; range: Range }) {
   const badge = e.rank === 1 ? "bg-orange text-white" : e.rank === 2 ? "bg-[#d9d6e6] text-black" : "bg-[#e0915a] text-black";
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
-      className={`relative flex flex-col items-center rounded-[26px] px-2 pb-4 text-center transition hover:-translate-y-0.5 sm:px-4 ${first ? "podium-1 pt-6 sm:pt-7" : "glass pt-5"} ${isMe ? "outline outline-2 outline-orange/60" : ""}`}
+      onKeyDown={(ev) => {
+        if (ev.key === "Enter" || ev.key === " ") {
+          ev.preventDefault();
+          onClick();
+        }
+      }}
+      className={`relative flex cursor-pointer flex-col items-center rounded-[26px] px-2 pb-4 text-center transition hover:-translate-y-0.5 sm:px-4 ${first ? "podium-1 pt-6 sm:pt-7" : "glass pt-5"} ${isMe ? "outline outline-2 outline-orange/60" : ""}`}
     >
       <span className={`absolute left-3 top-3 flex h-6 w-6 items-center justify-center rounded-full text-[12px] font-extrabold ${badge}`}>{e.rank}</span>
       {first && <span className="absolute right-3 top-3 hidden rounded-full bg-orange/20 px-2 py-0.5 text-[10px] font-bold text-orange sm:inline">👑 {RANGE_LABEL[range]} #1</span>}
@@ -267,7 +284,7 @@ function PodiumCard({ e, first, isMe, metric, tone, onClick, range }: { e: Leade
       <div className="mt-2 max-w-full">
         <PoolChip pool={e.topPool} compact />
       </div>
-    </button>
+    </div>
   );
 }
 

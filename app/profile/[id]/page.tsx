@@ -18,7 +18,7 @@ import { isValidWalletClient } from "@/lib/wallet-client";
 import { patchCachedProfile } from "@/lib/storage";
 import { loginMessage } from "@/lib/login-message";
 import { meteoraHomeUrl } from "@/lib/meteora-links";
-import { onSessionChanged } from "@/lib/session-events";
+import { applyFollowChange, onFollowChanged, onSessionChanged } from "@/lib/session-events";
 
 type Range = "7d" | "30d" | "all";
 type LoadStatus = "idle" | "loading" | "notfound" | "error" | "timeout";
@@ -128,6 +128,9 @@ function Profile() {
 
   // Re-fetch when the signed-in user changes (e.g. just joined the beta) so the join prompt clears right away.
   useEffect(() => onSessionChanged(() => setReloadKey((k) => k + 1)), []);
+
+  // Follow/unfollow updates the follower count and button state instantly.
+  useEffect(() => onFollowChanged((change) => setUser((u) => (u ? applyFollowChange(u, change) : u))), []);
 
   // Never sit on skeletons forever.
   useEffect(() => {

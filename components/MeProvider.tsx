@@ -13,6 +13,10 @@ interface MeState {
   snapshot: ApiSnapshot | null;
   cached: CachedProfile;
   verified: boolean;
+  /** Signed-in user id (wallet or X session), null when signed out or not checked yet. */
+  userId: number | null;
+  /** True once /api/auth/session has answered at least once. */
+  sessionChecked: boolean;
   loading: boolean;
   ensureSession: () => Promise<boolean>;
   verify: () => Promise<boolean>;
@@ -35,6 +39,7 @@ export function MeProvider({ children }: { children: React.ReactNode }) {
   const [snapshot, setSnapshot] = useState<ApiSnapshot | null>(null);
   const [cached, setCached] = useState<CachedProfile>({});
   const [sessionUserId, setSessionUserId] = useState<number | null>(null);
+  const [sessionChecked, setSessionChecked] = useState(false);
   const [loading, setLoading] = useState(false);
   const registered = useRef<string | null>(null);
 
@@ -42,7 +47,8 @@ export function MeProvider({ children }: { children: React.ReactNode }) {
     fetch("/api/auth/session", { cache: "no-store" })
       .then((r) => r.json() as Promise<{ userId?: number | null; wallet?: string | null }>)
       .then((d) => setSessionUserId(d.userId || null))
-      .catch(() => setSessionUserId(null));
+      .catch(() => setSessionUserId(null))
+      .finally(() => setSessionChecked(true));
   }, []);
 
   useEffect(() => {
@@ -160,8 +166,8 @@ export function MeProvider({ children }: { children: React.ReactNode }) {
   );
 
   const value = useMemo<MeState>(
-    () => ({ wallet, user, snapshot, cached, verified: Boolean(sessionUserId), loading, ensureSession, verify, refresh, update }),
-    [wallet, user, snapshot, cached, sessionUserId, loading, ensureSession, verify, refresh, update]
+    () => ({ wallet, user, snapshot, cached, verified: Boolean(sessionUserId), userId: sessionUserId, sessionChecked, loading, ensureSession, verify, refresh, update }),
+    [wallet, user, snapshot, cached, sessionUserId, sessionChecked, loading, ensureSession, verify, refresh, update]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

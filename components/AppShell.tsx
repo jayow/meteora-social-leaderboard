@@ -11,7 +11,7 @@ import { meteoraHomeUrl } from "@/lib/meteora-links";
 import { forgetRememberedWallet } from "@/lib/wallet-session";
 import { displayName } from "@/lib/format";
 import { OwnWalletRow } from "@/components/OwnWalletRow";
-import { onSessionChanged } from "@/lib/session-events";
+import { onSessionChanged, onSignInRequested } from "@/lib/session-events";
 
 interface SessionData {
   userId?: number | null;
@@ -77,6 +77,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [menuOpen]);
 
   const closeSignIn = useCallback(() => setSignInOpen(false), []);
+
+  // Signed-out actions (e.g. Follow) ask for the Sign in modal instead of redirecting away.
+  useEffect(
+    () =>
+      onSignInRequested(() => {
+        setSignInStep("methods");
+        setSignInOpen(true);
+      }),
+    []
+  );
 
   const openSignIn = (step: SignInStep) => {
     setSignInStep(step);

@@ -31,6 +31,7 @@ export interface LeaderboardEntry {
   snapshotDate: string;
   updatedAt: string;
   bannerUpdatedAt: string | null;
+  /** Whether the signed-in viewer follows this LP (from /api/leaderboard). */
   isFollowing?: boolean;
 }
 

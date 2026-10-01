@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPool, hasDb } from "@/lib/db";
 import { isCountryCode } from "@/lib/countries";
+import { getSessionUserId } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -41,6 +42,7 @@ interface Row {
   updated_at: Date;
   banner_updated_at: Date | null;
   followers_count: string;
+  is_following: boolean;
 }
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
@@ -63,7 +65,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
            ${cols.fees} as fees, s.total_pnl_usd, s.portfolio_value_usd, s.positions_open, s.positions_closed,
            s.top_pool_address, s.top_pool_name, s.top_pool_bin_step, s.top_pool_protocol,
            s.top_pool_x_icon, s.top_pool_y_icon, s.updated_at, pb.updated_at as banner_updated_at,
-           (select count(*) from follows where followee_user_id = u.id) as followers_count
+           (select count(*) from follows where followee_user_id = u.id) as followers_count,
+           ($3::int is not null and exists(select 1 from follows where follower_user_id = $3 and followee_user_id = u.id)) as is_following
     from latest s 
     join users u on u.id = s.user_id
     left join profile_banners pb on pb.user_id = u.id
@@ -72,8 +75,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     limit $2`;
 
   const pool = getPool();
+  // Viewer-specific: whether the signed-in user (wallet or X session) follows each entry.
+  const viewerId = await getSessionUserId();
   const [{ rows }, statsRes] = await Promise.all([
-    pool.query<Row>(sql, [country, limit]),
+    pool.query<Row>(sql, [country, limit, viewerId]),
     pool.query<{ n: string; pnl: number | null; fees: number | null }>(
       `with latest as (select distinct on (user_id) * from pnl_snapshots order by user_id, date desc)
        select count(*)::text as n, sum(${cols.pnl}) as pnl, sum(${cols.fees}) as fees
@@ -101,6 +106,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     positionsOpen: r.positions_open,
     positionsClosed: r.positions_closed,
     followersCount: Number(r.followers_count || 0),
+    isFollowing: Boolean(r.is_following),
     topPool:
       r.top_pool_address && r.top_pool_name
         ? {
@@ -124,5 +130,5 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     country,
     entries,
     stats: { lps: Number(st?.n || 0), totalPnl: st?.pnl ?? 0, fees: st?.fees ?? 0 },
-  });
+  }, { headers: { "Cache-Control": "private, no-store" } });
 }
