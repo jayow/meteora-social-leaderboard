@@ -34,6 +34,9 @@ interface OpenPositionsData {
   totalPositions: number;
 }
 
+/** Numbers: Inter with tabular figures (same token as the PnL calendar). */
+const NUM = "font-numeric tabular-nums";
+
 /** Pools shown before "Show all" on the full list. */
 const INITIAL_POOLS = 8;
 
@@ -269,7 +272,7 @@ function poolPriceOf(details: OpenPositionDetail[]): number | null {
 function RangeBar({ d, scale, unit }: { d: OpenPositionDetail; scale: PriceScale | null; unit: string }) {
   if (!scale || !finitePos(d.minPrice) || !finitePos(d.maxPrice)) {
     return (
-      <span className="num text-[12px] text-fg-secondary">
+      <span className={`${NUM} text-[11px] text-mute`}>
         {fmtPrice(d.minPrice)} – {fmtPrice(d.maxPrice)}
       </span>
     );
@@ -297,7 +300,7 @@ function RangeBar({ d, scale, unit }: { d: OpenPositionDetail; scale: PriceScale
           />
         )}
       </div>
-      <div className="num relative mt-0.5 h-3.5 whitespace-nowrap text-[10px] leading-none text-mute" aria-hidden="true">
+      <div className={`${NUM} relative mt-1 h-3.5 whitespace-nowrap text-[11px] leading-none text-mute`} aria-hidden="true">
         {split ? (
           <>
             <span className="absolute" style={{ left: `${a}%` }}>
@@ -331,11 +334,16 @@ function pnlFraction(pnl: number | null, deposit: number | null | undefined): nu
 }
 
 function PnL({ usd, pct, className = "" }: { usd: number | null; pct: number | null; className?: string }) {
-  if (usd == null) return <span className={`text-mute ${className}`}>—</span>;
+  if (usd == null) return <span className={`${NUM} text-mute ${className}`}>—</span>;
   return (
-    <span className={`${pnlClass(usd)} ${className}`} title={pct != null ? "PnL vs. deposits" : "PnL"}>
+    <span className={`${NUM} ${pnlClass(usd)} ${className}`} title={pct != null ? "PnL vs. deposits" : "PnL"}>
       {fmtUsd(usd, { signed: true })}
-      {pct != null && <span className="ml-1 text-[10px] opacity-75">{pct >= 0 ? "+" : "−"}{fmtPct(Math.abs(pct), 1)}</span>}
+      {pct != null && (
+        <span className="ml-1.5 opacity-60">
+          {pct >= 0 ? "+" : "−"}
+          {fmtPct(Math.abs(pct), 1)}
+        </span>
+      )}
     </span>
   );
 }
@@ -358,15 +366,15 @@ const COLS = "sm:grid sm:grid-cols-[minmax(0,1fr)_4.75rem_4.25rem_6.75rem_2.75re
 function PositionRow({ d, scale, unit }: { d: OpenPositionDetail; scale: PriceScale | null; unit: string }) {
   const opened = d.openedAt != null ? new Date(d.openedAt * 1000) : null;
   return (
-    <div className={`py-3 text-[12px] ${COLS}`} data-testid="open-position-line">
+    <div className={`py-3 text-[13px] ${COLS}`} data-testid="open-position-line">
       <RangeBar d={d} scale={scale} unit={unit} />
-      <div className="num mt-2 flex items-baseline gap-3 sm:contents">
-        <span className="font-semibold text-fg sm:text-right">
+      <div className={`${NUM} mt-2.5 flex items-baseline gap-3 sm:contents`}>
+        <span className="font-medium text-fg sm:text-right">
           <span className="sr-only">Value </span>
           {fmtUsd(d.valueUsd)}
         </span>
         <span className="text-mute sm:text-right" title="Unclaimed fees">
-          <span className="sm:sr-only">fees </span>
+          <span className="mr-1 font-sans text-[12px] sm:sr-only">Fees</span>
           {fmtUsd(d.unclaimedFeesUsd)}
         </span>
         <span className="ml-auto sm:ml-0 sm:text-right">
@@ -385,8 +393,8 @@ function PositionRow({ d, scale, unit }: { d: OpenPositionDetail; scale: PriceSc
 function Stat({ label, children, className = "" }: { label: string; children: ReactNode; className?: string }) {
   return (
     <div className={`shrink-0 ${className}`}>
-      <div className="text-[10px] font-semibold uppercase tracking-wide text-mute">{label}</div>
-      <div className="num mt-0.5 whitespace-nowrap">{children}</div>
+      <div className="text-[12px] text-mute">{label}</div>
+      <div className={`${NUM} mt-0.5 whitespace-nowrap text-[15px] font-semibold leading-tight`}>{children}</div>
     </div>
   );
 }
@@ -424,14 +432,14 @@ function PositionCard({ pool }: { pool: OpenPool }) {
         <PoolIcons pool={pool} size="md" />
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <span className="truncate text-[15px] font-bold leading-tight">
+            <span className="truncate text-[16px] font-semibold leading-tight">
               <PoolName pool={pool} />
             </span>
             {pool.binStep != null && (
-              <span className="shrink-0 rounded-full border border-border px-1.5 py-px text-[10px] font-semibold text-mute" title="DLMM bin step">{pool.binStep}bp</span>
+              <span className="shrink-0 rounded-full border border-border px-2 py-px text-[11px] leading-4 text-mute" title="DLMM bin step">{pool.binStep}bp</span>
             )}
           </div>
-          <div className="num mt-0.5 flex items-center gap-1.5 whitespace-nowrap text-[12px] text-mute">
+          <div className="num mt-1 flex items-center gap-1.5 whitespace-nowrap text-[12px] text-mute">
             <span data-testid="pool-position-count">{fmtPositions(count)}</span>
             {totals && (
               <>
@@ -449,15 +457,15 @@ function PositionCard({ pool }: { pool: OpenPool }) {
       <div className="mt-4 flex items-end gap-4">
         <div className="flex min-w-0 flex-1 items-end gap-5 sm:gap-10">
           <Stat label="Value">
-            <span className="text-[16px] font-bold leading-tight">{fmtUsd(pool.valueUsd ?? 0)}</span>
+            <span className="text-fg">{fmtUsd(pool.valueUsd ?? 0)}</span>
           </Stat>
           {totals && (
             <>
               <Stat label="Fees">
-                <span className="text-[13px] text-fg-secondary">{fmtUsd(totals.fees)}</span>
+                <span className="text-fg-secondary">{fmtUsd(totals.fees)}</span>
               </Stat>
               <Stat label="PnL">
-                <PnL usd={totals.pnl} pct={totals.pct} className="text-[13px] font-semibold" />
+                <PnL usd={totals.pnl} pct={totals.pct} />
               </Stat>
             </>
           )}
@@ -486,14 +494,14 @@ function PositionCard({ pool }: { pool: OpenPool }) {
         // Above the overlay so clicks inside the list don't collapse it.
         <div id={panelId} hidden={!open} className="relative z-10 mt-4 border-t border-border pt-3" data-testid="open-position-details">
           {price != null && scale && (
-            <div className="num flex items-center gap-1.5 text-[11px] text-mute">
+            <div className="flex items-center gap-1.5 text-[12px] text-mute">
               <span className="h-2.5 w-0.5 rounded-full bg-fg" aria-hidden="true" />
               <span>
-                Current price <span className="text-fg-secondary">{fmtPrice(price)}</span> {unit}
+                Current price <span className={`${NUM} text-fg-secondary`}>{fmtPrice(price)}</span> {unit}
               </span>
             </div>
           )}
-          <div className={`mt-3 hidden text-[10px] font-semibold uppercase tracking-wide text-mute ${COLS}`} aria-hidden="true">
+          <div className={`mt-3 hidden text-[12px] text-mute ${COLS}`} aria-hidden="true">
             <span>Range</span>
             <span className="text-right">Value</span>
             <span className="text-right">Fees</span>
@@ -508,11 +516,11 @@ function PositionCard({ pool }: { pool: OpenPool }) {
             ))}
           </ul>
           {details.length !== count && (
-            <p className="pt-1 text-[11px] text-mute">
+            <p className="pt-1 text-[12px] text-mute">
               Details for {details.length} of {fmtPositions(count)}; the rest appear after the next sync.
             </p>
           )}
-          <Link href={`/pools/${pool.poolAddress}`} className="mt-2 inline-block rounded text-[12px] font-semibold text-mute hover:text-fg">
+          <Link href={`/pools/${pool.poolAddress}`} className="mt-2 inline-block whitespace-nowrap rounded text-[12px] font-semibold text-mute transition hover:text-fg">
             View pool →
           </Link>
         </div>
@@ -534,7 +542,7 @@ function PositionCardCompact({ pool }: { pool: OpenPool }) {
           <div className="truncate text-[13px] font-semibold">
             <PoolName pool={pool} />
           </div>
-          <div className="num text-[11px] text-mute">
+          <div className={`${NUM} text-[11px] text-mute`}>
             {fmtUsd(pool.valueUsd ?? 0)} · {fmtPositions(count)}
           </div>
         </div>
