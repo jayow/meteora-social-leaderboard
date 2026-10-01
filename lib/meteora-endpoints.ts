@@ -1,0 +1,44 @@
+/**
+ * Single source of truth for Meteora datapi URLs. lib/sync.ts and the /api/users/:id/* routes
+ * build their URLs here so they can't drift onto endpoints that don't exist.
+ * Docs: https://dlmm.datapi.meteora.ag/swagger-ui , https://portfolio.datapi.meteora.ag
+ */
+
+export const METEORA_DLMM_API = "https://dlmm.datapi.meteora.ag";
+export const METEORA_PORTFOLIO_API = "https://portfolio.datapi.meteora.ag";
+
+export type MeteoraTimeRange = "7d" | "30d" | "all";
+
+export const METEORA_TIME_RANGES: readonly MeteoraTimeRange[] = ["7d", "30d", "all"];
+
+export function isMeteoraTimeRange(v: string): v is MeteoraTimeRange {
+  return (METEORA_TIME_RANGES as readonly string[]).includes(v);
+}
+
+const enc = encodeURIComponent;
+
+export const meteoraUrls = {
+  /** All-time totals: { totalPnlUsd, totalPnlSol, totalPnlPctChange, totalPnlSolPctChange, totalClosedPositions } */
+  portfolioTotal: (wallet: string): string => `${METEORA_DLMM_API}/portfolio/total?user=${enc(wallet)}`,
+  /** Open positions grouped by pool. */
+  portfolioOpen: (wallet: string): string => `${METEORA_DLMM_API}/portfolio/open?user=${enc(wallet)}`,
+  /** Closed + open pools history. */
+  portfolio: (wallet: string, pageSize = 100): string =>
+    `${METEORA_DLMM_API}/portfolio?user=${enc(wallet)}&page_size=${pageSize}`,
+  /** Windowed performance (snake_case: pnl_usd, win_rate_usd, total_deposit_usd, ...). */
+  performance: (wallet: string, range: MeteoraTimeRange): string =>
+    `${METEORA_PORTFOLIO_API}/performances/${enc(wallet)}?time_range=${range}`,
+  /** Daily PnL calendar for a month (YYYY-MM). */
+  calendar: (wallet: string, month: string): string =>
+    `${METEORA_PORTFOLIO_API}/chart/calendar/${enc(wallet)}?month=${enc(month)}`,
+  /** Single DLMM pool. */
+  pool: (address: string): string => `${METEORA_DLMM_API}/pools/${enc(address)}`,
+  /**
+   * DLMM pools whose base token (token_x) is `mint`, excluding blacklisted pools: the same set
+   * Meteora's app shows. (`/pools?mint=` is not a real filter; Meteora ignores it.)
+   * `page` is 1-based, `pageSize` max 1000.
+   */
+  poolsByBaseToken: (mint: string, page: number, pageSize: number): string =>
+    `${METEORA_DLMM_API}/pools?filter_by=${enc(`token_x=${mint} && is_blacklisted=false`)}` +
+    `&sort_by=${enc("tvl:desc")}&page=${page}&page_size=${pageSize}`,
+} as const;

@@ -147,7 +147,15 @@ function PoolsContent() {
 
       const pools = tokenMint ? result.pools : (result as PoolsResponse).pools;
       if (pools && pools.length > 0) {
-        const poolAddresses = pools.map((p: PoolData) => p.poolAddress).join(",");
+        // Token pages can list thousands of Meteora pools; only those with members have avatars to load.
+        const poolAddresses = pools
+          .filter((p: PoolData & { memberCount?: number }) => !tokenMint || (p.memberCount ?? 0) > 0)
+          .map((p: PoolData) => p.poolAddress)
+          .join(",");
+        if (!poolAddresses) {
+          setMembersData(new Map());
+          return;
+        }
         const membersRes = await fetch(`/api/pools/members?pools=${encodeURIComponent(poolAddresses)}`, {
           cache: "no-store",
         });

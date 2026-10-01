@@ -3,11 +3,10 @@ import { getDb } from "@/lib/db";
 import { openPositions, pnlSnapshots, users, type NewSnapshot, type UserRow } from "@/lib/db/schema";
 import { num } from "@/lib/meteora";
 import { fetchMeteora } from "@/lib/meteora-limiter";
+import { meteoraUrls } from "@/lib/meteora-endpoints";
 import { getUserWalletAddresses } from "@/lib/users";
 import { recordSyncActivity, type SyncedPosition } from "@/lib/activity";
 
-const DLMM = "https://dlmm.datapi.meteora.ag";
-const PORTFOLIO = "https://portfolio.datapi.meteora.ag";
 const AVATAR_RECHECK_DAYS = 7;
 
 type Json = Record<string, unknown>;
@@ -30,8 +29,9 @@ async function enrichPoolsWithMints(pools: PortfolioPool[]): Promise<void> {
   const poolsNeedingMints = pools.filter((p) => p.poolAddress && (!p.tokenXMint || !p.tokenYMint));
   
   for (const pool of poolsNeedingMints) {
+    if (!pool.poolAddress) continue;
     try {
-      const info = await getJson(`${DLMM}/pools/${pool.poolAddress}`, 600000); // Cache for 10 min
+      const info = await getJson(meteoraUrls.pool(pool.poolAddress), 600000); // Cache for 10 min
       if (info) {
         const xMint = mintOf(info.token_x);
         const yMint = mintOf(info.token_y);
@@ -109,7 +109,7 @@ async function resolveTopPoolMultiWallet(biggestPnlPool: string | null, allPortf
   if (biggestPnlPool) {
     const known = byAddr.get(biggestPnlPool);
     if (known) return fromPortfolio(known);
-    const info = await getJson(`${DLMM}/pools/${biggestPnlPool}`);
+    const info = await getJson(meteoraUrls.pool(biggestPnlPool));
     if (info && typeof info.name === "string") {
       const cfg = info.pool_config as Json | undefined;
       return {
@@ -163,14 +163,13 @@ interface WalletData {
 
 /** Pull Meteora data for a single wallet. */
 async function fetchWalletData(wallet: string): Promise<WalletData> {
-  const w = encodeURIComponent(wallet);
   const [total, open, portfolio, perf7, perf30, perfAll] = await Promise.all([
-    getJson(`${DLMM}/portfolio/total?user=${w}`),
-    getJson(`${DLMM}/portfolio/open?user=${w}`),
-    getJson(`${DLMM}/portfolio?user=${w}&page_size=100`),
-    getJson(`${PORTFOLIO}/performances/${w}?time_range=7d`),
-    getJson(`${PORTFOLIO}/performances/${w}?time_range=30d`),
-    getJson(`${PORTFOLIO}/performances/${w}?time_range=all`),
+    getJson(meteoraUrls.portfolioTotal(wallet)),
+    getJson(meteoraUrls.portfolioOpen(wallet)),
+    getJson(meteoraUrls.portfolio(wallet, 100)),
+    getJson(meteoraUrls.performance(wallet, "7d")),
+    getJson(meteoraUrls.performance(wallet, "30d")),
+    getJson(meteoraUrls.performance(wallet, "all")),
   ]);
   return { wallet, total, open, portfolio, perf7, perf30, perfAll };
 }

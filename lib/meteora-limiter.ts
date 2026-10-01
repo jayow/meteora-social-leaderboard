@@ -227,7 +227,7 @@ async function fetchWithRetry(url: string, ttlMs: number): Promise<unknown> {
 
     if (res.ok) {
       const data: unknown = await res.json();
-      meteoraCache.set(url, data, ttlMs);
+      if (ttlMs > 0) meteoraCache.set(url, data, ttlMs);
       return data;
     }
 
@@ -236,7 +236,7 @@ async function fetchWithRetry(url: string, ttlMs: number): Promise<unknown> {
 
     const error = new MeteoraHttpError(res.status, url);
     if (res.status === 404) {
-      meteoraCache.set(url, NOT_FOUND, Math.min(ttlMs, NOT_FOUND_TTL_MS));
+      if (ttlMs > 0) meteoraCache.set(url, NOT_FOUND, Math.min(ttlMs, NOT_FOUND_TTL_MS));
       throw error;
     }
     if (!isRetryableStatus(res.status)) throw error; // other 4xx: fail fast
@@ -255,7 +255,8 @@ async function fetchWithRetry(url: string, ttlMs: number): Promise<unknown> {
 }
 
 /**
- * Rate-limited, cached GET against Meteora datapi.
+ * Rate-limited, cached GET against Meteora datapi. `ttlMs <= 0` skips the response cache
+ * (use it for large payloads the caller caches in a smaller, derived form).
  * Throws MeteoraHttpError (404 = no data, see isMeteoraNotFound) or a network error.
  */
 export async function fetchMeteora<T = unknown>(url: string, ttlMs = 120000): Promise<T> {
