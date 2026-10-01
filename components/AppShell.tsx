@@ -15,6 +15,8 @@ interface SessionData {
   xHandle?: string | null;
   xName?: string | null;
   xAvatarUrl?: string | null;
+  /** Dense beta member number; null until an invite is redeemed. */
+  memberNumber?: number | null;
   wallets?: string[];
 }
 
@@ -135,11 +137,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     size={26} 
                   />
                   <span className="num">
-                    {hasX && session?.xHandle 
-                      ? `@${session.xHandle}` 
-                      : session?.userId 
-                        ? `LP #${session.userId}` 
-                        : "User"}
+                    {hasX && session?.xHandle
+                      ? `@${session.xHandle}`
+                      : session?.memberNumber
+                        ? `LP #${session.userId}`
+                        : "New LP"}
                   </span>
                 </button>
 

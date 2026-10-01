@@ -17,8 +17,24 @@ import { displayName, fmtPct, fmtUsd, shortAddr, timeAgo } from "@/lib/format";
 import { isValidWalletClient } from "@/lib/wallet-client";
 import { patchCachedProfile } from "@/lib/storage";
 import { loginMessage } from "@/lib/login-message";
+import { meteoraHomeUrl } from "@/lib/meteora-links";
 
 type Range = "7d" | "30d" | "all";
+type LoadStatus = "idle" | "loading" | "notfound" | "error" | "timeout";
+/** Give up on skeletons after this long and show a retry state instead. */
+const LOAD_TIMEOUT_MS = 15000;
+
+/** True when the snapshot shows any Meteora LP activity at all. */
+function hasActivity(s: ApiSnapshot | null): boolean {
+  if (!s) return false;
+  return (
+    (s.positionsOpen ?? 0) + (s.positionsClosed ?? 0) > 0 ||
+    (s.volumeUsd ?? 0) !== 0 ||
+    (s.portfolioValueUsd ?? 0) !== 0 ||
+    (s.totalPnlUsd ?? 0) !== 0
+  );
+}
+
 const RANGE_LABEL: Record<Range, string> = { "7d": "7D", "30d": "30D", all: "All-time" };
 
 export default function ProfilePage() {
@@ -41,7 +57,8 @@ function Profile() {
 
   const [user, setUser] = useState<ApiUser | null>(null);
   const [snap, setSnap] = useState<ApiSnapshot | null>(null);
-  const [status, setStatus] = useState<"idle" | "loading" | "notfound" | "error">("idle");
+  const [status, setStatus] = useState<LoadStatus>("idle");
+  const [reloadKey, setReloadKey] = useState(0);
   const [syncing, setSyncing] = useState(false);
   const [range, setRange] = useState<Range>("30d");
   const [xNotice, setXNotice] = useState<string | null>(null);
@@ -61,8 +78,9 @@ function Profile() {
     async (wallet: string) => {
       setSyncing(true);
       try {
-        await fetch(`/api/sync/${wallet}`, { method: "POST" });
-        await load(wallet);
+        // A failed sync must not break the page; we just show whatever is stored.
+        await fetch(`/api/sync/${wallet}`, { method: "POST" }).catch(() => null);
+        await load(wallet).catch(() => null);
       } finally {
         setSyncing(false);
       }
@@ -76,23 +94,28 @@ function Profile() {
     setStatus("loading");
     (async () => {
       try {
-        const u = await load(target);
+        let u = await load(target);
         if (cancelled) return;
-        if (u) {
-          setStatus("idle");
-          // Redirect old wallet-based URLs to handle/id-based URLs
-          if (isValidWalletClient(rawId) && rawId !== "me") {
-            const newPath = u.xHandle ? `/profile/${u.xHandle}` : `/profile/${u.id}`;
-            router.replace(newPath + window.location.search);
-            return;
-          }
-          if (u.wallet) sync(u.wallet);
-        } else if (isValidWalletClient(target)) {
+        if (!u && isValidWalletClient(target)) {
+          // Unknown wallet: register + pull stats once, then look it up again.
           await sync(target);
-          if (!cancelled) setStatus("idle");
-        } else {
-          setStatus("notfound");
+          if (cancelled) return;
+          u = await load(target);
+          if (cancelled) return;
         }
+        if (!u) {
+          setStatus("notfound");
+          return;
+        }
+        setStatus("idle");
+        // Redirect old wallet-based URLs to handle/id-based URLs
+        if (isValidWalletClient(rawId) && rawId !== "me") {
+          const newPath = u.xHandle ? `/profile/${u.xHandle}` : `/profile/${u.id}`;
+          router.replace(newPath + window.location.search);
+          return;
+        }
+        // Only the owner gets `wallet` back; refresh their stats in the background.
+        if (u.wallet) void sync(u.wallet);
       } catch {
         if (!cancelled) setStatus("error");
       }
@@ -100,7 +123,14 @@ function Profile() {
     return () => {
       cancelled = true;
     };
-  }, [target, load, sync, rawId, router]);
+  }, [target, load, sync, rawId, router, reloadKey]);
+
+  // Never sit on skeletons forever.
+  useEffect(() => {
+    if (status !== "loading" || user) return;
+    const t = setTimeout(() => setStatus("timeout"), LOAD_TIMEOUT_MS);
+    return () => clearTimeout(t);
+  }, [status, user]);
 
   const mine = Boolean(me.user && user && me.user.id === user.id);
 
@@ -142,10 +172,35 @@ function Profile() {
   }
 
   if (status === "notfound") {
+    if (isMeRoute) return <OwnEmptyProfile />;
     return (
-      <main className="mx-auto max-w-[640px] px-4 py-16 text-center">
-        <p className="text-mute">No LP found for “{rawId}”.</p>
-        <Link href="/" className="mt-4 inline-block text-orange">← Back to the leaderboard</Link>
+      <main className="mx-auto max-w-[640px] px-4 py-16">
+        <div className="glass rounded-[28px] px-6 py-12 text-center">
+          <div className="text-[40px]">🔍</div>
+          <h1 className="mt-2 text-[22px] font-extrabold">Profile not found</h1>
+          <p className="mx-auto mt-1 max-w-sm text-[14px] text-mute">This LP isn&apos;t on Pool Party (yet).</p>
+          <Link href="/" className="mt-5 inline-block text-[14px] font-semibold text-orange hover:text-orange-soft">← Back to the leaderboard</Link>
+        </div>
+      </main>
+    );
+  }
+
+  if (!user && (status === "error" || status === "timeout")) {
+    return (
+      <main className="mx-auto max-w-[640px] px-4 py-16">
+        <div className="glass rounded-[28px] px-6 py-12 text-center">
+          <h1 className="text-[20px] font-extrabold">Couldn&apos;t load this profile</h1>
+          <p className="mx-auto mt-1 max-w-sm text-[14px] text-mute">
+            {status === "timeout" ? "This is taking longer than usual." : "Something went wrong on our side."}
+          </p>
+          <button
+            type="button"
+            onClick={() => setReloadKey((k) => k + 1)}
+            className="mt-5 h-10 rounded-full bg-white/[.1] px-5 text-[14px] font-semibold text-white hover:bg-white/[.16]"
+          >
+            Try again
+          </button>
+        </div>
       </main>
     );
   }
@@ -157,7 +212,6 @@ function Profile() {
           <div className="glass h-[520px] animate-pulse rounded-[28px]" />
           <div className="glass h-[520px] animate-pulse rounded-[28px]" />
         </div>
-        {status === "error" && <p className="mt-4 text-dn">Couldn&apos;t load this profile.</p>}
         {syncing && <p className="mt-4 text-[13px] text-mute">Pulling stats from Meteora…</p>}
       </main>
     );
@@ -178,6 +232,18 @@ function Profile() {
       {/* Link prompts for missing methods */}
       {mine && user && (
         <>
+          {!user.memberNumber && (
+            <Link
+              href="/join"
+              className="mb-4 flex items-center justify-between rounded-2xl border border-white/10 bg-white/[.04] px-4 py-3 text-[14px] transition hover:bg-white/[.07]"
+            >
+              <span>
+                <span className="font-semibold text-white">You&apos;re not on the leaderboard yet</span>
+                <span className="ml-2 text-[13px] text-mute">Got an invite code? Join the beta</span>
+              </span>
+              <span className="text-[13px] text-orange">→</span>
+            </Link>
+          )}
           {!user.xHandle && (
             <a
               href={`/api/x/login?link=true&returnTo=${encodeURIComponent("/profile/me")}`}
@@ -211,7 +277,7 @@ function Profile() {
             <div className="relative -mt-12 flex items-end justify-between">
               <Avatar user={user} size={96} ring />
               <div className="mb-1 flex gap-2">
-                {snap && (
+                {snap && hasActivity(snap) && (
                   <button
                     type="button"
                     onClick={() => setShareModalOpen(true)}
@@ -229,7 +295,7 @@ function Profile() {
               </div>
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              <h1 className="text-[26px] font-extrabold tracking-tight">{user.xName || displayName(user)}</h1>
+              <h1 className="text-[26px] font-extrabold tracking-tight">{user.xName || (user.xHandle || user.memberNumber ? displayName(user) : "New LP")}</h1>
               <Flag code={user.country} className="!h-[14px] !w-[20px]" />
               {mine && <span className="rounded-full bg-orange px-2 py-0.5 text-[11px] font-extrabold">YOU</span>}
             </div>
@@ -289,7 +355,9 @@ function Profile() {
               <h2 className="text-[18px] font-extrabold">Meteora stats</h2>
               <Pills value={range} onChange={setRange} options={[{ value: "7d", label: "7D" }, { value: "30d", label: "30D" }, { value: "all", label: "All" }]} />
             </div>
-            {snap ? (
+            {!hasActivity(snap) && (mine || !snap) && !syncing ? (
+              <NoActivityStats mine={mine} />
+            ) : snap ? (
               <>
                 <div className="flex flex-wrap items-end gap-x-6 gap-y-1">
                   <div>
@@ -334,6 +402,52 @@ function Profile() {
           onClose={() => setShareModalOpen(false)}
         />
       )}
+    </main>
+  );
+}
+
+/** Zeroed stats + a gentle nudge to Meteora for accounts with no LP history yet. */
+function NoActivityStats({ mine }: { mine: boolean }) {
+  return (
+    <div data-testid="no-activity">
+      <div className="text-[12px] font-medium text-mute">PnL</div>
+      <div className="num text-[44px] font-extrabold leading-none tracking-tight text-white/80">{fmtUsd(0, { compact: false })}</div>
+      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+        <StatTile label="Total value" value={fmtUsd(0)} sub="open positions" />
+        <StatTile label="Volume" value={fmtUsd(0)} sub="deposited" />
+        <StatTile label="Fees earned" value={fmtUsd(0)} />
+      </div>
+      <p className="mt-4 text-[14px] text-mute">
+        No Meteora LP activity yet.{" "}
+        {mine && (
+          <a href={meteoraHomeUrl()} target="_blank" rel="noreferrer" className="font-semibold text-white/80 hover:text-white">
+            Dip in 🏖️
+          </a>
+        )}
+      </p>
+    </div>
+  );
+}
+
+/** /profile/me when the account can't be loaded (e.g. wallet connected but not signed in yet). */
+function OwnEmptyProfile() {
+  return (
+    <main className="mx-auto max-w-[1200px] px-4 pb-10 pt-6 lg:px-6" data-testid="own-empty-profile">
+      <div className="mb-4">
+        <Link href="/" className="text-[13px] font-semibold text-mute hover:text-white">← Leaderboard</Link>
+      </div>
+      <div className="grid gap-5 lg:grid-cols-[380px_minmax(0,1fr)]">
+        <section className="glass h-fit rounded-[28px] p-5">
+          <Avatar user={{}} size={80} ring />
+          <h1 className="mt-3 text-[24px] font-extrabold tracking-tight">Your LP profile</h1>
+          <p className="mt-1 text-[13px] text-mute">Sign in and join the beta to claim your spot on the leaderboard.</p>
+          <Link href="/join" className="mt-4 inline-block text-[13px] font-semibold text-orange hover:text-orange-soft">Join the beta →</Link>
+        </section>
+        <section className="glass rounded-[28px] p-5">
+          <h2 className="mb-4 text-[18px] font-extrabold">Meteora stats</h2>
+          <NoActivityStats mine />
+        </section>
+      </div>
     </main>
   );
 }

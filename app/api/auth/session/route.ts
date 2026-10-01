@@ -26,6 +26,7 @@ export async function GET(): Promise<NextResponse> {
         xHandle: user.xHandle,
         xName: user.xName,
         xAvatarUrl: user.xAvatarUrl,
+        memberNumber: user.memberNumber,
         wallets: walletList.map(shortAddr),
       });
     }

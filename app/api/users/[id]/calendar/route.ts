@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
-import { findUser } from "@/lib/users";
+import { findUser, getUserWalletAddresses } from "@/lib/users";
+import { canViewUser } from "@/lib/visibility";
 import { fetchMeteora } from "@/lib/meteora-limiter";
-import { getDb, hasDb } from "@/lib/db";
-import { userWallets } from "@/lib/db/schema";
+import { hasDb } from "@/lib/db";
 
 const CALENDAR_BASE = "https://portfolio.datapi.meteora.ag";
 
@@ -15,7 +14,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
   const { id } = await ctx.params;
   const user = await findUser(decodeURIComponent(id));
   
-  if (!user || !user.joinedAt) {
+  if (!user || !(await canViewUser(user))) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
@@ -25,12 +24,8 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
   }
 
   try {
-    // Fetch all user wallets
-    const db = getDb();
-    const wallets = await db
-      .select()
-      .from(userWallets)
-      .where(eq(userWallets.userId, user.id));
+    // Primary + linked wallets
+    const wallets = (await getUserWalletAddresses(user)).map((address) => ({ address }));
 
     if (wallets.length === 0) {
       return NextResponse.json({ days: [] });

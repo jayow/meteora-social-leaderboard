@@ -3,7 +3,7 @@ import { eq, sql } from "drizzle-orm";
 import { getDb, hasDb } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { findUser, getFollowCounts, getUserWalletCount, isUserFollowing, latestSnapshot, toPublicSnapshot, toPublicUser } from "@/lib/users";
-import { getSessionWallet } from "@/lib/session";
+import { getSessionUserId, getSessionWallet } from "@/lib/session";
 import { isCountryCode } from "@/lib/countries";
 
 export const dynamic = "force-dynamic";
@@ -12,21 +12,17 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
   if (!hasDb()) return NextResponse.json({ error: "Database not configured" }, { status: 503 });
   const { id } = await ctx.params;
   const user = await findUser(decodeURIComponent(id));
-  if (!user || !user.joinedAt) return NextResponse.json({ user: null }, { status: 404 });
-  
+  // Supports both user-id sessions (current) and legacy wallet sessions.
+  const currentUserId = await getSessionUserId();
+  const isOwnProfile = Boolean(user && currentUserId === user.id);
+  // Not-yet-joined accounts are only visible to their owner (see lib/visibility.ts).
+  if (!user || (!user.joinedAt && !isOwnProfile)) return NextResponse.json({ user: null }, { status: 404 });
+
   const snap = await latestSnapshot(user.id);
   const counts = await getFollowCounts(user.id);
   const walletCount = await getUserWalletCount(user.id);
-  
-  const sessionWallet = await getSessionWallet();
-  let currentUserId: number | null = null;
-  if (sessionWallet) {
-    const currentUser = await findUser(sessionWallet);
-    currentUserId = currentUser?.id ?? null;
-  }
-  
+
   const isFollowing = await isUserFollowing(currentUserId, user.id);
-  const isOwnProfile = currentUserId === user.id;
   
   const publicUser = {
     ...toPublicUser(user, isOwnProfile),

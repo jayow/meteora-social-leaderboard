@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { findUser } from "@/lib/users";
+import { canViewUser } from "@/lib/visibility";
 import { fetchMeteora } from "@/lib/meteora-limiter";
 import { hasDb } from "@/lib/db";
 
@@ -13,7 +14,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
   const { id } = await ctx.params;
   const user = await findUser(decodeURIComponent(id));
   
-  if (!user || !user.joinedAt) {
+  if (!user || !(await canViewUser(user))) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 

@@ -1,8 +1,9 @@
 import { and, eq, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { openPositions, pnlSnapshots, users, userWallets, type NewSnapshot, type UserRow } from "@/lib/db/schema";
+import { openPositions, pnlSnapshots, users, type NewSnapshot, type UserRow } from "@/lib/db/schema";
 import { num } from "@/lib/meteora";
 import { fetchMeteora } from "@/lib/meteora-limiter";
+import { getUserWalletAddresses } from "@/lib/users";
 
 const DLMM = "https://dlmm.datapi.meteora.ag";
 const PORTFOLIO = "https://portfolio.datapi.meteora.ag";
@@ -177,14 +178,10 @@ async function fetchWalletData(wallet: string): Promise<WalletData> {
 export async function syncUser(user: UserRow): Promise<SyncResult> {
   const db = getDb();
   
-  // Fetch all user wallets
-  const wallets = await db
-    .select()
-    .from(userWallets)
-    .where(eq(userWallets.userId, user.id))
-    .orderBy(sql`${userWallets.isPrimary} DESC, ${userWallets.createdAt} ASC`);
+  // Primary wallet + linked wallets (new signups have no user_wallets row yet).
+  const walletAddresses = await getUserWalletAddresses(user);
 
-  if (wallets.length === 0) {
+  if (walletAddresses.length === 0) {
     return { ok: false, wallet: user.wallet, date: todayUtc(), error: "No wallets configured" };
   }
 
@@ -194,7 +191,7 @@ export async function syncUser(user: UserRow): Promise<SyncResult> {
   }
 
   // Fetch data for all wallets in parallel
-  const walletDataList = await Promise.all(wallets.map((w) => fetchWalletData(w.address)));
+  const walletDataList = await Promise.all(walletAddresses.map((address) => fetchWalletData(address)));
 
   const date = todayUtc();
   const hasAnyData = walletDataList.some((wd) => wd.total || wd.perf30 || wd.perfAll);

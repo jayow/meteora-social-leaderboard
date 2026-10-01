@@ -183,3 +183,25 @@ export async function getUserWalletCount(userId: number): Promise<number> {
     .where(eq(userWallets.userId, userId));
   return result[0]?.count ?? 0;
 }
+
+/**
+ * All wallet addresses that belong to a user: the primary `users.wallet` (unless it's an X-signup
+ * `temp_` placeholder) plus any linked rows in `user_wallets`, primary first, de-duplicated.
+ * New wallet signups only have `users.wallet` (no `user_wallets` row), so callers must not rely on
+ * `user_wallets` alone.
+ */
+export async function getUserWalletAddresses(user: Pick<UserRow, "id" | "wallet">): Promise<string[]> {
+  const db = getDb();
+  const rows = await db
+    .select({ address: userWallets.address })
+    .from(userWallets)
+    .where(eq(userWallets.userId, user.id))
+    .orderBy(desc(userWallets.isPrimary), userWallets.createdAt);
+  const out: string[] = [];
+  const add = (a: string | null | undefined) => {
+    if (a && !a.startsWith("temp_") && !out.includes(a)) out.push(a);
+  };
+  add(user.wallet);
+  for (const r of rows) add(r.address);
+  return out;
+}

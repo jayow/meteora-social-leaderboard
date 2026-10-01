@@ -4,6 +4,7 @@ import sharp from "sharp";
 import { getDb, hasDb } from "@/lib/db";
 import { profileBanners, users } from "@/lib/db/schema";
 import { findUser } from "@/lib/users";
+import { canViewUser } from "@/lib/visibility";
 import { getSessionUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +19,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
   const { id } = await ctx.params;
   const user = await findUser(decodeURIComponent(id));
   
-  if (!user || !user.joinedAt) {
+  if (!user || !(await canViewUser(user))) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
