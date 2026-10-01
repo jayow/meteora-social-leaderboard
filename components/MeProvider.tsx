@@ -5,6 +5,7 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import type { ApiSnapshot, ApiUser } from "@/lib/api-types";
 import { loginMessage } from "@/lib/login-message";
 import { getCachedProfile, patchCachedProfile, type CachedProfile } from "@/lib/storage";
+import { onSessionChanged } from "@/lib/session-events";
 
 interface MeState {
   wallet: string | null;
@@ -37,13 +38,17 @@ export function MeProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(false);
   const registered = useRef<string | null>(null);
 
-  useEffect(() => {
-    setCached(getCachedProfile());
-    fetch("/api/auth/session")
+  const loadSessionUserId = useCallback(() => {
+    fetch("/api/auth/session", { cache: "no-store" })
       .then((r) => r.json() as Promise<{ userId?: number | null; wallet?: string | null }>)
       .then((d) => setSessionUserId(d.userId || null))
       .catch(() => setSessionUserId(null));
   }, []);
+
+  useEffect(() => {
+    setCached(getCachedProfile());
+    loadSessionUserId();
+  }, [loadSessionUserId]);
 
   const load = useCallback(async (w: string) => {
     const res = await fetch(`/api/users/${w}`, { cache: "no-store" });
@@ -81,6 +86,16 @@ export function MeProvider({ children }: { children: React.ReactNode }) {
       .then(() => load(wallet))
       .finally(() => setLoading(false));
   }, [wallet, load]);
+
+  // Joining / linking changes the profile (member number, X handle): refetch session and profile.
+  useEffect(
+    () =>
+      onSessionChanged(() => {
+        loadSessionUserId();
+        if (wallet) void load(wallet).catch(() => null);
+      }),
+    [wallet, load, loadSessionUserId]
+  );
 
   const ensureSession = useCallback(async (): Promise<boolean> => {
     if (sessionUserId) return true;

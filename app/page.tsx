@@ -349,6 +349,7 @@ interface CountryLeaderboardEntry {
     xHandle: string | null;
     xName: string | null;
     xAvatarUrl: string | null;
+    anonName: string | null;
     pnl: number | null;
   } | null;
 }

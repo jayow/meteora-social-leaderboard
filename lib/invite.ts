@@ -60,23 +60,31 @@ export async function validateCode(code: string): Promise<{ valid: boolean; reas
   return { valid: true };
 }
 
-export async function redeemCode(wallet: string, code: string, country?: string | null, thesis?: string | null): Promise<{ ok: boolean; user?: UserRow; error?: string }> {
+/**
+ * Redeem an invite for an existing (signed-in) user: assigns joined_at and the next dense member
+ * number to that user. Never creates a user. Serialized with an advisory lock so concurrent joins
+ * can't hand out the same member number or overshoot the beta cap / code uses.
+ */
+export async function redeemCode(userId: number, code: string, country?: string | null, thesis?: string | null): Promise<{ ok: boolean; user?: UserRow; error?: string }> {
   const db = getDb();
   try {
     return await db.transaction(async (tx) => {
+      await tx.execute(sql`select pg_advisory_xact_lock(7426001)`);
+      const [existing] = await tx.select().from(users).where(eq(users.id, userId)).limit(1);
+      if (!existing) return { ok: false, error: "Account not found, sign in again" };
+      if (existing.joinedAt) return { ok: false, error: "You have already joined" };
       const [invite] = await tx.select().from(inviteCodes).where(eq(inviteCodes.code, code.toUpperCase())).limit(1);
       if (!invite) return { ok: false, error: "Invalid code" };
       if (invite.disabled) return { ok: false, error: "Code has been disabled" };
       if (invite.uses >= invite.maxUses) return { ok: false, error: "Code has been fully used" };
-      const [existing] = await tx.select().from(users).where(eq(users.wallet, wallet)).limit(1);
-      if (existing?.joinedAt) return { ok: false, error: "You have already joined" };
-      const [countResult] = await tx
-        .select({ count: sql<number>`count(*)::int` })
-        .from(users)
-        .where(sql`${users.joinedAt} IS NOT NULL`);
-      const currentCount = countResult?.count ?? 0;
-      if (currentCount >= betaCap()) return { ok: false, error: "Beta is full" };
-      const nextMemberNumber = currentCount + 1;
+      const [stats] = await tx
+        .select({
+          count: sql<number>`count(*) filter (where ${users.joinedAt} is not null)::int`,
+          maxMember: sql<number>`coalesce(max(${users.memberNumber}), 0)::int`,
+        })
+        .from(users);
+      if ((stats?.count ?? 0) >= betaCap()) return { ok: false, error: "Beta is full" };
+      const nextMemberNumber = (stats?.maxMember ?? 0) + 1;
       await tx
         .update(inviteCodes)
         .set({ uses: sql`${inviteCodes.uses} + 1` })
@@ -92,13 +100,13 @@ export async function redeemCode(wallet: string, code: string, country?: string 
           thesis: thesis ?? sql`${users.thesis}`,
           updatedAt: sql`now()`,
         })
-        .where(eq(users.wallet, wallet))
+        .where(eq(users.id, userId))
         .returning();
       if (!user) return { ok: false, error: "Failed to join" };
       return { ok: true, user };
     });
   } catch (err: unknown) {
-    console.error("Redeem code error:", err);
+    console.error("Redeem code error:", err instanceof Error ? err.message : err);
     return { ok: false, error: "Transaction failed" };
   }
 }

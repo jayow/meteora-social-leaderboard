@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSessionWallet } from "@/lib/session";
-import { isAdmin, createAdminCodes } from "@/lib/invite";
+import { getSessionUser } from "@/lib/session";
+import { isAdminUser, createAdminCodes } from "@/lib/invite";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  const wallet = await getSessionWallet();
-  if (!isAdmin(wallet)) {
+  const user = await getSessionUser();
+  if (!isAdminUser(user)) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
   let body: { count?: number; maxUses?: number } = {};

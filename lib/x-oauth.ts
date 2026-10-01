@@ -257,3 +257,13 @@ export async function consumeXProfileCookie(): Promise<XProfile | null> {
     return null;
   }
 }
+
+/**
+ * Build the post-OAuth redirect: `returnTo` (a same-origin path that may already carry a query,
+ * e.g. `/join?code=ABC`) plus status params, without producing a second `?`.
+ */
+export function oauthReturnUrl(returnTo: string, query: string, baseUrl: string): URL {
+  const url = new URL(returnTo, baseUrl);
+  new URLSearchParams(query).forEach((value, key) => url.searchParams.set(key, value));
+  return url;
+}

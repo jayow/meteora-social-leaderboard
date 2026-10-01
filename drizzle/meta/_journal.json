@@ -85,6 +85,13 @@
       "when": 1790818701000,
       "tag": "0011_add_unique_x_id_index",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1790820867056,
+      "tag": "0012_add_anon_name",
+      "breakpoints": true
     }
   ]
 }

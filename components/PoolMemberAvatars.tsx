@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { avatarFor } from "@/lib/format";
+import { avatarFor, displayName } from "@/lib/format";
 
 interface Member {
   userId: number;
   xAvatarUrl: string | null;
   xHandle: string | null;
+  anonName?: string | null;
   isFollowed: boolean;
 }
 
@@ -44,7 +45,7 @@ export function PoolMemberAvatars({ poolAddress, members, isSignedIn }: PoolMemb
 
     const friendNames = followedMembers
       .slice(0, 2)
-      .map((m) => m.xHandle || `LP #${m.userId}`)
+      .map((m) => displayName(m))
       .join(", ");
 
     const moreFriends = followedCount > 2 ? ` +${followedCount - 2}` : "";
@@ -69,7 +70,7 @@ export function PoolMemberAvatars({ poolAddress, members, isSignedIn }: PoolMemb
       <div className="flex -space-x-2">
         {visibleMembers.map((member) => {
           const avatar = avatarFor({ xAvatarUrl: member.xAvatarUrl, id: member.userId });
-          const title = member.xHandle ? `@${member.xHandle}` : `LP #${member.userId}`;
+          const title = displayName(member);
 
           return (
             <Link

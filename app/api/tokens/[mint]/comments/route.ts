@@ -15,6 +15,7 @@ interface CommentRow {
   x_handle: string | null;
   x_name: string | null;
   x_avatar_url: string | null;
+  anon_name: string | null;
   pool_address: string | null;
   token_y: string | null;
 }
@@ -40,6 +41,7 @@ export async function GET(
       u.x_handle,
       u.x_name,
       u.x_avatar_url,
+      u.anon_name,
       (
         SELECT op.pool_address
         FROM open_positions op
@@ -72,6 +74,7 @@ export async function GET(
       xHandle: r.x_handle,
       xName: r.x_name,
       xAvatarUrl: r.x_avatar_url,
+      anonName: r.anon_name,
     },
     poolAddress: r.pool_address,
     tokenY: r.token_y,
@@ -169,6 +172,7 @@ export async function POST(
         xHandle: user.xHandle,
         xName: user.xName,
         xAvatarUrl: user.xAvatarUrl,
+        anonName: user.anonName,
       },
     }
   }, { status: 201 });

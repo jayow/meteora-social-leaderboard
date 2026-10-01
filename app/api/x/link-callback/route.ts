@@ -3,7 +3,7 @@ import { eq, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { getSessionUserId } from "@/lib/session";
-import { validateOAuthState, exchangeCodeForToken, fetchXProfile } from "@/lib/x-oauth";
+import { validateOAuthState, exchangeCodeForToken, fetchXProfile, oauthReturnUrl } from "@/lib/x-oauth";
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const { searchParams } = new URL(req.url);
@@ -40,21 +40,21 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const tokenResult = await exchangeCodeForToken(code, verifier, callbackUrl);
   if (!tokenResult) {
     return NextResponse.redirect(
-      new URL(`${returnTo}?link=error&message=Token+exchange+failed`, baseUrl)
+      oauthReturnUrl(returnTo, "link=error&message=Token+exchange+failed", baseUrl)
     );
   }
 
   const profile = await fetchXProfile(tokenResult.accessToken);
   if (!profile) {
     return NextResponse.redirect(
-      new URL(`${returnTo}?link=error&message=Failed+to+fetch+profile`, baseUrl)
+      oauthReturnUrl(returnTo, "link=error&message=Failed+to+fetch+profile", baseUrl)
     );
   }
 
   const userId = await getSessionUserId();
   if (!userId) {
     return NextResponse.redirect(
-      new URL(`${returnTo}?link=error&message=Not+signed+in`, baseUrl)
+      oauthReturnUrl(returnTo, "link=error&message=Not+signed+in", baseUrl)
     );
   }
 
@@ -62,7 +62,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const xId = profile.id;
   if (!xId) {
     return NextResponse.redirect(
-      new URL(`${returnTo}?link=error&message=Missing+X+user+ID`, baseUrl)
+      oauthReturnUrl(returnTo, "link=error&message=Missing+X+user+ID", baseUrl)
     );
   }
 
@@ -77,7 +77,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   
   if (existingXUser && existingXUser.id !== userId) {
     return NextResponse.redirect(
-      new URL(`${returnTo}?link=error&message=This+X+account+is+already+linked+to+another+user`, baseUrl)
+      oauthReturnUrl(returnTo, "link=error&message=This+X+account+is+already+linked+to+another+user", baseUrl)
     );
   }
 
@@ -93,11 +93,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       })
       .where(eq(users.id, userId));
 
-    return NextResponse.redirect(new URL(`${returnTo}?link=success`, baseUrl));
+    return NextResponse.redirect(oauthReturnUrl(returnTo, "link=success", baseUrl));
   } catch (e) {
     console.error("Failed to link X account:", e);
     return NextResponse.redirect(
-      new URL(`${returnTo}?link=error&message=Failed+to+link+account`, baseUrl)
+      oauthReturnUrl(returnTo, "link=error&message=Failed+to+link+account", baseUrl)
     );
   }
 }

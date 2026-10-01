@@ -23,6 +23,7 @@ interface CountryStatsRow {
   top_lp_x_handle: string | null;
   top_lp_x_name: string | null;
   top_lp_x_avatar_url: string | null;
+  top_lp_anon_name: string | null;
   top_lp_pnl: number | null;
 }
 
@@ -64,6 +65,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         u.x_handle AS top_lp_x_handle,
         u.x_name AS top_lp_x_name,
         u.x_avatar_url AS top_lp_x_avatar_url,
+        u.anon_name AS top_lp_anon_name,
         s.${cols.pnl} AS top_lp_pnl
       FROM users u
       JOIN latest s ON s.user_id = u.id
@@ -81,6 +83,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       tl.top_lp_x_handle,
       tl.top_lp_x_name,
       tl.top_lp_x_avatar_url,
+      tl.top_lp_anon_name,
       tl.top_lp_pnl
     FROM country_stats cs
     LEFT JOIN top_lps tl ON tl.country = cs.country
@@ -104,6 +107,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       xHandle: r.top_lp_x_handle,
       xName: r.top_lp_x_name,
       xAvatarUrl: r.top_lp_x_avatar_url,
+      anonName: r.top_lp_anon_name,
       pnl: r.top_lp_pnl,
     } : null,
   }));

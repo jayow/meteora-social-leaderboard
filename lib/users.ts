@@ -85,6 +85,8 @@ export interface PublicUser {
   xName: string | null;
   xAvatarUrl: string | null;
   xVerified: boolean;
+  /** Generated beach/pool display name, shown when there's no X handle. */
+  anonName: string | null;
   country: string | null;
   thesis: string | null;
   createdAt: string;
@@ -105,6 +107,7 @@ export function toPublicUser(u: UserRow, includeWallet = false): PublicUser {
     xName: u.xName,
     xAvatarUrl: u.xAvatarUrl,
     xVerified: Boolean(u.xId && u.xHandle),
+    anonName: u.anonName,
     country: u.country,
     thesis: u.thesis,
     createdAt: u.createdAt.toISOString(),
@@ -175,15 +178,6 @@ export async function isUserFollowing(followerId: number | null, followeeId: num
   return result.length > 0;
 }
 
-export async function getUserWalletCount(userId: number): Promise<number> {
-  const db = getDb();
-  const result = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(userWallets)
-    .where(eq(userWallets.userId, userId));
-  return result[0]?.count ?? 0;
-}
-
 /**
  * All wallet addresses that belong to a user: the primary `users.wallet` (unless it's an X-signup
  * `temp_` placeholder) plus any linked rows in `user_wallets`, primary first, de-duplicated.
@@ -204,4 +198,28 @@ export async function getUserWalletAddresses(user: Pick<UserRow, "id" | "wallet"
   add(user.wallet);
   for (const r of rows) add(r.address);
   return out;
+}
+
+/**
+ * Make sure a user has a generated beach/pool display name. New rows get one from the column default
+ * (`pp_random_anon_name()`, see drizzle/0012); this covers older X users who unlink X. The DB function
+ * already retries on collision; we also retry if a concurrent insert grabbed the same name.
+ */
+export async function ensureAnonName(user: UserRow): Promise<UserRow> {
+  if (user.anonName) return user;
+  const db = getDb();
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      const [updated] = await db
+        .update(users)
+        .set({ anonName: sql`coalesce(${users.anonName}, pp_random_anon_name())` })
+        .where(eq(users.id, user.id))
+        .returning();
+      return updated ?? user;
+    } catch (err: unknown) {
+      const code = (err as { code?: string; cause?: { code?: string } }).code ?? (err as { cause?: { code?: string } }).cause?.code;
+      if (code !== "23505") throw err;
+    }
+  }
+  return user;
 }

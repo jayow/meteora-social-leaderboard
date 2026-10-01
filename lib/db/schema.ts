@@ -11,6 +11,7 @@ import {
   uniqueIndex,
   index,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 export const profileBanners = pgTable(
   "profile_banners",
@@ -56,6 +57,11 @@ export const users = pgTable(
     inviteCodeId: integer("invite_code_id"),
     joinedAt: timestamp("joined_at", { withTimezone: true }),
     memberNumber: integer("member_number"),
+    /**
+     * Fun, unique beach/pool display name ("Salty Flamingo") shown instead of an LP number when the
+     * user has no X handle. Filled by the DB default `pp_random_anon_name()` (see drizzle/0012).
+     */
+    anonName: varchar("anon_name", { length: 64 }).default(sql`pp_random_anon_name()`),
     bannerUpdatedAt: timestamp("banner_updated_at", { withTimezone: true }),
     lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
     lastAttemptedAt: timestamp("last_attempted_at", { withTimezone: true }),
@@ -65,6 +71,7 @@ export const users = pgTable(
   (t) => [
     uniqueIndex("users_wallet_key").on(t.wallet),
     uniqueIndex("users_member_number_key").on(t.memberNumber),
+    uniqueIndex("users_anon_name_key").on(t.anonName),
     index("users_x_handle_idx").on(t.xHandle),
     index("users_x_id_idx").on(t.xId),
     index("users_country_idx").on(t.country),

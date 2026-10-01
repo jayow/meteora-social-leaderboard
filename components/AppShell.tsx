@@ -9,12 +9,16 @@ import { SignInModal, type SignInStep } from "@/components/SignInModal";
 import { useMe } from "@/components/MeProvider";
 import { meteoraHomeUrl } from "@/lib/meteora-links";
 import { forgetRememberedWallet } from "@/lib/wallet-session";
+import { displayName } from "@/lib/format";
+import { onSessionChanged } from "@/lib/session-events";
 
 interface SessionData {
   userId?: number | null;
   xHandle?: string | null;
   xName?: string | null;
   xAvatarUrl?: string | null;
+  /** Generated beach/pool display name, shown when there's no X handle. */
+  anonName?: string | null;
   /** Dense beta member number; null until an invite is redeemed. */
   memberNumber?: number | null;
   wallets?: string[];
@@ -33,17 +37,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const onMe = pathname.startsWith("/profile");
   const onPools = pathname.startsWith("/pools");
   const onInvites = pathname === "/invites";
-  const isMember = Boolean(user?.memberNumber);
+  // The session knows the member number even for X-only accounts with no connected wallet.
+  const isMember = Boolean(session?.memberNumber || user?.memberNumber);
   const isSignedIn = Boolean(session?.userId);
   const hasWallet = Boolean(session?.wallets && session.wallets.length > 0);
   const hasX = Boolean(session?.xHandle);
 
-  useEffect(() => {
-    fetch("/api/auth/session")
+  const loadSession = useCallback(() => {
+    fetch("/api/auth/session", { cache: "no-store" })
       .then((r) => r.json() as Promise<SessionData>)
       .then((d) => setSession(d))
       .catch(() => setSession(null));
   }, []);
+
+  useEffect(() => {
+    loadSession();
+    return onSessionChanged(loadSession);
+  }, [loadSession]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -137,11 +147,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     size={26} 
                   />
                   <span className="num">
-                    {hasX && session?.xHandle
-                      ? `@${session.xHandle}`
-                      : session?.memberNumber
-                        ? `LP #${session.userId}`
-                        : "New LP"}
+                    {displayName({ xHandle: session?.xHandle, anonName: session?.anonName })}
                   </span>
                 </button>
 

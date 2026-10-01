@@ -30,6 +30,7 @@ interface LP {
   xName: string | null;
   xAvatarUrl: string | null;
   xVerified: boolean;
+  anonName: string | null;
   country: string | null;
   valueUsd: number | null;
   totalPnl: number | null;
@@ -46,6 +47,7 @@ interface CommentAuthor {
   xHandle: string | null;
   xName: string | null;
   xAvatarUrl: string | null;
+  anonName?: string | null;
 }
 
 interface Comment {
@@ -494,9 +496,7 @@ function CommentCard({
   canDelete: boolean;
   onDelete: () => void;
 }) {
-  const authorName = comment.author.xHandle
-    ? `@${comment.author.xHandle}`
-    : comment.author.xName || `LP #${comment.author.id}`;
+  const authorName = displayName(comment.author);
 
   return (
     <div className="rounded-2xl border border-white/[.08] bg-black/20 p-4">

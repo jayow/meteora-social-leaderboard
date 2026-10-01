@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useMe } from "@/components/MeProvider";
 import { useRouter } from "next/navigation";
+import { displayName } from "@/lib/format";
 
 interface AdminData {
   memberCount: number;
@@ -20,6 +21,7 @@ interface AdminData {
     id: number;
     xHandle: string | null;
     xName: string | null;
+    anonName: string | null;
     memberNumber: number | null;
     joinedAt: string | null;
   }>;
@@ -135,7 +137,7 @@ export default function AdminPage() {
           {data.recentJoins.slice(0, 20).map((u) => (
             <div key={u.id} className="rounded-xl border border-white/10 bg-white/5 p-3">
               <span className="font-semibold">
-                #{u.memberNumber} {u.xHandle ? `@${u.xHandle}` : u.xName || `Anon LP #${u.id}`}
+                #{u.memberNumber} {displayName(u)}
               </span>
             </div>
           ))}

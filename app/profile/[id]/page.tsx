@@ -18,6 +18,7 @@ import { isValidWalletClient } from "@/lib/wallet-client";
 import { patchCachedProfile } from "@/lib/storage";
 import { loginMessage } from "@/lib/login-message";
 import { meteoraHomeUrl } from "@/lib/meteora-links";
+import { onSessionChanged } from "@/lib/session-events";
 
 type Range = "7d" | "30d" | "all";
 type LoadStatus = "idle" | "loading" | "notfound" | "error" | "timeout";
@@ -124,6 +125,9 @@ function Profile() {
       cancelled = true;
     };
   }, [target, load, sync, rawId, router, reloadKey]);
+
+  // Re-fetch when the signed-in user changes (e.g. just joined the beta) so the join prompt clears right away.
+  useEffect(() => onSessionChanged(() => setReloadKey((k) => k + 1)), []);
 
   // Never sit on skeletons forever.
   useEffect(() => {
@@ -295,7 +299,7 @@ function Profile() {
               </div>
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              <h1 className="text-[26px] font-extrabold tracking-tight">{user.xName || (user.xHandle || user.memberNumber ? displayName(user) : "New LP")}</h1>
+              <h1 className="text-[26px] font-extrabold tracking-tight">{user.xName || displayName(user)}</h1>
               <Flag code={user.country} className="!h-[14px] !w-[20px]" />
               {mine && <span className="rounded-full bg-orange px-2 py-0.5 text-[11px] font-extrabold">YOU</span>}
             </div>
@@ -473,7 +477,7 @@ function OwnerControls({ user, focusX, onSaved }: { user: ApiUser; focusX: boole
       return;
     }
     if (!r.ok) setErr(r.error || "Couldn't save");
-    else if (me.user) onSaved({ ...user, country: c || null });
+    else onSaved({ ...user, country: c || null });
   };
 
   const unlink = async () => {

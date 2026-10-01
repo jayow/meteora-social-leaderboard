@@ -9,6 +9,7 @@ interface MemberRow {
   user_id: number;
   x_avatar_url: string | null;
   x_handle: string | null;
+  anon_name: string | null;
   is_followed: boolean;
 }
 
@@ -18,6 +19,7 @@ interface PoolMembers {
     userId: number;
     xAvatarUrl: string | null;
     xHandle: string | null;
+    anonName: string | null;
     isFollowed: boolean;
   }>;
 }
@@ -48,6 +50,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       u.id AS user_id,
       u.x_avatar_url,
       u.x_handle,
+      u.anon_name,
       EXISTS(
         SELECT 1 FROM follows 
         WHERE follower_user_id = $1 AND followee_user_id = u.id
@@ -67,6 +70,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       u.id AS user_id,
       u.x_avatar_url,
       u.x_handle,
+      u.anon_name,
       false AS is_followed
     FROM open_positions op
     JOIN users u ON u.id = op.user_id
@@ -94,6 +98,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       userId: row.user_id,
       xAvatarUrl: row.x_avatar_url,
       xHandle: row.x_handle,
+      anonName: row.anon_name,
       isFollowed: row.is_followed,
     });
   }

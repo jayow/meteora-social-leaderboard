@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
-import { getDb, getPool, hasDb } from "@/lib/db";
-import { users } from "@/lib/db/schema";
-import { getSessionWallet } from "@/lib/session";
+import { getPool, hasDb } from "@/lib/db";
+import { getSessionUserId } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +11,7 @@ interface LPRow {
   x_name: string | null;
   x_avatar_url: string | null;
   x_id: string | null;
+  anon_name: string | null;
   country: string | null;
   value_usd: number | null;
   total_pnl_usd: number | null;
@@ -27,14 +26,8 @@ export async function GET(
   
   if (!hasDb()) return NextResponse.json({ pool: null, lps: [] });
 
-  const sessionWallet = await getSessionWallet();
-  let currentUserId: number | null = null;
-
-  if (sessionWallet) {
-    const db = getDb();
-    const [user] = await db.select().from(users).where(eq(users.wallet, sessionWallet)).limit(1);
-    if (user) currentUserId = user.id;
-  }
+  // Works for wallet and X sessions (session is keyed by user id).
+  const currentUserId = await getSessionUserId();
 
   const pool = getPool();
 
@@ -106,6 +99,7 @@ export async function GET(
       u.x_name,
       u.x_avatar_url,
       u.x_id,
+      u.anon_name,
       u.country,
       op.value_usd,
       ls.total_pnl_usd,
@@ -131,6 +125,7 @@ export async function GET(
       u.x_name,
       u.x_avatar_url,
       u.x_id,
+      u.anon_name,
       u.country,
       op.value_usd,
       ls.total_pnl_usd,
@@ -150,6 +145,7 @@ export async function GET(
     xName: r.x_name,
     xAvatarUrl: r.x_avatar_url,
     xVerified: Boolean(r.x_id && r.x_handle),
+    anonName: r.anon_name,
     country: r.country,
     valueUsd: r.value_usd,
     totalPnl: r.total_pnl_usd,

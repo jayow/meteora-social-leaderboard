@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq, sql } from "drizzle-orm";
 import { getDb, hasDb } from "@/lib/db";
 import { users } from "@/lib/db/schema";
-import { findUser, getFollowCounts, getUserWalletCount, isUserFollowing, latestSnapshot, toPublicSnapshot, toPublicUser } from "@/lib/users";
-import { getSessionUserId, getSessionWallet } from "@/lib/session";
+import { ensureAnonName, findUser, getFollowCounts, getUserWalletAddresses, isUserFollowing, latestSnapshot, toPublicSnapshot, toPublicUser } from "@/lib/users";
+import { getSessionUserId } from "@/lib/session";
 import { isCountryCode } from "@/lib/countries";
 
 export const dynamic = "force-dynamic";
@@ -20,7 +20,8 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
 
   const snap = await latestSnapshot(user.id);
   const counts = await getFollowCounts(user.id);
-  const walletCount = await getUserWalletCount(user.id);
+  // Primary users.wallet (wallet signups, minus X temp_ placeholders) + linked wallets.
+  const walletCount = (await getUserWalletAddresses(user)).length;
 
   const isFollowing = await isUserFollowing(currentUserId, user.id);
   
@@ -41,14 +42,14 @@ interface PatchBody {
   unlinkX?: boolean;
 }
 
-/** Update your own profile. Requires a verified wallet session (signed message). */
+/** Update your own profile. Requires a session (wallet-signed or X) for this user. */
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }): Promise<NextResponse> {
   if (!hasDb()) return NextResponse.json({ error: "Database not configured" }, { status: 503 });
   const { id } = await ctx.params;
-  const sessionWallet = await getSessionWallet();
-  if (!sessionWallet) return NextResponse.json({ error: "Verify your wallet first" }, { status: 401 });
+  const sessionUserId = await getSessionUserId();
+  if (!sessionUserId) return NextResponse.json({ error: "Sign in first" }, { status: 401 });
   const user = await findUser(decodeURIComponent(id));
-  if (!user || user.wallet !== sessionWallet) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!user || user.id !== sessionUserId) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   let body: PatchBody = {};
   try {
@@ -81,5 +82,6 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     .set({ ...set, updatedAt: sql`now()` })
     .where(eq(users.id, user.id))
     .returning();
-  return NextResponse.json({ user: toPublicUser(rows[0], true) });
+  const updated = body.unlinkX && rows[0] ? await ensureAnonName(rows[0]) : rows[0];
+  return NextResponse.json({ user: toPublicUser(updated, true) });
 }

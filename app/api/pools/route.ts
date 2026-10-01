@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
-import { getDb, getPool, hasDb } from "@/lib/db";
-import { users } from "@/lib/db/schema";
-import { getSessionWallet } from "@/lib/session";
+import { getPool, hasDb } from "@/lib/db";
+import { getSessionUserId } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -26,14 +24,8 @@ interface PoolRow {
 export async function GET(_req: NextRequest): Promise<NextResponse> {
   if (!hasDb()) return NextResponse.json({ pools: [] });
 
-  const sessionWallet = await getSessionWallet();
-  let currentUserId: number | null = null;
-
-  if (sessionWallet) {
-    const db = getDb();
-    const [user] = await db.select().from(users).where(eq(users.wallet, sessionWallet)).limit(1);
-    if (user) currentUserId = user.id;
-  }
+  // Works for wallet and X sessions (session is keyed by user id).
+  const currentUserId = await getSessionUserId();
 
   const pool = getPool();
 

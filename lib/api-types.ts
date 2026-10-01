@@ -14,6 +14,8 @@ export interface LeaderboardEntry {
   xName: string | null;
   xAvatarUrl: string | null;
   xVerified: boolean;
+  /** Generated beach/pool display name ("Salty Flamingo"), used when there's no X handle. */
+  anonName: string | null;
   country: string | null;
   thesis: string | null;
   pnl: number | null;
@@ -49,6 +51,7 @@ export interface ApiUser {
   xName: string | null;
   xAvatarUrl: string | null;
   xVerified: boolean;
+  anonName: string | null;
   country: string | null;
   thesis: string | null;
   createdAt: string;

@@ -38,10 +38,14 @@ export function avatarFor(u: { xAvatarUrl?: string | null; id?: number }): strin
   return fallbackAvatar(u.id || 'anon');
 }
 
-export function displayName(u: { xHandle?: string | null; id?: number }): string {
+/** Fallback when a row has neither an X handle nor a generated name (should be rare). */
+export const DEFAULT_DISPLAY_NAME = "Pool Partier";
+
+/** Public label for a user: X handle when linked, else their generated beach name ("Salty Flamingo"). */
+export function displayName(u: { xHandle?: string | null; anonName?: string | null }): string {
   if (u.xHandle) return `@${u.xHandle}`;
-  if (u.id) return `Anon LP #${u.id}`;
-  return "Anonymous LP";
+  if (u.anonName) return u.anonName;
+  return DEFAULT_DISPLAY_NAME;
 }
 
 export function timeAgo(iso: string | null | undefined): string {

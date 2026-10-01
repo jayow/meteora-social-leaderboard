@@ -1,13 +1,38 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { loginMessage } from "@/lib/login-message";
 import { CountrySelect } from "@/components/CountrySelect";
+import { notifySessionChanged } from "@/lib/session-events";
 
-type Step = "code" | "wallet" | "x" | "country" | "thesis" | "complete";
+type Step = "code" | "wallet" | "x" | "country" | "thesis" | "complete" | "member";
+
+interface JoinSession {
+  userId: number | null;
+  xHandle: string | null;
+  memberNumber: number | null;
+}
+
+async function fetchJoinSession(): Promise<JoinSession> {
+  try {
+    const res = await fetch("/api/auth/session", { cache: "no-store" });
+    const d = (await res.json()) as { userId?: number | null; xHandle?: string | null; memberNumber?: number | null };
+    return { userId: d.userId ?? null, xHandle: d.xHandle ?? null, memberNumber: d.memberNumber ?? null };
+  } catch {
+    return { userId: null, xHandle: null, memberNumber: null };
+  }
+}
+
+/** Where to go once the code is valid: signed-in users never re-sign or get a new account. */
+function stepAfterCode(session: JoinSession): Step {
+  if (session.memberNumber) return "member";
+  if (!session.userId) return "wallet";
+  return session.xHandle ? "country" : "x";
+}
 
 function JoinFlow() {
   const searchParams = useSearchParams();
@@ -21,12 +46,40 @@ function JoinFlow() {
   const [memberNumber, setMemberNumber] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [session, setSession] = useState<JoinSession | null>(null);
 
   useEffect(() => {
     if (searchParams.get("code")) {
       setCode(searchParams.get("code") || "");
     }
   }, [searchParams]);
+
+  // Know up front whether someone is already signed in (wallet or X) or already a member.
+  useEffect(() => {
+    let cancelled = false;
+    void fetchJoinSession().then((s) => {
+      if (cancelled) return;
+      setSession(s);
+      if (s.memberNumber) {
+        setMemberNumber(s.memberNumber);
+        setStep("member");
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const checkCode = async (value: string): Promise<boolean> => {
+    const res = await fetch("/api/join/validate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code: value }),
+    });
+    const data = (await res.json()) as { valid: boolean; reason?: string };
+    if (!data.valid) setError(data.reason || "Invalid code");
+    return data.valid;
+  };
 
   const validateCode = async () => {
     if (!code.trim()) {
@@ -36,16 +89,11 @@ function JoinFlow() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch("/api/join/validate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: code.trim() }),
-      });
-      const data = await res.json() as { valid: boolean; reason?: string };
-      if (!data.valid) {
-        setError(data.reason || "Invalid code");
-      } else {
-        setStep("wallet");
+      if (await checkCode(code.trim())) {
+        const s = session ?? (await fetchJoinSession());
+        setSession(s);
+        if (s.memberNumber) setMemberNumber(s.memberNumber);
+        setStep(stepAfterCode(s));
       }
     } catch {
       setError("Failed to validate code");
@@ -53,6 +101,32 @@ function JoinFlow() {
       setLoading(false);
     }
   };
+
+  // Coming back from "Connect X" (returnTo=/join?code=...): resume after the X step.
+  const xResult = searchParams.get("x");
+  const resumedRef = useRef(false);
+  useEffect(() => {
+    const returnedCode = searchParams.get("code");
+    if (!xResult || !returnedCode || !session || resumedRef.current) return;
+    resumedRef.current = true;
+    if (session.memberNumber) return;
+    void (async () => {
+      setLoading(true);
+      try {
+        if (!(await checkCode(returnedCode.trim()))) return;
+        if (xResult === "connected" && session.userId) {
+          setStep("country");
+        } else {
+          setStep(stepAfterCode(session));
+          if (xResult === "error") setError(searchParams.get("message") || "Couldn't connect X");
+        }
+      } catch {
+        setError("Failed to validate code");
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [xResult, searchParams, session]);
 
   const connectAndSign = async () => {
     if (!publicKey || !signMessage) {
@@ -80,7 +154,15 @@ function JoinFlow() {
         return;
       }
 
-      setStep("x");
+      const s = await fetchJoinSession();
+      setSession(s);
+      notifySessionChanged();
+      if (s.memberNumber) {
+        setMemberNumber(s.memberNumber);
+        setStep("member");
+      } else {
+        setStep(s.xHandle ? "country" : "x");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to sign");
     } finally {
@@ -111,6 +193,8 @@ function JoinFlow() {
       } else {
         setMemberNumber(data.user?.memberNumber || null);
         setStep("complete");
+        // Header nav and profile switch to the member view right away.
+        notifySessionChanged();
       }
     } catch {
       setError("Failed to join");
@@ -161,7 +245,7 @@ function JoinFlow() {
         {step === "x" && (
           <div>
             <p className="mb-4 text-center">Connect your X account (optional)</p>
-            <a href="/api/x/login" className="brand-grad mb-4 block w-full rounded-full py-3 text-center font-bold">
+            <a href={`/api/x/login?returnTo=${encodeURIComponent(`/join?code=${code.trim()}`)}`} className="brand-grad mb-4 block w-full rounded-full py-3 text-center font-bold">
               Connect X
             </a>
             <button onClick={skipX} className="w-full text-sm text-mute hover:text-white">
@@ -196,6 +280,16 @@ function JoinFlow() {
             <button onClick={finishJoin} disabled={loading} className="brand-grad w-full rounded-full py-3 font-bold">
               {loading ? "Joining..." : "Join Pool Party"}
             </button>
+          </div>
+        )}
+
+        {step === "member" && (
+          <div className="text-center">
+            <h2 className="mb-2 text-3xl font-bold text-orange">You&apos;re already in{memberNumber ? ` (#${memberNumber})` : ""}</h2>
+            <p className="mb-6 text-mute">This account has already joined the Pool Party beta.</p>
+            <Link href="/profile/me" className="brand-grad block w-full rounded-full py-3 text-center font-bold">
+              Go to your profile
+            </Link>
           </div>
         )}
 

@@ -6,6 +6,7 @@ import {
   fetchXProfile,
   storeXProfileCookie,
   getCallbackUrl,
+  oauthReturnUrl,
 } from "@/lib/x-oauth";
 import { getDb, hasDb } from "@/lib/db";
 import { users } from "@/lib/db/schema";
@@ -44,14 +45,14 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const tokenResult = await exchangeCodeForToken(code, verifier, callbackUrl);
   if (!tokenResult) {
     return NextResponse.redirect(
-      new URL(`${returnTo}?x=error&message=Token+exchange+failed`, baseUrl)
+      oauthReturnUrl(returnTo, "x=error&message=Token+exchange+failed", baseUrl)
     );
   }
 
   const profile = await fetchXProfile(tokenResult.accessToken);
   if (!profile) {
     return NextResponse.redirect(
-      new URL(`${returnTo}?x=error&message=Failed+to+fetch+profile`, baseUrl)
+      oauthReturnUrl(returnTo, "x=error&message=Failed+to+fetch+profile", baseUrl)
     );
   }
 
@@ -80,7 +81,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         
         if (existingUser && existingUser.id !== currentUserId) {
           return NextResponse.redirect(
-            new URL(`${returnTo}?x=error&message=This+X+account+is+already+linked+to+another+Pool+Party+account`, baseUrl)
+            oauthReturnUrl(returnTo, "x=error&message=This+X+account+is+already+linked+to+another+Pool+Party+account", baseUrl)
           );
         }
         
@@ -97,7 +98,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
             })
             .where(eq(users.id, currentUserId));
           // Keep the current session (don't switch users)
-          return NextResponse.redirect(new URL(`${returnTo}?x=connected`, baseUrl));
+          return NextResponse.redirect(oauthReturnUrl(returnTo, "x=connected", baseUrl));
         }
       }
 
@@ -154,10 +155,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     } catch (e) {
       console.error("Failed to create/update user:", e);
       return NextResponse.redirect(
-        new URL(`${returnTo}?x=error&message=Failed+to+save+profile`, baseUrl)
+        oauthReturnUrl(returnTo, "x=error&message=Failed+to+save+profile", baseUrl)
       );
     }
   }
 
-  return NextResponse.redirect(new URL(`${returnTo}?x=connected`, baseUrl));
+  return NextResponse.redirect(oauthReturnUrl(returnTo, "x=connected", baseUrl));
 }

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { getDb, hasDb } from "@/lib/db";
-import { users, userWallets } from "@/lib/db/schema";
+import { users } from "@/lib/db/schema";
+import { getUserWalletAddresses } from "@/lib/users";
 import { clearSession, getSessionUserId, getSessionWallet } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -18,14 +19,15 @@ export async function GET(): Promise<NextResponse> {
     const db = getDb();
     const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
     if (user) {
-      const walletRows = await db.select().from(userWallets).where(eq(userWallets.userId, user.id));
-      const walletList = [user.wallet, ...walletRows.map((w) => w.address)];
+      // Primary + linked wallets, without X-signup temp_ placeholders or duplicates.
+      const walletList = await getUserWalletAddresses(user);
       return NextResponse.json({
         userId: user.id,
         xId: user.xId,
         xHandle: user.xHandle,
         xName: user.xName,
         xAvatarUrl: user.xAvatarUrl,
+        anonName: user.anonName,
         memberNumber: user.memberNumber,
         wallets: walletList.map(shortAddr),
       });
