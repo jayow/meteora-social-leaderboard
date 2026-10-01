@@ -10,6 +10,7 @@ import { useMe } from "@/components/MeProvider";
 import { meteoraHomeUrl } from "@/lib/meteora-links";
 import { forgetRememberedWallet } from "@/lib/wallet-session";
 import { displayName } from "@/lib/format";
+import { OwnWalletRow } from "@/components/OwnWalletRow";
 import { onSessionChanged } from "@/lib/session-events";
 
 interface SessionData {
@@ -21,6 +22,9 @@ interface SessionData {
   anonName?: string | null;
   /** Dense beta member number; null until an invite is redeemed. */
   memberNumber?: number | null;
+  /** Owner's full primary wallet (private session endpoint only). */
+  wallet?: string | null;
+  /** Truncated addresses of all the owner's wallets. */
   wallets?: string[];
 }
 
@@ -28,7 +32,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user } = useMe();
   const [session, setSession] = useState<SessionData | null>(null);
-  const { disconnect } = useWallet();
+  const { disconnect, publicKey, connected } = useWallet();
   const [signInOpen, setSignInOpen] = useState(false);
   const [signInStep, setSignInStep] = useState<SignInStep>("methods");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -42,6 +46,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const isSignedIn = Boolean(session?.userId);
   const hasWallet = Boolean(session?.wallets && session.wallets.length > 0);
   const hasX = Boolean(session?.xHandle);
+  // Private, owner-only: the connected adapter key when it belongs to this account, else the
+  // primary wallet from the session endpoint. Never sourced from public APIs.
+  const adapterWallet = connected && publicKey ? publicKey.toBase58() : null;
+  const adapterShort = adapterWallet ? `${adapterWallet.slice(0, 4)}…${adapterWallet.slice(-4)}` : null;
+  const ownWallet =
+    adapterWallet && adapterShort && session?.wallets?.includes(adapterShort) ? adapterWallet : session?.wallet ?? null;
 
   const loadSession = useCallback(() => {
     fetch("/api/auth/session", { cache: "no-store" })
@@ -169,6 +179,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                         Link X account
                       </a>
                     )}
+                    {isSignedIn && <OwnWalletRow address={hasWallet ? ownWallet : null} />}
                     {hasWallet && (
                       <button
                         type="button"
