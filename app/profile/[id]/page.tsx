@@ -23,6 +23,7 @@ import { patchCachedProfile } from "@/lib/storage";
 import { loginMessage } from "@/lib/login-message";
 import { meteoraHomeUrl } from "@/lib/meteora-links";
 import { applyFollowChange, onFollowChanged, onSessionChanged, requestSignIn } from "@/lib/session-events";
+import { SYNC_COOLDOWN_MS } from "@/lib/sync-limits";
 
 type Range = "7d" | "30d" | "all";
 type LoadStatus = "idle" | "loading" | "notfound" | "error" | "timeout";
@@ -67,6 +68,8 @@ function Profile() {
   const [status, setStatus] = useState<LoadStatus>("idle");
   const [reloadKey, setReloadKey] = useState(0);
   const [syncing, setSyncing] = useState(false);
+  const [syncNote, setSyncNote] = useState<string | null>(null);
+  const [now, setNow] = useState(() => Date.now());
   const [range, setRange] = useState<Range>("30d");
   const [xNotice, setXNotice] = useState<string | null>(null);
   const [shareModalOpen, setShareModalOpen] = useState(false);
@@ -89,9 +92,11 @@ function Profile() {
       setSyncing(true);
       try {
         // Owner-only stats refresh. A failed sync must not break the page; we just show what's stored.
-        await fetch(`/api/sync/${wallet}`, { method: "POST" }).catch(() => null);
+        const res = await fetch(`/api/sync/${wallet}`, { method: "POST" }).catch(() => null);
+        setSyncNote(res?.status === 429 ? "Try again in a minute." : res && !res.ok ? "Couldn't reach Meteora. Showing your last stats." : null);
         await load(String(userId)).catch(() => null);
       } finally {
+        setNow(Date.now());
         setSyncing(false);
       }
     },
@@ -153,6 +158,16 @@ function Profile() {
   }, [status, user]);
 
   const mine = Boolean(user && (me.userId ? me.userId === user.id : me.user && me.user.id === user.id));
+
+  // Refresh cooldown (the server enforces the same window and just returns stored stats inside it).
+  const nextSyncAt = user?.lastSyncedAt ? new Date(user.lastSyncedAt).getTime() + SYNC_COOLDOWN_MS : 0;
+  const coolingDown = nextSyncAt > now;
+  useEffect(() => {
+    if (!coolingDown) return;
+    const t = setInterval(() => setNow(Date.now()), 15000);
+    return () => clearInterval(t);
+  }, [coolingDown]);
+  const canRefresh = mine && Boolean(user?.wallet && !user.wallet.startsWith("temp_"));
 
   // Returning from X OAuth.
   useEffect(() => {
@@ -247,7 +262,24 @@ function Profile() {
     <main className="mx-auto max-w-[1200px] px-4 pb-10 pt-6 lg:px-6">
       <div className="mb-4 flex items-center justify-between">
         <Link href="/" className="text-[13px] font-semibold text-mute hover:text-fg">← Leaderboard</Link>
-        <span className="text-[12px] text-mute">{syncing ? "Syncing with Meteora…" : `Stats updated ${timeAgo(snap?.updatedAt)}`}</span>
+        <div className="flex items-center gap-3 text-[12px] text-mute">
+          <span>{syncing ? "Syncing with Meteora…" : syncNote ?? `Stats updated ${timeAgo(snap?.updatedAt)}`}</span>
+          {canRefresh && (
+            <button
+              type="button"
+              onClick={() => {
+                setNow(Date.now());
+                if (user?.wallet) void sync(user.wallet, user.id);
+              }}
+              disabled={syncing || coolingDown}
+              title={coolingDown ? "Stats can be refreshed every 5 minutes" : "Pull fresh stats from Meteora"}
+              className="h-8 rounded-full border border-border bg-surface-raised px-3 font-semibold text-fg transition hover:border-border-strong disabled:cursor-not-allowed disabled:text-mute disabled:hover:border-border"
+              data-testid="profile-refresh"
+            >
+              {syncing ? "Refreshing…" : coolingDown ? `Refresh in ${Math.ceil((nextSyncAt - now) / 60000)}m` : "Refresh"}
+            </button>
+          )}
+        </div>
       </div>
       {xNotice && <div className="mb-4 rounded-2xl border border-border bg-surface-raised px-4 py-2 text-[13px] text-fg-secondary">{xNotice}</div>}
       

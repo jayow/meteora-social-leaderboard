@@ -52,6 +52,8 @@ export function OpenPositions({ userId, compact, mine = false, refreshKey }: { u
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+  const bodyId = useId();
 
   useEffect(() => {
     if (!userId) {
@@ -94,10 +96,36 @@ export function OpenPositions({ userId, compact, mine = false, refreshKey }: { u
   // Spell out the grouping only when some pool holds several positions (otherwise rows = positions).
   const summary = data && total > poolCount ? `${fmtPositions(total)} in ${poolCount} pool${poolCount === 1 ? "" : "s"}` : null;
 
+  // The full list's header collapses the whole section; the compact card has no toggle.
   const header = (
-    <div className="mb-4 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+    <div className={`flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 ${collapsed && !compact ? "" : "mb-4"}`}>
       <h2 className="text-[18px] font-extrabold">
-        Open Positions{data ? <span className="num"> ({total})</span> : null}
+        {compact ? (
+          <>Open Positions{data ? <span className="num"> ({total})</span> : null}</>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setCollapsed((v) => !v)}
+            aria-expanded={!collapsed}
+            aria-controls={bodyId}
+            className="flex items-center gap-2 rounded text-left hover:text-fg-secondary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mute"
+            data-testid="open-positions-collapse"
+          >
+            <span>
+              Open Positions{data ? <span className="num"> ({total})</span> : null}
+            </span>
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 20 20"
+              className={`h-4 w-4 shrink-0 text-mute transition-transform ${collapsed ? "-rotate-90" : ""}`}
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path d="M5 7.5l5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        )}
       </h2>
       {summary && (
         <span className="num text-[12px] text-mute" data-testid="open-positions-summary">
@@ -107,11 +135,20 @@ export function OpenPositions({ userId, compact, mine = false, refreshKey }: { u
     </div>
   );
 
+  if (collapsed && !compact) {
+    return (
+      <div className="glass rounded-[28px] p-5" data-testid="open-positions">
+        {header}
+        <div id={bodyId} hidden />
+      </div>
+    );
+  }
+
   if (!data && loading) {
     return (
       <div className="glass rounded-[28px] p-5" data-testid="open-positions">
         {header}
-        <p className="text-[12px] text-mute">Loading…</p>
+        <p id={bodyId} className="text-[12px] text-mute">Loading…</p>
       </div>
     );
   }
@@ -120,7 +157,7 @@ export function OpenPositions({ userId, compact, mine = false, refreshKey }: { u
     return (
       <div className="glass rounded-[28px] p-5" data-testid="open-positions">
         {header}
-        <p className="text-[12px] text-dn">{error}</p>
+        <p id={bodyId} className="text-[12px] text-dn">{error}</p>
       </div>
     );
   }
@@ -129,7 +166,7 @@ export function OpenPositions({ userId, compact, mine = false, refreshKey }: { u
     return (
       <div className="glass rounded-[28px] p-5" data-testid="open-positions">
         {header}
-        <p className="text-[13px] text-mute">{mine ? "You have no open positions right now." : "No open positions right now."}</p>
+        <p id={bodyId} className="text-[13px] text-mute">{mine ? "You have no open positions right now." : "No open positions right now."}</p>
       </div>
     );
   }
@@ -156,7 +193,7 @@ export function OpenPositions({ userId, compact, mine = false, refreshKey }: { u
   return (
     <div className="glass rounded-[28px] p-5" data-testid="open-positions">
       {header}
-      <div className="space-y-3">
+      <div id={bodyId} className="space-y-3">
         {visible.map((pool) => (
           <PositionCard key={pool.poolAddress} pool={pool} />
         ))}
