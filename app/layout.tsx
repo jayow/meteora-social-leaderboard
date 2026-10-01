@@ -30,6 +30,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
+    site: "@LPPoolParty",
     title: "Pool Party",
     description: "Party starts here. The social leaderboard for Meteora LPs.",
     images: ["/og-image.png"]

@@ -10,7 +10,8 @@ export const maxDuration = 300;
 
 const CONCURRENCY = 4;
 const BATCH_DELAY_MS = 500;
-const STALE_HOURS = 20;
+// Just under the cron's hourly cadence, so every run re-syncs each member.
+const STALE_MINUTES = 50;
 const MAX_USERS_PER_RUN = 50;
 const MAX_RETRIES = 3;
 // The run happens inside the request so the caller (Railway sync-cron) sees the outcome.
@@ -113,7 +114,7 @@ async function runBatch(): Promise<RunSummary> {
       return summary;
     }
 
-    const staleThreshold = new Date(Date.now() - STALE_HOURS * 60 * 60 * 1000);
+    const staleThreshold = new Date(Date.now() - STALE_MINUTES * 60 * 1000);
 
     const db = getDb();
     const staleUsers = await db
