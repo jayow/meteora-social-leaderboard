@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { useCallback, useState } from "react";
 import type { PoolInfo } from "@/lib/api-types";
 import { Avatar, Flag, PoolChip, StatTile, XIcon } from "@/components/ui";
 import { PnLCalendar } from "@/components/PnLCalendar";
 import { OpenPositions } from "@/components/OpenPositions";
 import { FollowButton } from "@/components/FollowButton";
+import { FollowListModal, type FollowListKind } from "@/components/FollowListModal";
 import { displayName, fmtPct, fmtUsd } from "@/lib/format";
 
 export interface CardUser {
@@ -38,6 +40,8 @@ export interface CardStats {
 
 /** Sidebar profile preview (desktop leaderboard). */
 export function ProfileCard({ user, stats, rank, isMe }: { user: CardUser; stats: CardStats; rank?: number; isMe?: boolean }) {
+  const [followList, setFollowList] = useState<FollowListKind | null>(null);
+  const closeFollowList = useCallback(() => setFollowList(null), []);
   const bannerUrl = user.bannerUpdatedAt ? `/api/users/${user.id}/banner?v=${new Date(user.bannerUpdatedAt).getTime()}` : null;
 
   return (
@@ -78,10 +82,19 @@ export function ProfileCard({ user, stats, rank, isMe }: { user: CardUser; stats
               @{user.xHandle}{user.xVerified && <> · <XIcon className="h-3 w-3" /> verified</>}
             </a>
           )}
-          {user.followersCount !== undefined && user.followersCount > 0 && (
-            <span>{user.xHandle ? "·" : ""} {user.followersCount} {user.followersCount === 1 ? "follower" : "followers"}</span>
+          {user.xHandle && (user.followersCount !== undefined || user.followingCount !== undefined) && <span aria-hidden>·</span>}
+          {user.followersCount !== undefined && (
+            <button type="button" onClick={() => setFollowList("followers")} className="hover:text-white" data-testid="card-followers-count">
+              <span className="font-semibold text-white/80">{user.followersCount}</span> {user.followersCount === 1 ? "follower" : "followers"}
+            </button>
+          )}
+          {user.followingCount !== undefined && (
+            <button type="button" onClick={() => setFollowList("following")} className="hover:text-white" data-testid="card-following-count">
+              <span className="font-semibold text-white/80">{user.followingCount}</span> following
+            </button>
           )}
         </div>
+        {followList && <FollowListModal key={`${user.id}-${followList}`} userId={user.id} kind={followList} onClose={closeFollowList} />}
 
         <div className="mt-4 rounded-2xl rounded-tl-md border border-purp/20 bg-purp/10 p-3">
           <div className="text-[10px] font-bold uppercase tracking-wider text-purp-soft">Thesis</div>

@@ -8,7 +8,8 @@ export interface PoolInfo {
 }
 
 export interface LeaderboardEntry {
-  rank: number;
+  /** Board rank; null for members with no Meteora activity yet (listed last, never on the podium). */
+  rank: number | null;
   id: number;
   xHandle: string | null;
   xName: string | null;
@@ -27,6 +28,7 @@ export interface LeaderboardEntry {
   positionsOpen: number | null;
   positionsClosed: number | null;
   followersCount?: number;
+  followingCount?: number;
   topPool: PoolInfo | null;
   snapshotDate: string;
   updatedAt: string;
@@ -39,6 +41,8 @@ export interface LeaderboardResponse {
   range: "7d" | "30d" | "all";
   sort: "pnl" | "volume" | "winrate" | "fees";
   country: string | null;
+  /** "following" when the board is scoped to people the viewer follows (server-side). */
+  scope?: "all" | "following";
   entries: LeaderboardEntry[];
   stats: { lps: number; totalPnl: number; fees: number } | null;
   error?: string;

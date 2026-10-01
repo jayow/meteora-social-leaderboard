@@ -24,6 +24,7 @@ interface Row {
   anon_name: string | null;
   country: string | null;
   thesis: string | null;
+  board_rank: number | null;
   date: string;
   pnl: number | null;
   volume: number | null;
@@ -42,6 +43,7 @@ interface Row {
   updated_at: Date;
   banner_updated_at: Date | null;
   followers_count: string;
+  following_count: string;
   is_following: boolean;
 }
 
@@ -54,42 +56,66 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const country = countryRaw && isCountryCode(countryRaw) ? countryRaw : null;
   const limit = Math.min(Math.max(Number(sp.get("limit")) || 100, 1), 500);
   const cols = COLS[range];
+  // A member "has data" once their snapshot shows any Meteora LP activity. Members without data are
+  // unranked (rank null), listed after everyone with data, and never take podium spots.
+  const hasData = `(coalesce(s.positions_open, 0) + coalesce(s.positions_closed, 0) > 0
+      or coalesce(s.volume_usd, 0) <> 0 or coalesce(s.portfolio_value_usd, 0) <> 0 or coalesce(s.total_pnl_usd, 0) <> 0)`;
+  // scope=following narrows the whole board (not just the loaded page) to people the viewer follows.
+  const scopeFollowing = sp.get("scope") === "following";
+  const viewerId = await getSessionUserId();
+  if (scopeFollowing && !viewerId) {
+    return NextResponse.json({ error: "Sign in to see who you follow" }, { status: 401, headers: { "Cache-Control": "private, no-store" } });
+  }
+  const scope = scopeFollowing ? viewerId : null;
+  // $4 = viewer id when scoped to Following, else null (whole board).
+  const scopeWhere = `($4::int is null or exists(select 1 from follows sf where sf.follower_user_id = $4 and sf.followee_user_id = u.id))`;
 
   // Column names come from a fixed whitelist above; user values are bound parameters.
+  // Rank over the whole (country-filtered) board first, then apply the Following scope, so a
+  // followed LP keeps their global rank.
   const sql = `
     with latest as (
       select distinct on (user_id) * from pnl_snapshots order by user_id, date desc
+    ), ranked as (
+      select s.*, u.id as uid, ${hasData} as has_data,
+             row_number() over (order by ${hasData} desc, ${cols[sort]} desc nulls last, ${cols.pnl} desc nulls last, u.id asc) as board_pos
+      from latest s
+      join users u on u.id = s.user_id
+      where u.joined_at is not null and ($1::text is null or u.country = $1)
     )
     select u.id, u.wallet, u.x_handle, u.x_name, u.x_avatar_url, u.x_id, u.anon_name, u.country, u.thesis,
+           case when s.has_data then s.board_pos::int end as board_rank,
            s.date::text as date, ${cols.pnl} as pnl, ${cols.volume} as volume, ${cols.winrate} as win_rate,
            ${cols.fees} as fees, s.total_pnl_usd, s.portfolio_value_usd, s.positions_open, s.positions_closed,
            s.top_pool_address, s.top_pool_name, s.top_pool_bin_step, s.top_pool_protocol,
            s.top_pool_x_icon, s.top_pool_y_icon, s.updated_at, pb.updated_at as banner_updated_at,
            (select count(*) from follows f join users fu on fu.id = f.follower_user_id
              where f.followee_user_id = u.id and (fu.joined_at is not null or fu.id = $3)) as followers_count,
+           (select count(*) from follows f join users fu on fu.id = f.followee_user_id
+             where f.follower_user_id = u.id and (fu.joined_at is not null or fu.id = $3)) as following_count,
            ($3::int is not null and exists(select 1 from follows where follower_user_id = $3 and followee_user_id = u.id)) as is_following
-    from latest s 
-    join users u on u.id = s.user_id
+    from ranked s
+    join users u on u.id = s.uid
     left join profile_banners pb on pb.user_id = u.id
-    where u.joined_at is not null and ($1::text is null or u.country = $1)
-    order by ${cols[sort]} desc nulls last, ${cols.pnl} desc nulls last, u.id asc
+    where ${scopeWhere}
+    order by s.board_pos asc
     limit $2`;
 
   const pool = getPool();
-  // Viewer-specific: whether the signed-in user (wallet or X session) follows each entry.
-  const viewerId = await getSessionUserId();
   const [{ rows }, statsRes] = await Promise.all([
-    pool.query<Row>(sql, [country, limit, viewerId]),
+    // Viewer-specific: whether the signed-in user (wallet or X session) follows each entry.
+    pool.query<Row>(sql, [country, limit, viewerId, scope]),
     pool.query<{ n: string; pnl: number | null; fees: number | null }>(
       `with latest as (select distinct on (user_id) * from pnl_snapshots order by user_id, date desc)
-       select count(*)::text as n, sum(${cols.pnl}) as pnl, sum(${cols.fees}) as fees
-       from latest s join users u on u.id = s.user_id where u.joined_at is not null and ($1::text is null or u.country = $1)`,
-      [country]
+       select count(*) filter (where ${hasData})::text as n, sum(${cols.pnl}) as pnl, sum(${cols.fees}) as fees
+       from latest s join users u on u.id = s.user_id
+       where u.joined_at is not null and ($1::text is null or u.country = $1) and ${scopeWhere.replaceAll("$4", "$2")}`,
+      [country, scope]
     ),
   ]);
 
-  const entries = rows.map((r, i) => ({
-    rank: i + 1,
+  const entries = rows.map((r) => ({
+    rank: r.board_rank === null ? null : Number(r.board_rank),
     id: r.id,
     xHandle: r.x_handle,
     xName: r.x_name,
@@ -107,6 +133,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     positionsOpen: r.positions_open,
     positionsClosed: r.positions_closed,
     followersCount: Number(r.followers_count || 0),
+    followingCount: Number(r.following_count || 0),
     isFollowing: Boolean(r.is_following),
     topPool:
       r.top_pool_address && r.top_pool_name
@@ -129,6 +156,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     range,
     sort,
     country,
+    scope: scopeFollowing ? "following" : "all",
     entries,
     stats: { lps: Number(st?.n || 0), totalPnl: st?.pnl ?? 0, fees: st?.fees ?? 0 },
   }, { headers: { "Cache-Control": "private, no-store" } });
