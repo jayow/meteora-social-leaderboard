@@ -11,7 +11,7 @@ const jakarta = Plus_Jakarta_Sans({ subsets: ["latin"], weight: ["400", "500", "
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap", preload: false });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://web-production-c8f29.up.railway.app"),
+  metadataBase: new URL("https://lppool.party"),
   title: "Pool Party",
   description: "Party starts here. The social leaderboard for Meteora LPs.",
   icons: {

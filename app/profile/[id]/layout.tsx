@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { findUser } from "@/lib/users";
 import { displayName } from "@/lib/format";
 
-const APP_URL = "https://web-production-c8f29.up.railway.app";
+const APP_URL = "https://lppool.party";
 
 interface Props {
   params: Promise<{ id: string }>;

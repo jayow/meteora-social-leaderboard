@@ -170,7 +170,7 @@ function JoinFlow() {
 
   const shareOnX = () => {
     const text = `I'm #${memberNumber} in the Pool Party beta 🏖️ Party starts here`;
-    const url = "https://web-production-c8f29.up.railway.app";
+    const url = "https://lppool.party";
     window.open(`https://x.com/intent/post?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, "_blank");
   };
 
