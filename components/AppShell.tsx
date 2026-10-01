@@ -107,14 +107,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <div className="min-h-screen pb-24 lg:pb-0">
+    <div className="min-h-screen pb-24 md:pb-0">
       <header className="sticky top-0 z-40 border-b border-border bg-surface">
         <div className="mx-auto flex h-[64px] max-w-[1320px] items-center gap-6 px-4 lg:px-6">
           <Link href="/" className="flex items-center gap-2">
             <Logo />
           </Link>
           {(
-            <nav className="mx-auto hidden items-center gap-1 rounded-full border border-border bg-surface-raised p-1 text-[14px] font-semibold lg:flex">
+            <nav className="mx-auto hidden items-center gap-1 rounded-full border border-border bg-surface-raised p-1 text-[14px] font-semibold md:flex">
               <Link href="/" className={`rounded-full px-4 py-1.5 ${onBoard ? "bg-border text-fg" : "text-mute hover:text-fg"}`}>
                 Leaderboard
               </Link>
@@ -132,7 +132,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </nav>
           )}
 
-          <div className="ml-auto flex items-center gap-2 lg:ml-0">
+          <div className="ml-auto flex items-center gap-2 md:ml-0">
             {/* One entry: signed out -> Sign in (wallet picker or X); signed in, not joined -> Join beta; members -> account menu only. */}
             {!isSignedIn && (
               <button
@@ -215,7 +215,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Mobile bottom tab bar */}
       {(
-        <nav className="fixed inset-x-3 bottom-3 z-40 lg:hidden">
+        <nav className="fixed inset-x-3 bottom-3 z-40 md:hidden">
           <div className="flex items-center justify-around rounded-[26px] border border-border bg-surface px-2 py-2 shadow-2xl shadow-black/60">
             <Link href="/" className={`flex min-w-0 flex-1 flex-col items-center gap-0.5 text-[11px] font-semibold ${onBoard ? "text-accent" : "text-mute"}`}>
               <span className="text-[20px]">🏆</span>Ranks
