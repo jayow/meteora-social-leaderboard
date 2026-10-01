@@ -73,7 +73,7 @@ export default function InvitesPage() {
         {status === "not-member" ? (
           <p className="text-mute">
             Invites are for beta members.{" "}
-            <Link href="/join" className="font-semibold text-orange hover:text-orange-soft">
+            <Link href="/join" className="font-semibold text-accent hover:text-accent-hover">
               Join the beta →
             </Link>
           </p>
@@ -91,7 +91,7 @@ export default function InvitesPage() {
         <p className="mb-4 text-sm text-mute">You have {codes.filter((c) => c.uses < c.maxUses).length} invites remaining</p>
         <div className="space-y-3">
           {codes.map((code) => (
-            <div key={code.id} className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 p-4">
+            <div key={code.id} className="flex items-center justify-between rounded-xl border border-border bg-surface-raised p-4">
               <div>
                 <p className="font-mono text-lg font-bold">{code.code}</p>
                 <p className="text-sm text-mute">
@@ -103,8 +103,8 @@ export default function InvitesPage() {
                 disabled={code.uses >= code.maxUses}
                 className={`rounded-full px-4 py-2 text-sm font-semibold ${
                   code.uses >= code.maxUses
-                    ? "cursor-not-allowed bg-white/5 text-mute"
-                    : "brand-grad text-white"
+                    ? "cursor-not-allowed bg-surface-raised text-mute"
+                    : "btn-primary"
                 }`}
               >
                 {copiedCode === code.code ? "Copied!" : "Copy Link"}

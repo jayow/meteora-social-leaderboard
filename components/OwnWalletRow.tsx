@@ -64,10 +64,10 @@ export function OwnWalletRow({ address }: { address: string | null }) {
         onClick={() => void onCopy()}
         aria-label="Copy wallet address"
         title="Copy wallet address"
-        className="flex h-6 shrink-0 items-center gap-1 rounded-md px-1.5 text-mute transition hover:bg-white/[.06] hover:text-white"
+        className="flex h-6 shrink-0 items-center gap-1 rounded-md px-1.5 text-mute transition hover:bg-surface-raised hover:text-fg"
       >
         {copied ? (
-          <span className="text-[11px] text-up" aria-live="polite">Copied</span>
+          <span className="text-[11px] text-fg-secondary" aria-live="polite">Copied</span>
         ) : (
           <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <rect x="9" y="9" width="11" height="11" rx="2" />

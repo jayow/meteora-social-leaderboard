@@ -184,11 +184,11 @@ function JoinFlow() {
               value={code}
               onChange={(e) => setCode(e.target.value.toUpperCase())}
               placeholder="XXXXXXXX"
-              className="mb-4 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 font-semibold uppercase"
+              className="mb-4 w-full rounded-xl border border-border bg-surface-raised px-4 py-3 font-semibold uppercase"
               maxLength={8}
             />
             {error && <p className="mb-4 text-sm text-dn">{error}</p>}
-            <button onClick={validateCode} disabled={loading} className="brand-grad w-full rounded-full py-3 font-bold">
+            <button onClick={validateCode} disabled={loading} className="btn-primary w-full py-3">
               {loading ? "Validating..." : "Continue"}
             </button>
           </div>
@@ -198,7 +198,7 @@ function JoinFlow() {
           <div>
             <p className="mb-4 text-center">Sign in with your Solana wallet or X to continue</p>
             {error && <p className="mb-4 text-sm text-dn">{error}</p>}
-            <button type="button" onClick={openSignIn} disabled={loading} className="brand-grad w-full rounded-full py-3 font-bold">
+            <button type="button" onClick={openSignIn} disabled={loading} className="btn-primary w-full py-3">
               Sign in
             </button>
           </div>
@@ -207,10 +207,10 @@ function JoinFlow() {
         {step === "x" && (
           <div>
             <p className="mb-4 text-center">Connect your X account (optional)</p>
-            <a href={`/api/x/login?returnTo=${encodeURIComponent(`/join?code=${code.trim()}`)}`} className="brand-grad mb-4 block w-full rounded-full py-3 text-center font-bold">
+            <a href={`/api/x/login?returnTo=${encodeURIComponent(`/join?code=${code.trim()}`)}`} className="btn-primary mb-4 flex w-full py-3">
               Connect X
             </a>
-            <button onClick={skipX} className="w-full text-sm text-mute hover:text-white">
+            <button onClick={skipX} className="w-full text-sm text-mute hover:text-fg">
               Skip
             </button>
           </div>
@@ -221,7 +221,7 @@ function JoinFlow() {
             <label className="mb-2 block text-sm font-medium text-mute">Country (optional)</label>
             <CountrySelect value={country} onChange={setCountry} />
             {error && <p className="mb-4 text-sm text-dn">{error}</p>}
-            <button onClick={continueWithCountry} className="brand-grad mt-4 w-full rounded-full py-3 font-bold">
+            <button onClick={continueWithCountry} className="btn-primary mt-4 w-full py-3">
               Continue
             </button>
           </div>
@@ -235,11 +235,11 @@ function JoinFlow() {
               value={thesis}
               onChange={(e) => setThesis(e.target.value)}
               placeholder="Your trading philosophy..."
-              className="mb-4 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3"
+              className="mb-4 w-full rounded-xl border border-border bg-surface-raised px-4 py-3"
               maxLength={200}
             />
             {error && <p className="mb-4 text-sm text-dn">{error}</p>}
-            <button onClick={finishJoin} disabled={loading} className="brand-grad w-full rounded-full py-3 font-bold">
+            <button onClick={finishJoin} disabled={loading} className="btn-primary w-full py-3">
               {loading ? "Joining..." : "Join Pool Party"}
             </button>
           </div>
@@ -247,9 +247,9 @@ function JoinFlow() {
 
         {step === "member" && (
           <div className="text-center">
-            <h2 className="mb-2 text-3xl font-bold text-orange">You&apos;re already in{memberNumber ? ` (#${memberNumber})` : ""}</h2>
+            <h2 className="mb-2 text-3xl font-bold text-fg">You&apos;re already in{memberNumber ? ` (#${memberNumber})` : ""}</h2>
             <p className="mb-6 text-mute">This account has already joined the Pool Party beta.</p>
-            <Link href="/profile/me" className="brand-grad block w-full rounded-full py-3 text-center font-bold">
+            <Link href="/profile/me" className="btn-primary flex w-full py-3">
               Go to your profile
             </Link>
           </div>
@@ -257,12 +257,12 @@ function JoinFlow() {
 
         {step === "complete" && (
           <div className="text-center">
-            <h2 className="mb-4 text-4xl font-bold text-orange">You&apos;re #{memberNumber}</h2>
+            <h2 className="mb-4 text-4xl font-bold text-fg">You&apos;re #{memberNumber}</h2>
             <p className="mb-6 text-lg">of 500 in the Pool Party beta 🎉</p>
-            <button onClick={shareOnX} className="brand-grad mb-4 w-full rounded-full py-3 font-bold">
+            <button onClick={shareOnX} className="btn-primary mb-4 w-full py-3">
               Share on X
             </button>
-            <button onClick={() => router.push("/")} className="w-full rounded-full border border-white/10 py-3 font-semibold hover:bg-white/5">
+            <button onClick={() => router.push("/")} className="w-full rounded-full border border-border py-3 font-semibold hover:bg-surface-raised">
               Go to Leaderboard
             </button>
           </div>

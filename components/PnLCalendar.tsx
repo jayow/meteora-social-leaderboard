@@ -101,7 +101,7 @@ export function PnLCalendar({ userId, compact = false }: { userId?: number | nul
   const map = useMemo(() => new Map(days.map((d) => [d.date, d])), [days]);
 
   if (empty) return <p className="text-[13px] text-mute" data-testid="pnl-calendar-empty">No closed positions in the last {LOOKBACK_MONTHS} months.</p>;
-  if (!cursor) return <div className={`animate-pulse rounded-xl bg-white/[.03] ${compact ? "h-[330px]" : "h-[420px] sm:h-[500px]"}`} />;
+  if (!cursor) return <div className={`animate-pulse rounded-xl bg-surface-raised ${compact ? "h-[330px]" : "h-[420px] sm:h-[500px]"}`} />;
 
   const y = cursor.getFullYear();
   const m = cursor.getMonth();
@@ -118,16 +118,16 @@ export function PnLCalendar({ userId, compact = false }: { userId?: number | nul
     <div>
       <div className="mb-3 flex items-center justify-between gap-3">
         <div className="flex items-center gap-1.5">
-          <button type="button" aria-label="Previous month" className="flex h-7 w-7 items-center justify-center rounded-full bg-white/[.06] text-[14px] hover:bg-white/[.1]" onClick={() => setCursor(new Date(y, m - 1, 1))}>
+          <button type="button" aria-label="Previous month" className="flex h-7 w-7 items-center justify-center rounded-full bg-surface-raised text-[14px] hover:bg-border" onClick={() => setCursor(new Date(y, m - 1, 1))}>
             ‹
           </button>
           <div className={`text-center font-bold ${compact ? "min-w-32 text-[14px]" : "min-w-40 text-[16px]"}`}>{title}</div>
-          <button type="button" aria-label="Next month" disabled={isCurrent} className="flex h-7 w-7 items-center justify-center rounded-full bg-white/[.06] text-[14px] hover:bg-white/[.1] disabled:opacity-30" onClick={() => setCursor(new Date(y, m + 1, 1))}>
+          <button type="button" aria-label="Next month" disabled={isCurrent} className="flex h-7 w-7 items-center justify-center rounded-full bg-surface-raised text-[14px] hover:bg-border disabled:opacity-30" onClick={() => setCursor(new Date(y, m + 1, 1))}>
             ›
           </button>
         </div>
         <div className="text-[13px] font-semibold">
-          <span className={`num ${total > 0 ? "text-up" : total < 0 ? "text-dn" : "text-white"}`}>{formatUsd(total, true)}</span>
+          <span className={`num ${total > 0 ? "text-up" : total < 0 ? "text-dn" : "text-fg"}`}>{formatUsd(total, true)}</span>
           <span className="ml-1 font-medium text-mute">{isCurrent ? "this month" : "in " + cursor.toLocaleString("en-US", { month: "short" })}</span>
         </div>
       </div>
@@ -150,17 +150,17 @@ export function PnLCalendar({ userId, compact = false }: { userId?: number | nul
               ? "bg-up/15 border-up/30 text-up"
               : pnl < 0
                 ? "bg-dn/15 border-dn/30 text-dn"
-                : "bg-white/[.025] border-white/[.05] text-mute";
+                : "bg-surface-raised border-border text-mute";
           return (
             <div key={iso} className={`${cellH} rounded-xl border p-1 text-center ${tone}`} title={e ? `${iso}: ${formatUsd(pnl, true)} · ${pos} closed` : iso}>
-              <div className="text-[9px] font-medium text-white/50">{day}</div>
+              <div className="text-[9px] font-medium text-mute">{day}</div>
               {e && pnl !== 0 ? (
                 <>
                   <div className={`num font-bold leading-tight ${compact ? "text-[10px]" : "text-[11px] sm:text-[13px]"}`}>{formatUsd(pnl, true)}</div>
-                  {!compact && <div className="hidden text-[9px] opacity-70 sm:block">{pos} pos</div>}
+                  {!compact && <div className="hidden text-[9px] sm:block">{pos} pos</div>}
                 </>
               ) : (
-                <div className="text-[10px] opacity-40">·</div>
+                <div className="text-[10px] text-border-strong" aria-hidden>·</div>
               )}
             </div>
           );

@@ -74,7 +74,7 @@ export function OpenPositions({ userId, compact }: { userId?: number; compact?: 
     return (
       <div className="glass rounded-[28px] p-5">
         <h2 className="text-[14px] font-extrabold uppercase tracking-wide text-mute">Open Positions</h2>
-        <p className="mt-3 text-[12px] text-purp-soft">Loading...</p>
+        <p className="mt-3 text-[12px] text-mute">Loading...</p>
       </div>
     );
   }
@@ -131,7 +131,7 @@ function PositionCard({ pool }: { pool: MeteoraOpenPool }) {
   const value = pool.valueUsd || 0;
 
   return (
-    <div className="relative rounded-2xl border border-white/[.08] bg-gradient-to-br from-white/[.04] to-transparent p-4 transition hover:border-orange/40 hover:bg-white/[.06]">
+    <div className="relative rounded-2xl border border-border bg-surface-raised p-4 transition hover:border-border-strong">
       {/* Whole-card link as an overlay (not a wrapper) so the token links aren't nested anchors. */}
       <Link href={`/pools/${pool.poolAddress}`} aria-label={`${pool.tokenX}/${pool.tokenY} pool`} className="absolute inset-0 rounded-2xl" />
       <div className="flex items-start justify-between gap-3">
@@ -139,34 +139,34 @@ function PositionCard({ pool }: { pool: MeteoraOpenPool }) {
           <div className="flex items-center">
             {pool.tokenXIcon ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={pool.tokenXIcon} alt={pool.tokenX} className="h-8 w-8 rounded-full border border-base bg-[#222] object-cover" />
+              <img src={pool.tokenXIcon} alt={pool.tokenX} className="h-8 w-8 rounded-full border border-surface bg-surface-raised object-cover" />
             ) : (
-              <div className="h-8 w-8 rounded-full border border-base bg-[#222]" />
+              <div className="h-8 w-8 rounded-full border border-surface bg-surface-raised" />
             )}
             {pool.tokenYIcon ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={pool.tokenYIcon} alt={pool.tokenY} className="-ml-2 h-8 w-8 rounded-full border border-base bg-[#222] object-cover" />
+              <img src={pool.tokenYIcon} alt={pool.tokenY} className="-ml-2 h-8 w-8 rounded-full border border-surface bg-surface-raised object-cover" />
             ) : (
-              <div className="-ml-2 h-8 w-8 rounded-full border border-base bg-[#222]" />
+              <div className="-ml-2 h-8 w-8 rounded-full border border-surface bg-surface-raised" />
             )}
           </div>
           <div>
             <div className="flex items-center gap-2">
               <span className="text-[15px] font-bold">
                 {pool.tokenXMint ? (
-                  <Link href={`/pools?token=${pool.tokenXMint}`} className="relative z-10 hover:text-orange">{pool.tokenX}</Link>
+                  <Link href={`/pools?token=${pool.tokenXMint}`} className="relative z-10 hover:underline">{pool.tokenX}</Link>
                 ) : (
                   <span>{pool.tokenX}</span>
                 )}
                 <span>/</span>
                 {pool.tokenYMint ? (
-                  <Link href={`/pools?token=${pool.tokenYMint}`} className="relative z-10 hover:text-orange">{pool.tokenY}</Link>
+                  <Link href={`/pools?token=${pool.tokenYMint}`} className="relative z-10 hover:underline">{pool.tokenY}</Link>
                 ) : (
                   <span>{pool.tokenY}</span>
                 )}
               </span>
               {pool.binStep && (
-                <span className="rounded-full bg-orange/20 px-2 py-0.5 text-[10px] font-bold text-orange">
+                <span className="rounded-full border border-border px-2 py-0.5 text-[10px] font-semibold text-mute">
                   DLMM {pool.binStep}bp
                 </span>
               )}
@@ -194,33 +194,33 @@ function PositionCardCompact({ pool }: { pool: MeteoraOpenPool }) {
   const value = pool.valueUsd || 0;
 
   return (
-    <div className="relative flex items-center justify-between rounded-xl border border-white/[.08] bg-black/20 p-3 transition hover:border-orange/40">
+    <div className="relative flex items-center justify-between rounded-xl border border-border bg-bg p-3 transition hover:border-border-strong">
       <Link href={`/pools/${pool.poolAddress}`} aria-label={`${pool.tokenX}/${pool.tokenY} pool`} className="absolute inset-0 rounded-xl" />
       <div className="flex flex-1 items-center gap-2">
         <div className="flex items-center">
           {pool.tokenXIcon ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={pool.tokenXIcon} alt={pool.tokenX} className="h-6 w-6 rounded-full border border-base bg-[#222] object-cover" />
+            <img src={pool.tokenXIcon} alt={pool.tokenX} className="h-6 w-6 rounded-full border border-surface bg-surface-raised object-cover" />
           ) : (
-            <div className="h-6 w-6 rounded-full border border-base bg-[#222]" />
+            <div className="h-6 w-6 rounded-full border border-surface bg-surface-raised" />
           )}
           {pool.tokenYIcon ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={pool.tokenYIcon} alt={pool.tokenY} className="-ml-1.5 h-6 w-6 rounded-full border border-base bg-[#222] object-cover" />
+            <img src={pool.tokenYIcon} alt={pool.tokenY} className="-ml-1.5 h-6 w-6 rounded-full border border-surface bg-surface-raised object-cover" />
           ) : (
-            <div className="-ml-1.5 h-6 w-6 rounded-full border border-base bg-[#222]" />
+            <div className="-ml-1.5 h-6 w-6 rounded-full border border-surface bg-surface-raised" />
           )}
         </div>
         <div className="ml-2">
           <div className="text-[13px] font-semibold">
             {pool.tokenXMint ? (
-              <Link href={`/pools?token=${pool.tokenXMint}`} className="relative z-10 hover:text-orange">{pool.tokenX}</Link>
+              <Link href={`/pools?token=${pool.tokenXMint}`} className="relative z-10 hover:underline">{pool.tokenX}</Link>
             ) : (
               <span>{pool.tokenX}</span>
             )}
             <span>/</span>
             {pool.tokenYMint ? (
-              <Link href={`/pools?token=${pool.tokenYMint}`} className="relative z-10 hover:text-orange">{pool.tokenY}</Link>
+              <Link href={`/pools?token=${pool.tokenYMint}`} className="relative z-10 hover:underline">{pool.tokenY}</Link>
             ) : (
               <span>{pool.tokenY}</span>
             )}
@@ -228,7 +228,7 @@ function PositionCardCompact({ pool }: { pool: MeteoraOpenPool }) {
           <div className="num text-[11px] text-mute">{fmtUsd(value)}</div>
         </div>
       </div>
-      <div className="num mr-2 text-[14px] font-semibold text-white">
+      <div className="num mr-2 text-[14px] font-semibold text-fg">
         {pool.positionCount || 0}
       </div>
       

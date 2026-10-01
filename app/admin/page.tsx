@@ -115,7 +115,7 @@ export default function AdminPage() {
             onChange={(e) => setCount(Number(e.target.value))}
             min={1}
             max={100}
-            className="w-24 rounded-xl border border-white/10 bg-white/5 px-4 py-2"
+            className="w-24 rounded-xl border border-border bg-surface-raised px-4 py-2"
           />
           <input
             type="number"
@@ -123,9 +123,9 @@ export default function AdminPage() {
             onChange={(e) => setMaxUses(Number(e.target.value))}
             min={1}
             max={1000}
-            className="w-24 rounded-xl border border-white/10 bg-white/5 px-4 py-2"
+            className="w-24 rounded-xl border border-border bg-surface-raised px-4 py-2"
           />
-          <button onClick={generateCodes} disabled={generating} className="brand-grad rounded-full px-6 py-2 font-semibold">
+          <button onClick={generateCodes} disabled={generating} className="btn-primary px-6 py-2">
             {generating ? "Generating..." : "Generate"}
           </button>
         </div>
@@ -135,7 +135,7 @@ export default function AdminPage() {
         <h2 className="mb-4 text-xl font-bold">Recent Joins</h2>
         <div className="space-y-2">
           {data.recentJoins.slice(0, 20).map((u) => (
-            <div key={u.id} className="rounded-xl border border-white/10 bg-white/5 p-3">
+            <div key={u.id} className="rounded-xl border border-border bg-surface-raised p-3">
               <span className="font-semibold">
                 #{u.memberNumber} {displayName(u)}
               </span>
@@ -148,7 +148,7 @@ export default function AdminPage() {
         <h2 className="mb-4 text-xl font-bold">All Codes ({data.codes.length})</h2>
         <div className="space-y-2">
           {data.codes.map((code) => (
-            <div key={code.id} className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 p-3">
+            <div key={code.id} className="flex items-center justify-between rounded-xl border border-border bg-surface-raised p-3">
               <div>
                 <span className="font-mono font-bold">{code.code}</span>
                 <span className="ml-4 text-sm text-mute">
@@ -158,7 +158,7 @@ export default function AdminPage() {
               <button
                 onClick={() => toggleCode(code.id, !code.disabled)}
                 className={`rounded-full px-4 py-1 text-sm font-semibold ${
-                  code.disabled ? "bg-white/5 text-mute" : "brand-grad"
+                  code.disabled ? "btn-secondary" : "btn-primary"
                 }`}
               >
                 {code.disabled ? "Enable" : "Disable"}

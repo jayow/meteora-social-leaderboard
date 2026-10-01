@@ -34,9 +34,6 @@
    * Deprecated aliases, kept so older classes keep rendering flat while they are migrated.
    * Don't use them in new code.
    */
-  --color-base: var(--color-bg);
-  --color-navy: var(--color-surface);
-  --color-row: var(--color-surface);
   --color-orange: var(--color-accent);
   --color-orange-soft: var(--color-accent-hover);
   --color-purp: var(--color-fg-secondary);

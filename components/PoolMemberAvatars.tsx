@@ -56,13 +56,13 @@ export function PoolMemberAvatars({ poolAddress, members, isSignedIn }: PoolMemb
     if (otherCount > 0) {
       return (
         <>
-          <span className="font-semibold text-orange">{friendText}</span>
+          <span className="font-semibold text-fg">{friendText}</span>
           <span className="text-mute"> · +{otherCount} {otherCount === 1 ? "member" : "members"}</span>
         </>
       );
     }
 
-    return <span className="font-semibold text-orange">{friendText}</span>;
+    return <span className="font-semibold text-fg">{friendText}</span>;
   };
 
   return (
@@ -84,7 +84,7 @@ export function PoolMemberAvatars({ poolAddress, members, isSignedIn }: PoolMemb
               <img
                 src={avatar}
                 alt={title}
-                className="h-8 w-8 rounded-full border-2 border-base bg-[#1d1a2a] object-cover ring-1 ring-white/10"
+                className="h-8 w-8 rounded-full border-2 border-surface bg-surface-raised object-cover ring-1 ring-border"
                 loading="lazy"
               />
             </Link>
@@ -92,7 +92,7 @@ export function PoolMemberAvatars({ poolAddress, members, isSignedIn }: PoolMemb
         })}
         {remainingCount > 0 && (
           <div
-            className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-base bg-purp/40 text-[10px] font-bold ring-1 ring-white/10"
+            className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-surface bg-border-strong text-[10px] font-bold ring-1 ring-border"
             title={`+${remainingCount} more`}
           >
             +{remainingCount}

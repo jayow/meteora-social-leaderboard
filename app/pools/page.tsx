@@ -50,14 +50,14 @@ function TokenDot({ icon, label, className = "" }: { icon: string | null; label:
       <img
         src={icon}
         alt={label}
-        className={`h-8 w-8 rounded-full border-2 border-base bg-[#222] object-cover ${className}`}
+        className={`h-8 w-8 rounded-full border-2 border-surface bg-surface-raised object-cover ${className}`}
         loading="lazy"
         onError={() => setFailedIcon(icon)}
       />
     );
   }
   return (
-    <span className={`flex h-8 w-8 items-center justify-center rounded-full border-2 border-base bg-purp/40 text-[12px] font-bold ${className}`}>
+    <span className={`flex h-8 w-8 items-center justify-center rounded-full border-2 border-surface bg-border-strong text-[12px] font-bold ${className}`}>
       {label.slice(0, 1)}
     </span>
   );
@@ -252,7 +252,7 @@ function PoolsContent() {
     <main className="mx-auto max-w-[1320px] px-4 pb-10 pt-6 lg:px-6">
       {tokenMint && tokenInfo && (
         <div className="mb-4">
-          <Link href="/pools" className="text-[13px] font-semibold text-mute hover:text-white">
+          <Link href="/pools" className="text-[13px] font-semibold text-mute hover:text-fg">
             ← All pools
           </Link>
         </div>
@@ -267,10 +267,10 @@ function PoolsContent() {
                 <img
                   src={tokenInfo.icon}
                   alt={tokenInfo.symbol}
-                  className="h-14 w-14 rounded-full border-2 border-base bg-[#222] object-cover"
+                  className="h-14 w-14 rounded-full border-2 border-surface bg-surface-raised object-cover"
                 />
               ) : (
-                <div className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-base bg-purp/40 text-[20px] font-bold">
+                <div className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-surface bg-border-strong text-[20px] font-bold">
                   {tokenInfo.symbol.slice(0, 1)}
                 </div>
               )}
@@ -294,7 +294,7 @@ function PoolsContent() {
           ) : (
             <>
               <h1 className="text-[32px] font-extrabold leading-tight tracking-tight sm:text-[40px]">
-                <span className="brand-text">Pools</span> 🏊
+                Pools
               </h1>
               <p className="mt-1 text-[14px] text-mute">
                 All DLMM pools with active LPs · see where your friends are providing liquidity
@@ -324,12 +324,12 @@ function PoolsContent() {
               }
             }}
             placeholder="Filter by token symbol or mint address..."
-            className="h-11 min-w-0 flex-1 rounded-full border border-white/10 bg-black/30 px-5 text-[14px] outline-none placeholder:text-mute focus:border-orange/60"
+            className="h-11 min-w-0 flex-1 rounded-full border border-border bg-bg px-5 text-[14px] outline-none placeholder:text-mute focus:border-accent"
           />
           <button
             type="button"
             onClick={() => handleSearch(searchTerm)}
-            className="h-11 rounded-full bg-orange px-6 text-[14px] font-bold hover:bg-orange-soft"
+            className="btn-primary h-11 px-6 text-[14px]"
           >
             Filter
           </button>
@@ -340,7 +340,7 @@ function PoolsContent() {
                 setSearchTerm("");
                 router.push("/pools");
               }}
-              className="h-11 rounded-full bg-white/[.08] px-5 text-[14px] font-semibold hover:bg-white/[.14]"
+              className="h-11 rounded-full bg-surface-raised px-5 text-[14px] font-semibold hover:bg-border"
             >
               Clear
             </button>
@@ -355,7 +355,7 @@ function PoolsContent() {
               placeholder={`Search ${tokenInfo.symbol} pools`}
               title="Pair, token mint or pool address"
               aria-label={`Search ${tokenInfo.symbol} pools`}
-              className="h-9 min-w-0 flex-1 rounded-full border border-white/10 bg-black/30 px-4 text-[13px] outline-none placeholder:text-mute focus:border-orange/60 sm:max-w-sm"
+              className="h-9 min-w-0 flex-1 rounded-full border border-border bg-bg px-4 text-[13px] outline-none placeholder:text-mute focus:border-accent sm:max-w-sm"
             />
           )}
           <label className="ml-auto flex items-center gap-2 text-[12px] text-mute">
@@ -366,7 +366,7 @@ function PoolsContent() {
                 const v = e.target.value;
                 if (isPoolSort(v)) setSort(v);
               }}
-              className="h-9 rounded-full border border-white/10 bg-black/30 px-3 text-[13px] text-white outline-none focus:border-orange/60"
+              className="h-9 rounded-full border border-border bg-bg px-3 text-[13px] text-fg outline-none focus:border-accent"
             >
               {POOL_SORTS.map((s) => (
                 <option key={s.value} value={s.value}>
@@ -422,7 +422,7 @@ function PoolsContent() {
                   type="button"
                   onClick={loadMore}
                   disabled={loadingMore}
-                  className="h-10 rounded-full bg-white/[.08] px-6 text-[14px] font-semibold hover:bg-white/[.14] disabled:opacity-60"
+                  className="btn-secondary h-10 px-6 text-[14px]"
                 >
                   {loadingMore ? "Loading…" : `Show ${Math.min(PAGE_SIZE, total - visiblePools.length)} more`}
                 </button>
@@ -447,7 +447,7 @@ function PoolRow({
   const [x = "?", y = "?"] = [pool.tokenX, pool.tokenY];
 
   return (
-    <div className="glass relative flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[20px] px-3 py-3 transition hover:bg-white/[.06] sm:flex-nowrap sm:px-4" data-testid="pool-row">
+    <div className="glass relative flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[20px] px-3 py-3 transition hover:bg-surface-raised sm:flex-nowrap sm:px-4" data-testid="pool-row">
       <Link href={`/pools/${pool.poolAddress}`} prefetch={false} className="absolute inset-0 rounded-[20px]" aria-label={`${x}-${y} pool`} />
 
       <div className="flex shrink-0">
@@ -459,18 +459,18 @@ function PoolRow({
         <div className="flex min-w-0 items-center gap-2 text-[16px] font-bold">
           <span className="min-w-0 truncate">
             {pool.tokenXMint ? (
-              <Link href={`/pools?token=${pool.tokenXMint}`} prefetch={false} onClick={(e) => e.stopPropagation()} className="hover:text-orange relative z-10">{x}</Link>
+              <Link href={`/pools?token=${pool.tokenXMint}`} prefetch={false} onClick={(e) => e.stopPropagation()} className="relative z-10 hover:underline">{x}</Link>
             ) : (
               <span>{x}</span>
             )}
             <span>-</span>
             {pool.tokenYMint ? (
-              <Link href={`/pools?token=${pool.tokenYMint}`} prefetch={false} onClick={(e) => e.stopPropagation()} className="hover:text-orange relative z-10">{y}</Link>
+              <Link href={`/pools?token=${pool.tokenYMint}`} prefetch={false} onClick={(e) => e.stopPropagation()} className="relative z-10 hover:underline">{y}</Link>
             ) : (
               <span>{y}</span>
             )}
           </span>
-          <span className="shrink-0 rounded bg-orange/15 px-1.5 text-[10px] font-bold uppercase text-orange">
+          <span className="shrink-0 rounded border border-border px-1.5 text-[10px] font-semibold uppercase text-mute">
             DLMM
           </span>
           {pool.binStep != null && (
@@ -481,7 +481,7 @@ function PoolRow({
           <span className="whitespace-nowrap" data-col="lps">
             {pool.lpCount} LP{pool.lpCount === 1 ? "" : "s"}
             {pool.lpCount > 0 && pool.memberLiquidity != null && (
-              <span className="text-white/80"> · {fmtUsd(pool.memberLiquidity)}</span>
+              <span className="text-fg-secondary"> · {fmtUsd(pool.memberLiquidity)}</span>
             )}
           </span>
           <span>·</span>

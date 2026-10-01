@@ -3,6 +3,7 @@ import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { WalletProviders } from "@/components/WalletProviders";
 import { AppShell } from "@/components/AppShell";
+import { THEME } from "@/lib/theme";
 
 const jakarta = Plus_Jakarta_Sans({ subsets: ["latin"], weight: ["400", "500", "600", "700", "800"], variable: "--font-jakarta" });
 
@@ -33,7 +34,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#110d14",
+  themeColor: THEME.bg,
   width: "device-width",
   initialScale: 1,
 };
@@ -41,7 +42,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`dark ${jakarta.variable}`}>
-      <body className="min-h-screen font-sans text-white antialiased">
+      <body className="min-h-screen font-sans text-fg antialiased">
         <WalletProviders>
           <AppShell>{children}</AppShell>
         </WalletProviders>

@@ -23,7 +23,7 @@ function profileHref(p: ActivityPerson): string {
 
 function PersonLink({ person, className = "" }: { person: ActivityPerson; className?: string }) {
   return (
-    <Link href={profileHref(person)} className={`font-semibold text-white hover:text-orange ${className}`}>
+    <Link href={profileHref(person)} className={`font-semibold text-fg hover:underline ${className}`}>
       {displayName(person)}
     </Link>
   );
@@ -32,10 +32,10 @@ function PersonLink({ person, className = "" }: { person: ActivityPerson; classN
 function TokenDot({ icon, label, className = "" }: { icon: string | null; label: string; className?: string }) {
   if (icon) {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={icon} alt="" className={`h-4 w-4 rounded-full border border-base bg-[#222] object-cover ${className}`} loading="lazy" />;
+    return <img src={icon} alt="" className={`h-4 w-4 rounded-full border border-surface bg-surface-raised object-cover ${className}`} loading="lazy" />;
   }
   return (
-    <span className={`flex h-4 w-4 items-center justify-center rounded-full border border-base bg-purp/40 text-[8px] font-bold ${className}`}>
+    <span className={`flex h-4 w-4 items-center justify-center rounded-full border border-surface bg-border-strong text-[9px] font-bold ${className}`}>
       {label.slice(0, 1)}
     </span>
   );
@@ -47,7 +47,7 @@ function PoolLink({ pool }: { pool: ActivityPool }) {
     <span className="inline-flex items-center gap-1 align-middle">
       <Link
         href={`/pools/${pool.address}`}
-        className="inline-flex items-center gap-1 rounded-full border border-white/[.08] bg-white/[.04] py-0.5 pl-1 pr-2 text-[12px] font-semibold text-white hover:border-white/20"
+        className="inline-flex items-center gap-1 rounded-full border border-border bg-surface-raised py-0.5 pl-1 pr-2 text-[12px] font-semibold text-fg hover:border-border-strong"
         title={`${pool.name}${pool.binStep ? ` · bin step ${pool.binStep}` : ""}`}
       >
         <span className="flex">
@@ -60,7 +60,7 @@ function PoolLink({ pool }: { pool: ActivityPool }) {
         href={meteoraPoolUrl(pool.address, pool.protocol)}
         target="_blank"
         rel="noopener noreferrer"
-        className="text-[11px] text-mute hover:text-white"
+        className="text-[11px] text-mute hover:text-fg"
         title="Open on Meteora"
         aria-label={`Open ${pool.name} on Meteora`}
       >
@@ -87,7 +87,7 @@ function Action({ item }: { item: ActivityItem }) {
         <>
           posted a thesis on{" "}
           {item.token ? (
-            <Link href={`/pools?token=${encodeURIComponent(item.token.mint)}`} className="font-semibold text-white hover:text-orange">
+            <Link href={`/pools?token=${encodeURIComponent(item.token.mint)}`} className="font-semibold text-fg hover:underline">
               {item.token.symbol ? `$${item.token.symbol}` : "a token"}
             </Link>
           ) : (
@@ -133,7 +133,7 @@ function Row({ item }: { item: ActivityItem }) {
       </Link>
       <div className="min-w-0 flex-1">
         <div className="flex items-start gap-3">
-          <p className="min-w-0 flex-1 text-[13.5px] leading-6 text-white/70">
+          <p className="min-w-0 flex-1 text-[13.5px] leading-6 text-mute">
             <PersonLink person={item.actor} /> <Action item={item} />
           </p>
           <time dateTime={item.occurredAt} title={new Date(item.occurredAt).toLocaleString()} className="shrink-0 pt-0.5 text-[12px] text-mute">
@@ -151,9 +151,9 @@ function SkeletonRows({ count = 6 }: { count?: number }) {
     <ul className="divide-y divide-white/[.05]" aria-hidden data-testid="activity-loading">
       {Array.from({ length: count }, (_, i) => (
         <li key={i} className="flex items-center gap-3 px-4 py-3">
-          <span className="h-8 w-8 shrink-0 animate-pulse rounded-full bg-white/[.06]" />
-          <span className="h-3 flex-1 animate-pulse rounded bg-white/[.06]" style={{ maxWidth: `${55 + ((i * 17) % 35)}%` }} />
-          <span className="ml-auto h-3 w-10 animate-pulse rounded bg-white/[.05]" />
+          <span className="h-8 w-8 shrink-0 animate-pulse rounded-full bg-surface-raised" />
+          <span className="h-3 flex-1 animate-pulse rounded bg-surface-raised" style={{ maxWidth: `${55 + ((i * 17) % 35)}%` }} />
+          <span className="ml-auto h-3 w-10 animate-pulse rounded bg-surface-raised" />
         </li>
       ))}
     </ul>
@@ -166,7 +166,7 @@ function ScopeToggle({ value, onChange }: { value: ActivityScope; onChange: (s: 
     { value: "everyone", label: "Everyone" },
   ];
   return (
-    <div role="tablist" aria-label="Activity scope" className="flex items-center gap-0.5 rounded-full border border-white/[.06] bg-white/[.03] p-0.5 text-[13px] font-semibold">
+    <div role="tablist" aria-label="Activity scope" className="flex items-center gap-0.5 rounded-full border border-border bg-surface-raised p-0.5 text-[13px] font-semibold">
       {opts.map((o) => (
         <button
           key={o.value}
@@ -174,7 +174,7 @@ function ScopeToggle({ value, onChange }: { value: ActivityScope; onChange: (s: 
           role="tab"
           aria-selected={value === o.value}
           onClick={() => onChange(o.value)}
-          className={`rounded-full px-3 py-1 transition ${value === o.value ? "bg-white/[.1] text-white" : "text-mute hover:text-white"}`}
+          className={`rounded-full px-3 py-1 transition ${value === o.value ? "bg-border text-fg" : "text-mute hover:text-fg"}`}
         >
           {o.label}
         </button>
@@ -187,7 +187,7 @@ function FallbackNote({ fallback }: { fallback: ActivityFallback }) {
   if (fallback === "signed_out") {
     return (
       <p className="px-4 py-2.5 text-[12.5px] text-mute" data-testid="activity-fallback">
-        <button type="button" onClick={requestSignIn} className="font-semibold text-white hover:text-orange">
+        <button type="button" onClick={requestSignIn} className="font-semibold text-fg hover:underline">
           Sign in
         </button>{" "}
         to see people you follow. Showing everyone for now.
@@ -198,7 +198,7 @@ function FallbackNote({ fallback }: { fallback: ActivityFallback }) {
     return (
       <p className="px-4 py-2.5 text-[12.5px] text-mute" data-testid="activity-fallback">
         You&apos;re not following anyone yet, so this shows everyone.{" "}
-        <Link href="/" className="font-semibold text-white hover:text-orange">
+        <Link href="/" className="font-semibold text-fg hover:underline">
           Browse the leaderboard
         </Link>{" "}
         to find LPs to follow.
@@ -286,9 +286,9 @@ export function ActivityFeed() {
         <ScopeToggle value={scope} onChange={setScope} />
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-white/[.06] bg-white/[.02]" data-testid="activity-feed">
+      <div className="overflow-hidden rounded-2xl border border-border bg-surface-raised" data-testid="activity-feed">
         {!loading && scope === "following" && shownScope === "everyone" && (
-          <div className="border-b border-white/[.05]">
+          <div className="border-b border-border">
             <FallbackNote fallback={fallback} />
           </div>
         )}
@@ -298,13 +298,13 @@ export function ActivityFeed() {
         ) : error && items.length === 0 ? (
           <div className="px-4 py-10 text-center text-[13px] text-mute">
             {error}{" "}
-            <button type="button" onClick={() => void loadFirst(scope)} className="font-semibold text-white hover:text-orange">
+            <button type="button" onClick={() => void loadFirst(scope)} className="font-semibold text-fg hover:underline">
               Try again
             </button>
           </div>
         ) : items.length === 0 ? (
           <div className="px-4 py-12 text-center" data-testid="activity-empty">
-            <p className="text-[14px] font-semibold text-white">Nothing here yet</p>
+            <p className="text-[14px] font-semibold text-fg">Nothing here yet</p>
             <p className="mt-1 text-[13px] text-mute">
               {shownScope === "following"
                 ? "People you follow haven't done anything new yet."
@@ -314,7 +314,7 @@ export function ActivityFeed() {
               <button
                 type="button"
                 onClick={() => setScope("everyone")}
-                className="mt-3 rounded-full border border-white/10 px-3 py-1 text-[12.5px] font-semibold text-white/80 hover:bg-white/[.06]"
+                className="mt-3 rounded-full border border-border px-3 py-1 text-[12.5px] font-semibold text-fg-secondary hover:bg-surface-raised"
               >
                 See everyone
               </button>
@@ -329,12 +329,12 @@ export function ActivityFeed() {
         )}
 
         {!loading && nextCursor && (
-          <div className="border-t border-white/[.05] p-2 text-center">
+          <div className="border-t border-border p-2 text-center">
             <button
               type="button"
               onClick={() => void loadMore()}
               disabled={loadingMore}
-              className="rounded-full px-4 py-1.5 text-[13px] font-semibold text-mute hover:bg-white/[.05] hover:text-white disabled:opacity-60"
+              className="rounded-full px-4 py-1.5 text-[13px] font-semibold text-mute hover:bg-surface-raised hover:text-fg disabled:opacity-60"
               data-testid="activity-more"
             >
               {loadingMore ? "Loading…" : "Show more"}

@@ -99,7 +99,7 @@ export function FollowListModal({
   // trap this fixed overlay inside the card.
   if (typeof document === "undefined") return null;
   return createPortal(
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#0C0A10] px-4" onMouseDown={onClose}>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-surface px-4" onMouseDown={onClose}>
       <div
         ref={dialogRef}
         role="dialog"
@@ -108,11 +108,11 @@ export function FollowListModal({
         tabIndex={-1}
         data-testid="follow-list"
         onMouseDown={(e) => e.stopPropagation()}
-        className="flex max-h-[80vh] w-full max-w-sm flex-col overflow-hidden rounded-3xl border border-white/10 bg-[#1A1623] shadow-2xl outline-none"
+        className="flex max-h-[80vh] w-full max-w-sm flex-col overflow-hidden rounded-3xl border border-border bg-surface outline-none"
       >
-        <div className="flex items-center justify-between border-b border-white/[.06] px-5 py-3.5">
+        <div className="flex items-center justify-between border-b border-border px-5 py-3.5">
           <h2 className="text-[15px] font-bold">{title}</h2>
-          <button type="button" onClick={onClose} aria-label="Close" className="flex h-7 w-7 items-center justify-center rounded-full text-mute hover:bg-white/[.06] hover:text-white">
+          <button type="button" onClick={onClose} aria-label="Close" className="flex h-7 w-7 items-center justify-center rounded-full text-mute hover:bg-surface-raised hover:text-fg">
             ×
           </button>
         </div>
@@ -125,7 +125,7 @@ export function FollowListModal({
             </p>
           )}
           {items.map((u) => (
-            <div key={u.id} className="flex items-center gap-3 rounded-2xl px-3 py-2 hover:bg-white/[.04]" data-testid="follow-list-row">
+            <div key={u.id} className="flex items-center gap-3 rounded-2xl px-3 py-2 hover:bg-surface-raised" data-testid="follow-list-row">
               <Link href={`/profile/${u.xHandle || u.id}`} onClick={onClose} className="flex min-w-0 flex-1 items-center gap-3">
                 <Avatar user={u} size={36} />
                 <span className="truncate text-[14px] font-semibold">{u.xName || displayName(u)}</span>
@@ -134,7 +134,7 @@ export function FollowListModal({
             </div>
           ))}
           {status === "idle" && hasMore && (
-            <button type="button" onClick={() => void loadMore()} className="mt-1 w-full rounded-xl py-2 text-[13px] font-semibold text-mute hover:bg-white/[.04] hover:text-white">
+            <button type="button" onClick={() => void loadMore()} className="mt-1 w-full rounded-xl py-2 text-[13px] font-semibold text-mute hover:bg-surface-raised hover:text-fg">
               Show more
             </button>
           )}

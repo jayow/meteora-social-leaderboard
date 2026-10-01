@@ -16,15 +16,15 @@ export function Avatar({ user, size = 40, ring = false, className = "" }: { user
       alt=""
       width={size}
       height={size}
-      className="rounded-full bg-[#1d1a2a] object-cover"
+      className="rounded-full bg-surface-raised object-cover"
       style={{ width: size, height: size }}
       loading="lazy"
     />
   );
   if (!ring) return <span className={`inline-block shrink-0 ${className}`}>{img}</span>;
   return (
-    <span className={`ring-brand inline-block shrink-0 rounded-full p-[3px] ${className}`}>
-      <span className="block rounded-full bg-base p-[2px]">{img}</span>
+    <span className={`inline-block shrink-0 rounded-full bg-border-strong p-[2px] ${className}`}>
+      <span className="block rounded-full bg-bg p-[2px]">{img}</span>
     </span>
   );
 }
@@ -40,10 +40,10 @@ export function Flag({ code, className = "" }: { code?: string | null; className
 function TokenDot({ icon, label, className = "" }: { icon: string | null; label: string; className?: string }) {
   if (icon) {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={icon} alt={label} className={`h-4 w-4 rounded-full border border-base bg-[#222] object-cover ${className}`} loading="lazy" />;
+    return <img src={icon} alt={label} className={`h-4 w-4 rounded-full border border-surface bg-surface-raised object-cover ${className}`} loading="lazy" />;
   }
   return (
-    <span className={`flex h-4 w-4 items-center justify-center rounded-full border border-base bg-purp/40 text-[8px] font-bold ${className}`}>
+    <span className={`flex h-4 w-4 items-center justify-center rounded-full border border-surface bg-border-strong text-[9px] font-bold ${className}`}>
       {label.slice(0, 1)}
     </span>
   );
@@ -53,7 +53,7 @@ export function PoolChip({ pool, compact = false }: { pool: PoolInfo | null; com
   if (!pool) return <span className="text-[12px] text-mute">No pool yet</span>;
   const [x = "?", y = "?"] = pool.name.split("-");
   return (
-    <span className="inline-flex max-w-full items-center gap-1 rounded-full border border-white/[.08] bg-white/[.04] py-0.5 pl-1 pr-2 text-[12px] font-semibold" title={`${pool.name}${pool.binStep ? ` · bin step ${pool.binStep}` : ""}`}>
+    <span className="inline-flex max-w-full items-center gap-1 rounded-full border border-border bg-surface-raised py-0.5 pl-1 pr-2 text-[12px] font-semibold" title={`${pool.name}${pool.binStep ? ` · bin step ${pool.binStep}` : ""}`}>
       <span className="flex">
         <TokenDot icon={pool.xIcon} label={x} />
         <TokenDot icon={pool.yIcon} label={y} className="-ml-1.5" />
@@ -61,7 +61,7 @@ export function PoolChip({ pool, compact = false }: { pool: PoolInfo | null; com
       <span className="truncate">{pool.name}</span>
       {!compact && (
         <>
-          <span className="rounded bg-orange/15 px-1 text-[10px] font-bold uppercase text-orange">{pool.protocol === "damm_v2" ? "DAMM" : "DLMM"}</span>
+          <span className="rounded border border-border px-1 text-[10px] font-semibold uppercase text-mute">{pool.protocol === "damm_v2" ? "DAMM" : "DLMM"}</span>
           {pool.binStep != null && <span className="text-[10px] font-medium text-mute">Bin {pool.binStep}</span>}
         </>
       )}
@@ -79,7 +79,7 @@ export function Pills<T extends string>({ value, options, onChange, label }: { v
           type="button"
           onClick={() => onChange(o.value)}
           className={`h-8 rounded-full px-3.5 text-[13px] font-semibold transition ${
-            value === o.value ? "bg-orange text-white shadow-lg shadow-orange/25" : "text-white/70 hover:bg-white/[.06] hover:text-white"
+            value === o.value ? "bg-accent text-accent-fg" : "text-mute hover:bg-surface-raised hover:text-fg"
           }`}
         >
           {o.label}
@@ -89,10 +89,10 @@ export function Pills<T extends string>({ value, options, onChange, label }: { v
   );
 }
 
-export function StatTile({ label, value, tone = "white", sub }: { label: string; value: string; tone?: "white" | "up" | "dn" | "orange" | "purp"; sub?: string }) {
-  const c = { white: "text-white", up: "text-up", dn: "text-dn", orange: "text-orange", purp: "text-purp-soft" }[tone];
+export function StatTile({ label, value, tone = "white", sub }: { label: string; value: string; tone?: "white" | "up" | "dn"; sub?: string }) {
+  const c = { white: "text-fg", up: "text-up", dn: "text-dn" }[tone];
   return (
-    <div className="rounded-2xl border border-white/[.07] bg-white/[.03] p-3">
+    <div className="rounded-2xl border border-border bg-surface-raised p-3">
       <div className="text-[11px] font-medium text-mute">{label}</div>
       <div className={`num mt-0.5 text-[20px] font-bold leading-tight ${c}`}>{value}</div>
       {sub && <div className="mt-0.5 text-[10px] text-mute">{sub}</div>}

@@ -86,8 +86,9 @@ export function FollowButton({
   };
 
   const sizeClasses = size === "sm" ? "h-8 px-3.5 text-[13px]" : "h-9 px-4 text-[13px]";
-  // Same look signed in or out: "Follow" is the brand orange, "Following" is muted.
-  const tone = verified && isFollowing ? "bg-white/[.08] text-white hover:bg-white/[.14]" : "bg-orange text-white hover:bg-orange-soft";
+  // Same look signed in or out. On a profile (md) "Follow" is the primary action; in lists (sm) it stays
+  // secondary so a column of rows isn't a column of accent buttons. "Following" is always quiet.
+  const tone = verified && isFollowing ? "btn-ghost border border-border" : size === "sm" ? "btn-secondary" : "btn-primary";
 
   return (
     <button
@@ -95,7 +96,7 @@ export function FollowButton({
       onClick={handleClick}
       aria-pressed={verified ? isFollowing : undefined}
       aria-busy={pending || undefined}
-      className={`${sizeClasses} rounded-full font-bold transition ${tone} ${className}`}
+      className={`${sizeClasses} ${tone} ${className}`}
     >
       {verified && isFollowing ? "Following" : "Follow"}
     </button>

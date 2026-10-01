@@ -108,26 +108,26 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen pb-24 lg:pb-0">
-      <header className="sticky top-0 z-40 border-b border-white/[.06] bg-[#12121C]">
+      <header className="sticky top-0 z-40 border-b border-border bg-surface">
         <div className="mx-auto flex h-[64px] max-w-[1320px] items-center gap-6 px-4 lg:px-6">
           <Link href="/" className="flex items-center gap-2">
             <Logo />
           </Link>
           {isMember ? (
-            <nav className="mx-auto hidden items-center gap-1 rounded-full border border-white/[.06] bg-white/[.03] p-1 text-[14px] font-semibold lg:flex">
-              <Link href="/" className={`rounded-full px-4 py-1.5 ${onBoard ? "bg-white/[.1] text-white" : "text-mute hover:text-white"}`}>
+            <nav className="mx-auto hidden items-center gap-1 rounded-full border border-border bg-surface-raised p-1 text-[14px] font-semibold lg:flex">
+              <Link href="/" className={`rounded-full px-4 py-1.5 ${onBoard ? "bg-border text-fg" : "text-mute hover:text-fg"}`}>
                 Leaderboard
               </Link>
-              <Link href="/pools" className={`rounded-full px-4 py-1.5 ${onPools ? "bg-white/[.1] text-white" : "text-mute hover:text-white"}`}>
+              <Link href="/pools" className={`rounded-full px-4 py-1.5 ${onPools ? "bg-border text-fg" : "text-mute hover:text-fg"}`}>
                 Pools
               </Link>
-              <Link href="/feed" aria-current={onFeed ? "page" : undefined} className={`rounded-full px-4 py-1.5 ${onFeed ? "bg-white/[.1] text-white" : "text-mute hover:text-white"}`}>
+              <Link href="/feed" aria-current={onFeed ? "page" : undefined} className={`rounded-full px-4 py-1.5 ${onFeed ? "bg-border text-fg" : "text-mute hover:text-fg"}`}>
                 Activity
               </Link>
-              <Link href="/profile/me" className={`rounded-full px-4 py-1.5 ${onMe ? "bg-white/[.1] text-white" : "text-mute hover:text-white"}`}>
+              <Link href="/profile/me" className={`rounded-full px-4 py-1.5 ${onMe ? "bg-border text-fg" : "text-mute hover:text-fg"}`}>
                 Profile
               </Link>
-              <Link href="/invites" className={`rounded-full px-4 py-1.5 ${onInvites ? "bg-white/[.1] text-white" : "text-mute hover:text-white"}`}>
+              <Link href="/invites" className={`rounded-full px-4 py-1.5 ${onInvites ? "bg-border text-fg" : "text-mute hover:text-fg"}`}>
                 Invites
               </Link>
             </nav>
@@ -141,14 +141,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <button
                 type="button"
                 onClick={() => openSignIn("methods")}
-                className="h-9 rounded-full bg-orange px-4 text-[13px] font-bold text-white transition hover:bg-orange-soft"
+                className="btn-primary h-9 px-4 text-[13px]"
                 data-testid="header-entry"
               >
                 Sign in
               </button>
             )}
             {isSignedIn && !isMember && (
-              <Link href="/join" className="flex h-9 items-center rounded-full bg-orange px-4 text-[13px] font-bold text-white transition hover:bg-orange-soft" data-testid="header-entry">
+              <Link href="/join" className="btn-primary h-9 px-4 text-[13px]" data-testid="header-entry">
                 Join beta
               </Link>
             )}
@@ -158,7 +158,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <button
                   type="button"
                   onClick={() => setMenuOpen((o) => !o)}
-                  className="flex h-9 items-center gap-2 rounded-full border border-white/10 bg-white/[.04] pl-1.5 pr-3 text-[13px] font-semibold transition hover:bg-white/[.08]"
+                  className="flex h-9 items-center gap-2 rounded-full border border-border bg-surface-raised pl-1.5 pr-3 text-[13px] font-semibold transition hover:bg-border"
                 >
                   <Avatar 
                     user={{ id: session?.userId || undefined, xAvatarUrl: session?.xAvatarUrl }} 
@@ -170,25 +170,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </button>
 
                 {menuOpen && (
-                  <div className="absolute right-0 z-50 mt-2 w-48 overflow-hidden rounded-2xl border border-white/10 bg-[#1A1623] p-1 text-[14px] shadow-xl">
+                  <div className="absolute right-0 z-50 mt-2 w-48 overflow-hidden rounded-2xl border border-border bg-surface p-1 text-[14px] shadow-xl shadow-black/40">
                     {!hasX && (
                       <a
                         href={`/api/x/login?link=true&returnTo=${encodeURIComponent("/profile/me")}`}
-                        className="flex items-center gap-2 rounded-xl px-3 py-2 hover:bg-white/[.06]"
+                        className="flex items-center gap-2 rounded-xl px-3 py-2 hover:bg-surface-raised"
                       >
                         <XIcon className="h-3.5 w-3.5" />
                         Link X account
                       </a>
                     )}
                     {isSignedIn && <OwnWalletRow address={hasWallet ? ownWallet : null} />}
-                    <hr className="my-1 border-white/10" />
+                    <hr className="my-1 border-border" />
                     <button
                       type="button"
                       onClick={() => {
                         setMenuOpen(false);
                         handleSignOut();
                       }}
-                      className="block w-full rounded-xl px-3 py-2 text-left text-dn hover:bg-white/[.06]"
+                      className="block w-full rounded-xl px-3 py-2 text-left text-dn hover:bg-surface-raised"
                     >
                       Sign out
                     </button>
@@ -204,7 +204,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Outbound Meteora link (referral) lives here rather than in the main nav. */}
       <footer className="mx-auto flex max-w-[1320px] justify-center px-4 pb-6 pt-4 text-[12px] text-mute lg:justify-end lg:px-6">
-        <a href={meteoraHomeUrl()} target="_blank" rel="noreferrer" className="hover:text-white">
+        <a href={meteoraHomeUrl()} target="_blank" rel="noreferrer" className="hover:text-fg">
           Meteora ↗
         </a>
       </footer>
@@ -212,20 +212,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* Mobile bottom tab bar */}
       {isMember && (
         <nav className="fixed inset-x-3 bottom-3 z-40 lg:hidden">
-          <div className="flex items-center justify-around rounded-[26px] border border-white/[.08] bg-[#15131f] px-2 py-2 shadow-2xl shadow-black/60">
-            <Link href="/" className={`flex min-w-0 flex-1 flex-col items-center gap-0.5 text-[11px] font-semibold ${onBoard ? "text-orange" : "text-mute"}`}>
+          <div className="flex items-center justify-around rounded-[26px] border border-border bg-surface px-2 py-2 shadow-2xl shadow-black/60">
+            <Link href="/" className={`flex min-w-0 flex-1 flex-col items-center gap-0.5 text-[11px] font-semibold ${onBoard ? "text-accent" : "text-mute"}`}>
               <span className="text-[20px]">🏆</span>Ranks
             </Link>
-            <Link href="/pools" className={`flex min-w-0 flex-1 flex-col items-center gap-0.5 text-[11px] font-semibold ${onPools ? "text-orange" : "text-mute"}`}>
+            <Link href="/pools" className={`flex min-w-0 flex-1 flex-col items-center gap-0.5 text-[11px] font-semibold ${onPools ? "text-accent" : "text-mute"}`}>
               <span className="text-[20px]">🏊</span>Pools
             </Link>
-            <Link href="/feed" aria-current={onFeed ? "page" : undefined} className={`flex min-w-0 flex-1 flex-col items-center gap-0.5 text-[11px] font-semibold ${onFeed ? "text-orange" : "text-mute"}`}>
+            <Link href="/feed" aria-current={onFeed ? "page" : undefined} className={`flex min-w-0 flex-1 flex-col items-center gap-0.5 text-[11px] font-semibold ${onFeed ? "text-accent" : "text-mute"}`}>
               <span className="text-[20px]">🌊</span>Activity
             </Link>
-            <Link href="/invites" className={`flex min-w-0 flex-1 flex-col items-center gap-0.5 text-[11px] font-semibold ${onInvites ? "text-orange" : "text-mute"}`}>
+            <Link href="/invites" className={`flex min-w-0 flex-1 flex-col items-center gap-0.5 text-[11px] font-semibold ${onInvites ? "text-accent" : "text-mute"}`}>
               <span className="text-[20px]">🎟️</span>Invites
             </Link>
-            <Link href="/profile/me" className={`flex min-w-0 flex-1 flex-col items-center gap-0.5 text-[11px] font-semibold ${onMe ? "text-orange" : "text-mute"}`}>
+            <Link href="/profile/me" className={`flex min-w-0 flex-1 flex-col items-center gap-0.5 text-[11px] font-semibold ${onMe ? "text-accent" : "text-mute"}`}>
               <span className="text-[20px]">👤</span>Me
             </Link>
           </div>

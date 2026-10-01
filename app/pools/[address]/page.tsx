@@ -71,13 +71,13 @@ function TokenDot({ icon, label, className = "" }: { icon: string | null; label:
       <img
         src={icon}
         alt={label}
-        className={`h-12 w-12 rounded-full border-2 border-base bg-[#222] object-cover ${className}`}
+        className={`h-12 w-12 rounded-full border-2 border-surface bg-surface-raised object-cover ${className}`}
         loading="lazy"
       />
     );
   }
   return (
-    <span className={`flex h-12 w-12 items-center justify-center rounded-full border-2 border-base bg-purp/40 text-[16px] font-bold ${className}`}>
+    <span className={`flex h-12 w-12 items-center justify-center rounded-full border-2 border-surface bg-border-strong text-[16px] font-bold ${className}`}>
       {label.slice(0, 1)}
     </span>
   );
@@ -209,7 +209,7 @@ export default function PoolDetailPage() {
           </p>
           <Link
             href="/pools"
-            className="mt-5 inline-block h-11 rounded-full bg-orange px-6 text-[14px] font-bold leading-[44px] shadow-lg shadow-orange/30 hover:bg-orange-soft"
+            className="btn-primary mt-5 h-11 px-6 text-[14px]"
           >
             Browse all pools
           </Link>
@@ -234,18 +234,18 @@ export default function PoolDetailPage() {
               <div className="flex min-w-0 items-center gap-2 text-[20px] font-extrabold sm:text-[24px]">
                 <span className="min-w-0 truncate" data-testid="pool-pair">
                   {pool.tokenXMint ? (
-                    <Link href={`/pools?token=${pool.tokenXMint}`} className="hover:text-orange">{x}</Link>
+                    <Link href={`/pools?token=${pool.tokenXMint}`} className="hover:underline">{x}</Link>
                   ) : (
                     <span>{x}</span>
                   )}
                   <span>-</span>
                   {pool.tokenYMint ? (
-                    <Link href={`/pools?token=${pool.tokenYMint}`} className="hover:text-orange">{y}</Link>
+                    <Link href={`/pools?token=${pool.tokenYMint}`} className="hover:underline">{y}</Link>
                   ) : (
                     <span>{y}</span>
                   )}
                 </span>
-                <span className="shrink-0 rounded bg-orange/15 px-2 py-0.5 text-[11px] font-bold uppercase text-orange">
+                <span className="shrink-0 rounded border border-border px-2 py-0.5 text-[11px] font-semibold uppercase text-mute">
                   DLMM
                 </span>
               </div>
@@ -258,7 +258,7 @@ export default function PoolDetailPage() {
             href={meteoraPoolUrl(pool.poolAddress, pool.protocol)}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center whitespace-nowrap rounded-full border border-white/15 px-5 py-2 text-[14px] font-semibold text-white/90 transition hover:bg-white/[.06] hover:text-white"
+            className="flex items-center justify-center whitespace-nowrap rounded-full border border-border-strong px-5 py-2 text-[14px] font-semibold text-fg-secondary transition hover:bg-surface-raised hover:text-fg"
           >
             Dip in ↗
           </a>
@@ -302,7 +302,7 @@ export default function PoolDetailPage() {
                 onPost={postComment}
               />
             ) : (
-              <div className="mb-6 rounded-2xl border border-purp/30 bg-purp/10 px-4 py-3 text-center">
+              <div className="mb-6 rounded-2xl border border-border bg-surface-raised px-4 py-3 text-center">
                 <p className="text-[14px] text-mute">Sign in to post</p>
               </div>
             )}
@@ -334,7 +334,7 @@ function LPRow({ lp }: { lp: LP }) {
   const pnlTone = (lp.totalPnl ?? 0) >= 0 ? "text-up" : "text-dn";
 
   return (
-    <div className="glass relative flex items-center gap-3 rounded-[20px] px-3 py-2.5 transition hover:bg-white/[.06] sm:px-4">
+    <div className="glass relative flex items-center gap-3 rounded-[20px] px-3 py-2.5 transition hover:bg-surface-raised sm:px-4">
       {/* Row link as an overlay so the Follow button isn't nested inside an anchor. */}
       <Link href={`/profile/${lp.xHandle || lp.id}`} aria-label={`${displayName(lp)}'s profile`} className="absolute inset-0 rounded-[20px]" />
       <Avatar user={lp} size={42} />
@@ -398,9 +398,9 @@ function CommentComposer({
 
   if (hasPosition === false) {
     return (
-      <div className="mb-6 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 rounded-2xl border border-white/[.08] bg-white/[.03] px-4 py-3 text-[14px] text-mute">
+      <div className="mb-6 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 rounded-2xl border border-border bg-surface-raised px-4 py-3 text-[14px] text-mute">
         <span>Open a position in any {tokenSymbol} pool to share your thesis.</span>
-        <a href={meteoraHomeUrl()} target="_blank" rel="noopener noreferrer" className="whitespace-nowrap text-[12px] font-semibold text-mute transition hover:text-white">
+        <a href={meteoraHomeUrl()} target="_blank" rel="noopener noreferrer" className="whitespace-nowrap text-[12px] font-semibold text-mute transition hover:text-fg">
           Meteora ↗
         </a>
       </div>
@@ -414,7 +414,7 @@ function CommentComposer({
         <img
           src={avatarFor(user)}
           alt=""
-          className="h-10 w-10 rounded-full border border-base bg-[#222] object-cover"
+          className="h-10 w-10 rounded-full border border-surface bg-surface-raised object-cover"
         />
         <div className="min-w-0 flex-1">
           <textarea
@@ -424,7 +424,7 @@ function CommentComposer({
             rows={3}
             placeholder={`Share your ${tokenSymbol} thesis...`}
             disabled={posting || hasPosition === null}
-            className="w-full rounded-xl border border-white/10 bg-black/30 p-3 text-[14px] outline-none focus:border-orange/60 disabled:opacity-60"
+            className="w-full rounded-xl border border-border bg-bg p-3 text-[14px] outline-none focus:border-accent disabled:opacity-60"
           />
           <div className="mt-2 flex items-center justify-between">
             <span className="text-[12px] text-mute">
@@ -434,7 +434,7 @@ function CommentComposer({
               type="button"
               onClick={onPost}
               disabled={!commentText.trim() || posting || hasPosition === null}
-              className="h-9 rounded-full bg-orange px-5 text-[13px] font-bold hover:bg-orange-soft disabled:cursor-not-allowed disabled:bg-white/[.08] disabled:text-white/40 disabled:hover:bg-white/[.08]"
+              className="btn-primary h-9 px-5 text-[13px] disabled:!bg-surface-raised disabled:!text-mute disabled:!opacity-100"
             >
               {posting ? "Posting..." : "Post"}
             </button>
@@ -459,11 +459,11 @@ function CommentCard({
   const profileHref = comment.author.hasProfile ? `/profile/${comment.author.xHandle || comment.author.id}` : null;
   const avatar = (
     // eslint-disable-next-line @next/next/no-img-element
-    <img src={avatarFor(comment.author)} alt="" className="h-10 w-10 rounded-full border border-base bg-[#222] object-cover" />
+    <img src={avatarFor(comment.author)} alt="" className="h-10 w-10 rounded-full border border-surface bg-surface-raised object-cover" />
   );
 
   return (
-    <div className="rounded-2xl border border-white/[.08] bg-black/20 p-4">
+    <div className="rounded-2xl border border-border bg-bg p-4">
       <div className="flex gap-3">
         {profileHref ? (
           <Link href={profileHref} className="shrink-0" aria-label={`${authorName}'s profile`} tabIndex={-1} data-testid="comment-author-avatar">
@@ -475,7 +475,7 @@ function CommentCard({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             {profileHref ? (
-              <Link href={profileHref} className="font-semibold hover:text-orange" data-testid="comment-author">
+              <Link href={profileHref} className="font-semibold hover:underline" data-testid="comment-author">
                 {authorName}
               </Link>
             ) : (
@@ -486,7 +486,7 @@ function CommentCard({
               <button
                 type="button"
                 onClick={onDelete}
-                className="ml-auto text-[12px] text-dn hover:text-dn-soft"
+                className="ml-auto text-[12px] text-dn hover:underline"
               >
                 Delete
               </button>

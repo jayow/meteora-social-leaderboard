@@ -93,7 +93,7 @@ function ShareDialog({ user, snap, onClose }: Omit<SharePnLModalProps, "isOpen">
         type="button"
         onClick={onClose}
         aria-label="Close"
-        className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full bg-white/[.08] text-white/60 hover:bg-white/[.14] hover:text-white"
+        className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full bg-surface-raised text-mute hover:bg-border hover:text-fg"
       >
         ✕
       </button>
@@ -110,7 +110,7 @@ function ShareDialog({ user, snap, onClose }: Omit<SharePnLModalProps, "isOpen">
             type="button"
             onClick={() => setRange(r)}
             className={`h-9 rounded-full px-4 text-sm font-semibold transition ${
-              range === r ? "bg-orange text-white shadow-lg shadow-orange/25" : "bg-white/[.08] text-white/70 hover:bg-white/[.14] hover:text-white"
+              range === r ? "bg-accent text-accent-fg" : "bg-surface-raised text-mute hover:bg-border hover:text-fg"
             }`}
           >
             {RANGE_LABEL[r]}
@@ -118,7 +118,7 @@ function ShareDialog({ user, snap, onClose }: Omit<SharePnLModalProps, "isOpen">
         ))}
       </div>
 
-      <div className="mb-4 aspect-[1200/630] overflow-hidden rounded-2xl border border-white/10 bg-[#110D14]">
+      <div className="mb-4 aspect-[1200/630] overflow-hidden rounded-2xl border border-border bg-bg">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={cardUrl} alt={`${name}'s ${rangeLabel} PnL card`} className="h-full w-full object-cover" data-testid="share-card" />
       </div>
@@ -128,7 +128,7 @@ function ShareDialog({ user, snap, onClose }: Omit<SharePnLModalProps, "isOpen">
           type="button"
           onClick={handleDownload}
           disabled={downloading}
-          className="flex h-11 items-center justify-center whitespace-nowrap rounded-full bg-white/[.08] px-3 text-[13px] font-bold hover:bg-white/[.14] disabled:cursor-not-allowed disabled:text-white/40 sm:text-sm"
+          className="flex h-11 items-center justify-center whitespace-nowrap rounded-full bg-surface-raised px-3 text-[13px] font-bold hover:bg-border disabled:cursor-not-allowed disabled:text-mute sm:text-sm"
         >
           {downloading ? (
             "Saving…"
@@ -142,7 +142,7 @@ function ShareDialog({ user, snap, onClose }: Omit<SharePnLModalProps, "isOpen">
           type="button"
           onClick={handleCopyImage}
           disabled={copying}
-          className="flex h-11 items-center justify-center whitespace-nowrap rounded-full bg-white/[.08] px-3 text-[13px] font-bold hover:bg-white/[.14] disabled:cursor-default sm:text-sm"
+          className="flex h-11 items-center justify-center whitespace-nowrap rounded-full bg-surface-raised px-3 text-[13px] font-bold hover:bg-border disabled:cursor-default sm:text-sm"
         >
           {copying ? "Copied!" : "Copy image"}
         </button>
@@ -150,7 +150,7 @@ function ShareDialog({ user, snap, onClose }: Omit<SharePnLModalProps, "isOpen">
           href={xShareUrl}
           target="_blank"
           rel="noreferrer"
-          className="flex h-11 items-center justify-center whitespace-nowrap rounded-full bg-orange px-3 text-[13px] font-bold shadow-lg shadow-orange/30 hover:bg-orange-soft sm:text-sm"
+          className="btn-primary h-11 px-3 text-[13px] sm:text-sm"
         >
           Share on X
         </a>

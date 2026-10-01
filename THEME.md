@@ -1,13 +1,13 @@
 # Pool Party theme
 
 Flat, dark, one accent. No gradients (text, buttons, avatar rings, backgrounds), no glows, no coloured shadows.
-Tokens live in `app/globals.css` (`@theme`, Tailwind v4), so each one is both a CSS variable (`var(--color-surface)`) and a utility (`bg-surface`, `text-mute`, `border-border`).
+Tokens live in `app/globals.css` (`@theme`, Tailwind v4), so each one is both a CSS variable (`var(--color-surface)`) and a utility (`bg-surface`, `text-mute`, `border-border`). `lib/theme.ts` mirrors them as hex for places without CSS (share card image, `themeColor`); keep both in sync.
 
 ## Tokens
 
 | Token | Value | Use |
 | --- | --- | --- |
-| `bg` | `#0e0d12` | Page background |
+| `bg` | `#0e0d12` | Page background (there is deliberately no `base` colour: it would collide with the `text-base` font size) |
 | `surface` | `#16151c` | Cards, panels, header, modals (`.glass` = surface + border) |
 | `surface-raised` | `#1f1e27` | Things on a card: tiles, inputs, menus, secondary buttons, chips |
 | `border` | `#2c2b36` | Default 1px borders and dividers |
@@ -18,7 +18,7 @@ Tokens live in `app/globals.css` (`@theme`, Tailwind v4), so each one is both a 
 | `accent` | `#ff5c1a` | The only brand colour: primary actions and the active state (selected tab/pill, focus ring, "you" row). Not for badges or decoration. |
 | `accent-hover` | `#ff7a3d` | Hover on accent |
 | `accent-fg` | `#170b05` | Text on a solid accent background (white on this orange fails contrast) |
-| `up` / `dn` | `#22c98a` / `#f2546b` | PnL positive/negative only (fees count as earnings, so fees are `up`). Not for win rate, badges or buttons. |
+| `up` / `dn` | `#22c98a` / `#f2546b` | PnL positive/negative only (fees count as earnings, so fees are `up`). Not for win rate, badges or buttons. `dn` also marks errors and destructive actions (Sign out, Delete). |
 
 No secondary accent. X/Twitter, badges and chips are neutral (`surface-raised` + `border` + `mute`/`fg`).
 
@@ -41,4 +41,4 @@ Size them at the call site: `btn-primary h-9 px-4 text-[13px]`.
 
 ## Deprecated (render flat now, migrate when touching the file)
 
-`brand-grad`, `brand-text`, `ring-brand`, `podium-1`, `you-row` and the colour aliases `base`, `navy`, `row`, `orange`, `orange-soft`, `purp`, `purp-soft`, `pink` (they map onto the tokens above).
+`brand-grad`, `brand-text`, `ring-brand`, `podium-1`, `you-row` and the colour aliases `orange`, `orange-soft`, `purp`, `purp-soft`, `pink` (they map onto the tokens above).

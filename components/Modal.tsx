@@ -7,8 +7,8 @@ import { createPortal } from "react-dom";
  * Shared modal look (Jay's rule: fully opaque, no see-through backdrops or panels).
  * Exported so modals that manage their own markup stay consistent with <Modal>.
  */
-export const MODAL_BACKDROP = "fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-[#0C0A10] p-4";
-export const MODAL_PANEL = "relative w-full rounded-3xl border border-white/10 bg-[#1A1623] shadow-2xl outline-none";
+export const MODAL_BACKDROP = "fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-bg p-4";
+export const MODAL_PANEL = "relative w-full rounded-3xl border border-border bg-surface outline-none";
 
 // Open modals, innermost last: only the top one reacts to Escape.
 const stack: symbol[] = [];

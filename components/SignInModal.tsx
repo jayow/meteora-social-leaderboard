@@ -121,8 +121,8 @@ export function SignInModal({ open, onClose, onSuccess, initialStep = "methods" 
       {step === "methods" ? (
         <>
           <div className="mb-6 text-center">
-            <h2 id="signin-title" className="text-2xl font-bold text-white">Sign in</h2>
-            <p className="mt-2 text-sm text-white/60">Choose your sign in method</p>
+            <h2 id="signin-title" className="text-2xl font-bold text-fg">Sign in</h2>
+            <p className="mt-2 text-sm text-mute">Choose your sign in method</p>
           </div>
 
           <div className="space-y-3">
@@ -132,7 +132,7 @@ export function SignInModal({ open, onClose, onSuccess, initialStep = "methods" 
                 setError(null);
                 setStep("wallets");
               }}
-              className="flex h-14 w-full items-center justify-center gap-3 rounded-2xl border border-orange/30 bg-orange text-base font-semibold text-white shadow-lg shadow-orange/25 transition hover:bg-orange-soft"
+              className="btn-primary h-14 w-full gap-3 !rounded-2xl text-base"
             >
               <span className="text-xl">👛</span>
               Connect wallet
@@ -141,7 +141,7 @@ export function SignInModal({ open, onClose, onSuccess, initialStep = "methods" 
             <button
               type="button"
               onClick={handleXConnect}
-              className="flex h-14 w-full items-center justify-center gap-3 rounded-2xl border border-white/20 bg-white/[.12] text-base font-semibold text-white transition hover:bg-white/[.18]"
+              className="btn-secondary h-14 w-full gap-3 !rounded-2xl text-base"
             >
               <XIcon className="h-4 w-4" />
               Continue with X
@@ -159,17 +159,17 @@ export function SignInModal({ open, onClose, onSuccess, initialStep = "methods" 
                   setError(null);
                   setStep("methods");
                 }}
-                className="flex h-9 w-9 items-center justify-center rounded-full text-white/70 transition hover:bg-white/[.08] hover:text-white"
+                className="flex h-9 w-9 items-center justify-center rounded-full text-mute transition hover:bg-surface-raised hover:text-fg"
                 aria-label="Back"
               >
                 ←
               </button>
             )}
             <div>
-              <h2 id="signin-title" className="text-xl font-bold text-white">
+              <h2 id="signin-title" className="text-xl font-bold text-fg">
                 {initialStep === "wallets" ? "Change wallet" : "Connect a wallet"}
               </h2>
-              <p className="mt-0.5 text-[13px] text-white/60">Pick a wallet, then sign a free message to verify.</p>
+              <p className="mt-0.5 text-[13px] text-mute">Pick a wallet, then sign a free message to verify.</p>
             </div>
           </div>
           <WalletPicker busyName={pending} onPick={handlePick} />
@@ -177,12 +177,12 @@ export function SignInModal({ open, onClose, onSuccess, initialStep = "methods" 
       )}
 
       {error && (
-        <p role="alert" className="mt-4 rounded-xl border border-dn/30 bg-dn/10 px-3 py-2 text-[13px] text-white">
+        <p role="alert" className="mt-4 rounded-xl border border-dn/30 bg-dn/10 px-3 py-2 text-[13px] text-fg">
           {error}
         </p>
       )}
 
-      <button type="button" onClick={onClose} className="mt-6 w-full text-sm text-white/60 hover:text-white">
+      <button type="button" onClick={onClose} className="mt-6 w-full text-sm text-mute hover:text-fg">
         Cancel
       </button>
     </Modal>
