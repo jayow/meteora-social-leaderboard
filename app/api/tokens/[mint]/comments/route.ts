@@ -3,6 +3,7 @@ import { getDb, getPool, hasDb } from "@/lib/db";
 import { tokenComments } from "@/lib/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
 import { getSessionUser } from "@/lib/session";
+import { recordThesisActivity } from "@/lib/activity";
 
 export const dynamic = "force-dynamic";
 
@@ -159,6 +160,7 @@ export async function POST(
       body: text,
     })
     .returning();
+  await recordThesisActivity(user.id, comment.id, mint, comment.createdAt);
 
   return NextResponse.json({ 
     comment: {

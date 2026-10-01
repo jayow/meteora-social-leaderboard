@@ -206,6 +206,42 @@ export const tokenComments = pgTable(
   ]
 );
 
+/**
+ * Activity feed events. Written at sync (position opened/closed, big wins), comment, join and follow
+ * time; backfilled from existing rows in drizzle/0013. `dedupe_key` makes every write idempotent.
+ * Never stores wallet addresses. Only joined actors are shown (enforced at read time in lib/activity.ts).
+ */
+export const activity = pgTable(
+  "activity",
+  {
+    id: serial("id").primaryKey(),
+    actorUserId: integer("actor_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** joined | followed | thesis | opened | closed | big_win */
+    kind: varchar("kind", { length: 24 }).notNull(),
+    targetUserId: integer("target_user_id").references(() => users.id, { onDelete: "cascade" }),
+    poolAddress: varchar("pool_address", { length: 64 }),
+    poolName: text("pool_name"),
+    protocol: varchar("protocol", { length: 16 }),
+    binStep: integer("bin_step"),
+    tokenXIcon: text("token_x_icon"),
+    tokenYIcon: text("token_y_icon"),
+    tokenMint: varchar("token_mint", { length: 64 }),
+    tokenSymbol: text("token_symbol"),
+    commentId: integer("comment_id").references(() => tokenComments.id, { onDelete: "cascade" }),
+    amountUsd: doublePrecision("amount_usd"),
+    dedupeKey: varchar("dedupe_key", { length: 160 }).notNull(),
+    occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("activity_dedupe_key").on(t.dedupeKey),
+    index("activity_occurred_idx").on(t.occurredAt.desc(), t.id.desc()),
+    index("activity_actor_occurred_idx").on(t.actorUserId, t.occurredAt.desc()),
+  ]
+);
+
 export type ProfileBannerRow = typeof profileBanners.$inferSelect;
 export type InviteCodeRow = typeof inviteCodes.$inferSelect;
 export type UserRow = typeof users.$inferSelect;
@@ -215,3 +251,5 @@ export type NewSnapshot = typeof pnlSnapshots.$inferInsert;
 export type FollowRow = typeof follows.$inferSelect;
 export type OpenPositionRow = typeof openPositions.$inferSelect;
 export type TokenCommentRow = typeof tokenComments.$inferSelect;
+export type ActivityRow = typeof activity.$inferSelect;
+export type NewActivity = typeof activity.$inferInsert;

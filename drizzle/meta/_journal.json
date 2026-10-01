@@ -92,6 +92,13 @@
       "when": 1790820867056,
       "tag": "0012_add_anon_name",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1790823370097,
+      "tag": "0013_activity_feed",
+      "breakpoints": true
     }
   ]
 }
