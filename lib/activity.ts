@@ -1,5 +1,6 @@
 import { getPool } from "@/lib/db";
 import { listTheses } from "@/lib/theses";
+import { parseBadgeActivityKey } from "@/lib/badges/config";
 import type {
   ActivityItem,
   ActivityKind,
@@ -207,6 +208,7 @@ interface EventRow {
   token_mint: string | null;
   token_symbol: string | null;
   amount_usd: number | null;
+  dedupe_key: string;
   a_id: number;
   a_x_handle: string | null;
   a_x_avatar_url: string | null;
@@ -217,7 +219,7 @@ interface EventRow {
   t_anon_name: string | null;
 }
 
-const EVENT_KINDS: readonly EventKind[] = ["joined", "followed", "opened", "closed", "big_win"];
+const EVENT_KINDS: readonly EventKind[] = ["joined", "followed", "opened", "closed", "big_win", "badge"];
 
 function isEventKind(k: string): k is EventKind {
   return (EVENT_KINDS as readonly string[]).includes(k);
@@ -266,7 +268,7 @@ async function getEvents(ids: number[]): Promise<Map<number, ActivityItem>> {
   if (ids.length === 0) return out;
   const { rows } = await getPool().query<EventRow>(
     `SELECT a.id, a.kind, a.occurred_at, a.pool_address, a.pool_name, a.protocol, a.bin_step, a.token_x_icon,
-            a.token_y_icon, a.token_mint, a.token_symbol, a.amount_usd,
+            a.token_y_icon, a.token_mint, a.token_symbol, a.amount_usd, a.dedupe_key,
             u.id AS a_id, u.x_handle AS a_x_handle, u.x_avatar_url AS a_x_avatar_url, u.anon_name AS a_anon_name,
             t.id AS t_id, t.x_handle AS t_x_handle, t.x_avatar_url AS t_x_avatar_url, t.anon_name AS t_anon_name
      FROM activity a
@@ -292,6 +294,7 @@ async function getEvents(ids: number[]): Promise<Map<number, ActivityItem>> {
           : null,
       token: r.token_mint ? { mint: r.token_mint, symbol: r.token_symbol } : null,
       amountUsd: r.kind === "closed" || r.kind === "big_win" ? r.amount_usd : null,
+      badge: r.kind === "badge" ? parseBadgeActivityKey(r.dedupe_key) : null,
     });
   }
   return out;
@@ -332,7 +335,7 @@ export async function listFeed(opts: {
     FROM activity a
     JOIN users u ON u.id = a.actor_user_id AND u.joined_at IS NOT NULL
     LEFT JOIN users t ON t.id = a.target_user_id
-    WHERE a.kind IN ('joined', 'followed', 'opened', 'closed', 'big_win')
+    WHERE a.kind IN ('joined', 'followed', 'opened', 'closed', 'big_win', 'badge')
       AND (a.kind <> 'followed' OR (t.joined_at IS NOT NULL AND EXISTS (
         SELECT 1 FROM follows f WHERE f.follower_user_id = a.actor_user_id AND f.followee_user_id = a.target_user_id)))
       ${followSql("a.actor_user_id")} ${cursorSql("a.occurred_at", RANK_EVENT, "a.id")}`;

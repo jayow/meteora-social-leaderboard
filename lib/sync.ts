@@ -6,6 +6,7 @@ import { fetchMeteora } from "@/lib/meteora-limiter";
 import { meteoraUrls } from "@/lib/meteora-endpoints";
 import { getUserWalletAddresses } from "@/lib/users";
 import { recordSyncActivity, type SyncedPosition } from "@/lib/activity";
+import { refreshBadges } from "@/lib/badges/compute";
 
 const AVATAR_RECHECK_DAYS = 7;
 
@@ -320,6 +321,14 @@ export async function syncUser(user: UserRow): Promise<SyncResult> {
   const winRate7d = totalTrades7d > 0 ? totalWinCount7d / totalTrades7d : null;
   const winRate30d = totalTrades30d > 0 ? totalWinCount30d / totalTrades30d : null;
 
+  // Distinct pools LP'd (Pool Hopper badge): Meteora's portfolio pool count per wallet, or the union of
+  // pool addresses we saw (portfolio page + open), whichever is larger. A lower bound across wallets.
+  const seenPools = new Set(
+    [...allPortfolioPools, ...allOpenPools].map((p) => p.poolAddress).filter((a): a is string => Boolean(a))
+  );
+  const portfolioPoolCount = Math.max(0, ...walletDataList.map((wd) => Math.round(num(wd.portfolio?.totalCount))));
+  const distinctPools = Math.max(seenPools.size, portfolioPoolCount);
+
   // Resolve top pool across all wallets
   const allOpenPoolsArray = Array.from(openPoolsByAddress.values());
   const topPool = await resolveTopPoolMultiWallet(biggestPnlPool, allPortfolioPools, allOpenPoolsArray);
@@ -350,6 +359,7 @@ export async function syncUser(user: UserRow): Promise<SyncResult> {
     topPoolYIcon: topPool?.yIcon || null,
     source: {
       fetchedAt: new Date().toISOString(),
+      distinctPools,
       wallets: walletDataList.map((wd) => ({
         wallet: wd.wallet,
         total: wd.total,
@@ -463,6 +473,9 @@ export async function syncUser(user: UserRow): Promise<SyncResult> {
   if (walletDataList.every((wd) => wd.open)) {
     await recordSyncActivity(user.id, openedRows, closedRows, allPortfolioPools);
   }
+
+  // Badges from the snapshot just written (members only, upgrade-only, never throws).
+  await refreshBadges(user.id, { announce: true });
   
   await db.update(users).set({ lastSyncedAt: sql`now()`, lastAttemptedAt: sql`now()` }).where(eq(users.id, user.id));
 

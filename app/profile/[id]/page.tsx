@@ -4,7 +4,8 @@ import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useWallet } from "@solana/wallet-adapter-react";
-import type { ApiSnapshot, ApiUser } from "@/lib/api-types";
+import type { ApiBadge, ApiSnapshot, ApiUser } from "@/lib/api-types";
+import { BadgeRow } from "@/components/Badges";
 import { useMe } from "@/components/MeProvider";
 import { ThesisCompact } from "@/components/ThesisCard";
 import type { ThesisPost } from "@/lib/thesis-types";
@@ -61,6 +62,7 @@ function Profile() {
 
   const [user, setUser] = useState<ApiUser | null>(null);
   const [snap, setSnap] = useState<ApiSnapshot | null>(null);
+  const [badges, setBadges] = useState<ApiBadge[]>([]);
   const [status, setStatus] = useState<LoadStatus>("idle");
   const [reloadKey, setReloadKey] = useState(0);
   const [syncing, setSyncing] = useState(false);
@@ -74,9 +76,10 @@ function Profile() {
     const res = await fetch(`/api/users/${encodeURIComponent(id)}`, { cache: "no-store" });
     if (res.status === 404) return null;
     if (!res.ok) throw new Error("load failed");
-    const d = (await res.json()) as { user: ApiUser; snapshot: ApiSnapshot | null };
+    const d = (await res.json()) as { user: ApiUser; snapshot: ApiSnapshot | null; badges?: ApiBadge[] };
     setUser(d.user);
     setSnap(d.snapshot);
+    setBadges(d.badges ?? []);
     return d.user;
   }, []);
 
@@ -304,6 +307,7 @@ function Profile() {
                 <XIcon className="h-3 w-3" />@{user.xHandle}
               </a>
             )}
+            <BadgeRow badges={badges} className="mt-2.5" />
             {(user.followersCount !== undefined || user.followingCount !== undefined) && (
               <div className="mt-2 flex gap-4 text-[13px]">
                 {user.followersCount !== undefined && (

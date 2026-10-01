@@ -3,6 +3,7 @@ import { getSessionUserId } from "@/lib/session";
 import { redeemCode } from "@/lib/invite";
 import { toPublicUser } from "@/lib/users";
 import { recordActivity } from "@/lib/activity";
+import { refreshBadges } from "@/lib/badges/compute";
 
 export const dynamic = "force-dynamic";
 
@@ -27,5 +28,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: result.error || "Failed to join" }, { status: 400 });
   }
   await recordActivity({ actorUserId: result.user.id, kind: "joined", dedupeKey: `joined:${result.user.id}`, occurredAt: result.user.joinedAt });
+  // Badges for data we already have (earlier syncs before joining). Silent: "joined" is the event here.
+  await refreshBadges(result.user.id, { announce: false });
   return NextResponse.json({ ok: true, user: toPublicUser(result.user, true) }, { status: 200 });
 }

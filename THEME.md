@@ -47,6 +47,7 @@ The one place colour is used for celebration. Ranks 1, 2 and 3 get `gold`, `silv
 - Rank mark: `components/RankMedal.tsx` (inline SVG medal, solid metal, number in `text-bg`). Use it wherever a top-3 rank is shown, and nowhere else.
 - Avatar ring: a solid 2px metal border around the avatar (`border-2 border-gold p-[3px] rounded-full`).
 - Card: a light tint and border, e.g. `bg-gold/[.07] border-gold/50`. Keep the stat in its own semantic colour (`up`/`dn`/`fg`), not the metal.
+- Badge tiers (`components/Badges.tsx`): tier 1 / 2 / 3 = `bronze` / `silver` / `gold` glyph on a `/[.08]` tint with a `/40` border. Podium's tier is the best finish (1st = gold). Untiered badges stay neutral.
 - Flat only: no metallic gradients, sheen, glow or animation.
 - Contrast on the dark theme: metal on `bg` is 10.5:1 (gold), 10.8:1 (silver) and 6.8:1 (bronze), and `bg` text on a solid metal gives the same ratios. A `/50` border is 3:1 or more against `surface`. `fg`, `mute` and `up` keep 14:1, 5.6:1 and 7.3:1 on a `/[.07]` tint.
 

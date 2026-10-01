@@ -5,6 +5,8 @@ import { useState } from "react";
 import { Avatar } from "@/components/ui";
 import { displayName, fmtUsd, timeAgo } from "@/lib/format";
 import type { ActivityItem, ActivityPerson, ActivityPool } from "@/lib/activity-types";
+import { BadgeGlyph, badgeTone } from "@/components/Badges";
+import { BADGES, tierLabel } from "@/lib/badges/config";
 
 /** Events shown before "Show N more" in a run between posts. */
 const RUN_PREVIEW = 3;
@@ -57,6 +59,18 @@ function Action({ item }: { item: ActivityItem }) {
       ) : (
         <>closed a position</>
       );
+    case "badge": {
+      if (!item.badge) return <>earned a badge</>;
+      const tier = tierLabel(item.badge.id, item.badge.tier);
+      return (
+        <>
+          earned{" "}
+          <BadgeGlyph id={item.badge.id} size={11} className={`inline -mt-0.5 ${badgeTone(item.badge.id, item.badge.tier)}`} />{" "}
+          <span className="font-semibold text-fg-secondary">{BADGES[item.badge.id].name}</span>
+          {tier && <> · {tier.split(" · ")[0]}</>}
+        </>
+      );
+    }
     case "big_win":
       return (
         <>

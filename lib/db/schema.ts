@@ -278,3 +278,29 @@ export type TokenCommentRow = typeof tokenComments.$inferSelect;
 export type ThesisLikeRow = typeof thesisLikes.$inferSelect;
 export type ActivityRow = typeof activity.$inferSelect;
 export type NewActivity = typeof activity.$inferInsert;
+
+/**
+ * Member badges (lib/badges). One row per member per badge; `tier` only ever goes up (1 = untiered or
+ * the first tier). Rows are permanent: a badge is never removed or downgraded once earned.
+ */
+export const userBadges = pgTable(
+  "user_badges",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** Badge id from lib/badges/config.ts (first_splash, fee_farmer, ...). */
+    badge: varchar("badge", { length: 32 }).notNull(),
+    tier: integer("tier").notNull().default(1),
+    /** What earned the current tier (metric value, threshold, podium tab/rank). Never wallet data. */
+    evidence: jsonb("evidence"),
+    /** First time the badge was earned (any tier). */
+    earnedAt: timestamp("earned_at", { withTimezone: true }).notNull().defaultNow(),
+    /** When the current tier was reached (equals earned_at until an upgrade). */
+    tierEarnedAt: timestamp("tier_earned_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("user_badges_user_badge_key").on(t.userId, t.badge)]
+);
+
+export type UserBadgeRow = typeof userBadges.$inferSelect;

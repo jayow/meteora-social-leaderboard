@@ -7,6 +7,7 @@ import type { LeaderboardEntry } from "@/lib/api-types";
 import { Avatar, Flag } from "@/components/ui";
 import { FollowButton } from "@/components/FollowButton";
 import { RankMedal, isMedalRank } from "@/components/RankMedal";
+import { BadgeRow } from "@/components/Badges";
 import type { FollowListKind } from "@/components/FollowListModal";
 import { displayName, fmtPct, fmtUsd } from "@/lib/format";
 
@@ -93,6 +94,8 @@ export function LeaderboardHoverCard({
           </div>
         </div>
       </div>
+
+      <BadgeRow badges={entry.badges} max={4} size="sm" className="mt-3" />
 
       <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2">
         {stats.map((s) => (

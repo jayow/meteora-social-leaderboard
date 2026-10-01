@@ -3,6 +3,7 @@ import { sql } from "drizzle-orm";
 import { getDb, hasDb } from "@/lib/db";
 import { users, type UserRow } from "@/lib/db/schema";
 import { syncUser, type SyncResult } from "@/lib/sync";
+import { evaluatePodium } from "@/lib/badges/compute";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -73,6 +74,8 @@ interface RunSummary {
   durationMs: number;
   errors: Array<{ wallet: string; error: string }>;
   reason?: string;
+  /** Podium badge pass after the sync loop: members currently top 3, and new/upgraded badges. */
+  podium?: { checked: number; awarded: number };
 }
 
 function shortWallet(wallet: string): string {
@@ -202,6 +205,11 @@ async function handle(req: NextRequest): Promise<NextResponse> {
   runInProgress = true;
   try {
     const summary = await runBatch();
+    // Podium badges from the current 30D ranks, every run (even when nobody was stale).
+    if (hasDb()) {
+      const podium = await evaluatePodium({ announce: true });
+      summary.podium = { checked: podium.checked, awarded: podium.awarded.length };
+    }
     const body: RunSummary = { ...summary, errors: summary.errors.slice(0, MAX_ERRORS_IN_RESPONSE) };
     return NextResponse.json(body, { status: statusCode(summary), headers: { "Cache-Control": "no-store" } });
   } finally {

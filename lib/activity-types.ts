@@ -1,8 +1,9 @@
 /** Client-safe types for the Poolside API (`GET /api/activity`). No wallet fields, ever. */
 import type { ThesisPost } from "@/lib/thesis-types";
+import type { BadgeId, BadgeTier } from "@/lib/badges/config";
 
 /** Every kind stored in the activity table. "thesis" rows exist but Poolside renders theses as posts. */
-export type ActivityKind = "joined" | "followed" | "thesis" | "opened" | "closed" | "big_win";
+export type ActivityKind = "joined" | "followed" | "thesis" | "opened" | "closed" | "big_win" | "badge";
 
 /** Kinds rendered as compact event rows. */
 export type EventKind = Exclude<ActivityKind, "thesis">;
@@ -36,7 +37,7 @@ export interface ActivityToken {
   symbol: string | null;
 }
 
-/** A compact activity event (position opened/closed, big win, joined, followed). */
+/** A compact activity event (position opened/closed, big win, joined, followed, earned a badge). */
 export interface ActivityItem {
   id: number;
   kind: EventKind;
@@ -47,6 +48,8 @@ export interface ActivityItem {
   token: ActivityToken | null;
   /** Realized PnL in USD for closes / big wins. */
   amountUsd: number | null;
+  /** "badge" events: the badge and tier earned. */
+  badge: { id: BadgeId; tier: BadgeTier } | null;
 }
 
 export type FeedItem =

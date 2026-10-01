@@ -2,17 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getPool, hasDb } from "@/lib/db";
 import { isCountryCode } from "@/lib/countries";
 import { getSessionUserId } from "@/lib/session";
+import { HAS_DATA_SQL, LEADERBOARD_COLS, boardOrderSql, type LeaderboardRange as Range, type LeaderboardSort as Sort } from "@/lib/leaderboard-rank";
+import { listBadges } from "@/lib/badges/compute";
 
 export const dynamic = "force-dynamic";
-
-type Range = "7d" | "30d" | "all";
-type Sort = "pnl" | "fees" | "volume" | "winrate";
-
-const COLS: Record<Range, { pnl: string; volume: string; winrate: string; fees: string }> = {
-  "7d": { pnl: "s.pnl_7d", volume: "s.volume_7d_usd", winrate: "s.win_rate_7d", fees: "s.fees_7d_usd" },
-  "30d": { pnl: "s.pnl_30d", volume: "s.volume_30d_usd", winrate: "s.win_rate_30d", fees: "s.fees_30d_usd" },
-  all: { pnl: "s.total_pnl_usd", volume: "s.volume_usd", winrate: "s.win_rate", fees: "s.fees_usd" },
-};
 
 interface Row {
   id: number;
@@ -56,11 +49,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const countryRaw = (sp.get("country") || "").toUpperCase();
   const country = countryRaw && isCountryCode(countryRaw) ? countryRaw : null;
   const limit = Math.min(Math.max(Number(sp.get("limit")) || 100, 1), 500);
-  const cols = COLS[range];
-  // A member "has data" once their snapshot shows any Meteora LP activity. Members without data are
-  // unranked (rank null), listed after everyone with data, and never take podium spots.
-  const hasData = `(coalesce(s.positions_open, 0) + coalesce(s.positions_closed, 0) > 0
-      or coalesce(s.volume_usd, 0) <> 0 or coalesce(s.portfolio_value_usd, 0) <> 0 or coalesce(s.total_pnl_usd, 0) <> 0)`;
+  const cols = LEADERBOARD_COLS[range];
+  // Members without Meteora activity are unranked (see HAS_DATA_SQL in lib/leaderboard-rank.ts).
+  const hasData = HAS_DATA_SQL;
   // scope=following narrows the whole board (not just the loaded page) to people the viewer follows.
   const scopeFollowing = sp.get("scope") === "following";
   const viewerId = await getSessionUserId();
@@ -79,7 +70,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       select distinct on (user_id) * from pnl_snapshots order by user_id, date desc
     ), ranked as (
       select s.*, u.id as uid, ${hasData} as has_data,
-             row_number() over (order by ${hasData} desc, ${cols[sort]} desc nulls last, ${cols.pnl} desc nulls last, u.id asc) as board_pos
+             row_number() over (order by ${boardOrderSql(range, sort)}) as board_pos
       from latest s
       join users u on u.id = s.user_id
       where u.joined_at is not null and ($1::text is null or u.country = $1)
@@ -105,6 +96,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const pool = getPool();
   // Viewer-specific: whether the signed-in user (wallet or X session) follows each entry.
   const { rows } = await pool.query<Row>(sql, [country, limit, viewerId, scope]);
+  // Badges for the listed members (one query; the board is members-only).
+  const badgesByUser = await listBadges(rows.map((r) => r.id));
 
   const entries = rows.map((r) => ({
     rank: r.board_rank === null ? null : Number(r.board_rank),
@@ -141,6 +134,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     snapshotDate: r.date,
     updatedAt: r.updated_at instanceof Date ? r.updated_at.toISOString() : String(r.updated_at),
     bannerUpdatedAt: r.banner_updated_at instanceof Date ? r.banner_updated_at.toISOString() : null,
+    badges: badgesByUser.get(r.id) ?? [],
   }));
 
   return NextResponse.json({

@@ -1,3 +1,7 @@
+import type { ApiBadge } from "@/lib/badges/config";
+
+export type { ApiBadge };
+
 export interface PoolInfo {
   address: string;
   name: string;
@@ -35,6 +39,8 @@ export interface LeaderboardEntry {
   bannerUpdatedAt: string | null;
   /** Whether the signed-in viewer follows this LP (from /api/leaderboard). */
   isFollowing?: boolean;
+  /** Earned badges, display-sorted (lib/badges). */
+  badges?: ApiBadge[];
 }
 
 export interface LeaderboardResponse {

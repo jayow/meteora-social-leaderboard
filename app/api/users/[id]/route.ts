@@ -5,6 +5,7 @@ import { users } from "@/lib/db/schema";
 import { ensureAnonName, findUser, getFollowCounts, getUserWalletAddresses, isUserFollowing, latestSnapshot, toPublicSnapshot, toPublicUser } from "@/lib/users";
 import { getSessionUserId } from "@/lib/session";
 import { isCountryCode } from "@/lib/countries";
+import { listBadges } from "@/lib/badges/compute";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +25,8 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
   const walletCount = (await getUserWalletAddresses(user)).length;
 
   const isFollowing = await isUserFollowing(currentUserId, user.id);
+  // Members only (listBadges skips unjoined users), so an owner who hasn't joined gets [].
+  const badges = (await listBadges([user.id])).get(user.id) ?? [];
   
   const publicUser = {
     ...toPublicUser(user, isOwnProfile),
@@ -35,7 +38,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
   
   // Owner responses include private fields (wallet, own counts): never cache.
   return NextResponse.json(
-    { user: publicUser, snapshot: snap ? toPublicSnapshot(snap) : null },
+    { user: publicUser, snapshot: snap ? toPublicSnapshot(snap) : null, badges },
     { headers: { "Cache-Control": "private, no-store" } }
   );
 }
