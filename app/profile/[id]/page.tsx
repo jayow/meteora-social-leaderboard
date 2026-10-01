@@ -205,10 +205,10 @@ function Profile() {
 
       <div className="grid gap-5 lg:grid-cols-[380px_minmax(0,1fr)]">
         {/* Identity card */}
-        <section className="glass h-fit overflow-hidden rounded-[28px]">
+        <section className="glass h-fit rounded-[28px]">
           <ProfileBanner user={user} mine={mine} onUpdated={() => load(target!)} />
-          <div className="px-5 pb-5">
-            <div className="relative z-10 -mt-12 flex items-end justify-between">
+          <div className="relative px-5 pb-5">
+            <div className="relative -mt-12 flex items-end justify-between">
               <Avatar user={user} size={96} ring />
               <div className="mb-1 flex gap-2">
                 {snap && (
@@ -270,7 +270,7 @@ function Profile() {
             {/* WalletsSection hidden for now - multi-wallet feature parked */}
             {/* {mine && <WalletsSection />} */}
 
-            <Thesis user={user} mine={mine} onSaved={(u) => setUser(u)} />
+            <RecentTheses userId={user.id} />
 
             {snap?.topPool && (
               <div className="mt-4 flex items-center justify-between gap-2 text-[12px] text-mute">
@@ -559,11 +559,11 @@ function ProfileBanner({ user, mine, onUpdated }: { user: ApiUser; mine: boolean
 
   return (
     <>
-      <div className="relative h-[167px]">
+      <div className="relative aspect-[3/1] w-full overflow-hidden">
         {bannerUrl ? (
-          <img src={bannerUrl} alt="" className="h-full w-full object-cover" />
+          <img src={bannerUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
         ) : (
-          <div className="brand-grad relative h-full">
+          <div className="brand-grad absolute inset-0">
             <div className="absolute inset-0 bg-[radial-gradient(60%_120%_at_20%_0%,rgba(255,255,255,.28),transparent)]" />
           </div>
         )}
@@ -571,7 +571,7 @@ function ProfileBanner({ user, mine, onUpdated }: { user: ApiUser; mine: boolean
           <button
             type="button"
             onClick={handleEditClick}
-            className="absolute right-3 top-3 flex items-center gap-1.5 rounded-full border border-white/20 bg-[#12121C] px-3 py-1.5 text-[12px] font-semibold text-white hover:border-white/30 hover:bg-[#1A1623]"
+            className="absolute right-3 top-3 z-10 flex items-center gap-1.5 rounded-full border border-white/20 bg-[#12121C] px-3 py-1.5 text-[12px] font-semibold text-white hover:border-white/30 hover:bg-[#1A1623]"
           >
             <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
@@ -877,74 +877,89 @@ function WalletsSection() {
   );
 }
 
-function Thesis({ user, mine, onSaved }: { user: ApiUser; mine: boolean; onSaved: (u: ApiUser) => void }) {
-  const me = useMe();
-  const [editing, setEditing] = useState(false);
-  const [value, setValue] = useState(user.thesis || "");
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
 
-  useEffect(() => setValue(user.thesis || ""), [user.thesis]);
+interface Thesis {
+  id: number;
+  tokenMint: string;
+  body: string;
+  createdAt: string;
+  tokenSymbol: string;
+  tokenIcon: string | null;
+}
 
-  const save = async () => {
-    setBusy(true);
-    setErr(null);
-    const r = await me.update({ thesis: value });
-    setBusy(false);
-    if (r.needsAuth) {
-      const currentPath = encodeURIComponent(window.location.pathname + window.location.search);
-      window.location.href = `/api/x/login?returnTo=${currentPath}`;
-      return;
-    }
-    if (!r.ok) setErr(r.error || "Couldn't save");
-    else {
-      onSaved({ ...user, thesis: value.trim() || null });
-      setEditing(false);
-    }
-  };
+function RecentTheses({ userId }: { userId: number }) {
+  const [theses, setTheses] = useState<Thesis[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const handleEditClick = () => {
-    if (!me.verified) {
-      const currentPath = encodeURIComponent(window.location.pathname + window.location.search);
-      window.location.href = `/api/x/login?returnTo=${currentPath}`;
-      return;
-    }
-    setEditing(true);
-  };
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/users/\${userId}/theses`, { cache: "no-store" });
+        const data = await res.json();
+        setTheses(data.theses || []);
+      } catch {
+        setTheses([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, [userId]);
+
+  if (loading) {
+    return (
+      <div className="mt-4 rounded-2xl border border-white/10 bg-white/[.03] p-3.5">
+        <div className="text-[11px] font-bold uppercase tracking-wider text-mute">Recent theses</div>
+        <p className="mt-2 text-[13px] text-mute">Loading...</p>
+      </div>
+    );
+  }
+
+  if (theses.length === 0) {
+    return (
+      <div className="mt-4 rounded-2xl border border-white/10 bg-white/[.03] p-3.5">
+        <div className="text-[11px] font-bold uppercase tracking-wider text-mute">Recent theses</div>
+        <p className="mt-2 text-[13px] text-mute">No theses posted yet</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="mt-4 rounded-2xl rounded-tl-md border border-purp/20 bg-purp/10 p-3.5">
-      <div className="flex items-center justify-between">
-        <div className="text-[10px] font-bold uppercase tracking-wider text-purp-soft">Thesis</div>
-        {mine && !editing && (
-          <button type="button" onClick={handleEditClick} className="text-[12px] font-semibold text-orange hover:text-orange-soft">
-            {user.thesis ? "Edit" : "Write one"}
-          </button>
+    <div className="mt-4 rounded-2xl border border-white/10 bg-white/[.03] p-3.5">
+      <div className="text-[11px] font-bold uppercase tracking-wider text-mute">Recent theses</div>
+      <div className="mt-2 space-y-2">
+        {theses.slice(0, 3).map((thesis) => (
+          <Link
+            key={thesis.id}
+            href={`/pools?token=${thesis.tokenMint}`}
+            className="block rounded-xl border border-white/[.06] bg-black/20 p-2.5 transition hover:border-orange/40 hover:bg-white/[.04]"
+          >
+            <div className="flex items-center gap-2">
+              {thesis.tokenIcon ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={thesis.tokenIcon}
+                  alt={thesis.tokenSymbol}
+                  className="h-6 w-6 rounded-full border border-base bg-[#222] object-cover"
+                />
+              ) : (
+                <div className="flex h-6 w-6 items-center justify-center rounded-full border border-base bg-purp/40 text-[10px] font-bold">
+                  {thesis.tokenSymbol.slice(0, 1)}
+                </div>
+              )}
+              <span className="text-[13px] font-semibold">{thesis.tokenSymbol}</span>
+              <span className="ml-auto text-[11px] text-mute">{timeAgo(thesis.createdAt)}</span>
+            </div>
+            <p className="mt-1.5 line-clamp-2 text-[13px] leading-snug text-white/80">
+              {thesis.body}
+            </p>
+          </Link>
+        ))}
+        {theses.length > 3 && (
+          <p className="pt-1 text-[11px] text-mute">+{theses.length - 3} more</p>
         )}
       </div>
-      {editing ? (
-        <>
-          <textarea
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            maxLength={1000}
-            rows={4}
-            placeholder="e.g. Tight bid-ask on SOL-USDC, rebalance on 2% moves. Fees > vibes."
-            className="mt-2 w-full rounded-xl border border-white/10 bg-black/30 p-2.5 text-[14px] outline-none focus:border-orange/60"
-          />
-          <div className="mt-2 flex justify-end gap-2">
-            <button type="button" onClick={() => { setEditing(false); setValue(user.thesis || ""); }} className="h-8 rounded-full bg-white/[.06] px-3 text-[12px] font-semibold">
-              Cancel
-            </button>
-            <button type="button" onClick={save} disabled={busy} className="h-8 rounded-full bg-orange px-4 text-[12px] font-bold disabled:opacity-60">
-              {busy ? "Saving…" : "Save"}
-            </button>
-          </div>
-          {err && <p className="mt-1 text-[12px] text-dn">{err}</p>}
-        </>
-      ) : (
-        <p className="mt-1 whitespace-pre-wrap text-[15px] leading-snug text-white/90">{user.thesis ? `“${user.thesis}”` : <span className="text-mute">{mine ? "Tell other LPs how you play the pools." : "No thesis yet."}</span>}</p>
-      )}
     </div>
   );
 }
