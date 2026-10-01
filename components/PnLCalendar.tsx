@@ -112,7 +112,7 @@ export function PnLCalendar({ userId, compact = false }: { userId?: number | nul
   const map = useMemo(() => new Map(days.map((d) => [d.date, d])), [days]);
 
   if (empty) return <p className="text-[13px] text-mute" data-testid="pnl-calendar-empty">No closed positions in the last {LOOKBACK_MONTHS} months.</p>;
-  if (!cursor) return <div className={`animate-pulse rounded-xl bg-surface-raised ${compact ? "h-[330px]" : "h-[420px] sm:h-[500px]"}`} />;
+  if (!cursor) return <div className={`animate-pulse rounded-xl bg-surface-raised ${compact ? "h-[330px]" : "h-[420px] sm:h-[500px] md:h-[580px] md:max-w-[760px]"}`} />;
 
   const y = cursor.getFullYear();
   const m = cursor.getMonth();
@@ -125,69 +125,266 @@ export function PnLCalendar({ userId, compact = false }: { userId?: number | nul
   const isCurrent = y === now.getFullYear() && m === now.getMonth();
   const cellH = compact ? "min-h-[46px]" : "min-h-[60px] sm:min-h-[76px]";
 
+  const phone = (
+    <>
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-1">
+            <button type="button" aria-label="Previous month" className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-surface-raised text-[14px] text-fg-secondary hover:bg-border hover:text-fg" onClick={() => setCursor(new Date(y, m - 1, 1))}>
+              ‹
+            </button>
+            <div className={`text-center font-semibold tracking-[-0.01em] text-fg ${compact ? "min-w-28 text-[14px]" : "min-w-[8.5rem] text-[15px] sm:min-w-40 sm:text-[16px]"}`}>{title}</div>
+            <button type="button" aria-label="Next month" disabled={isCurrent} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-surface-raised text-[14px] text-fg-secondary hover:bg-border hover:text-fg disabled:opacity-30" onClick={() => setCursor(new Date(y, m + 1, 1))}>
+              ›
+            </button>
+          </div>
+          <div className="shrink-0 whitespace-nowrap text-[13px]">
+            <span className={`font-semibold tabular-nums ${total > 0 ? "text-up" : total < 0 ? "text-dn" : "text-fg"}`}>{signed(total)}</span>
+            <span className="ml-1 text-mute">{isCurrent ? "this month" : "in " + cursor.toLocaleString("en-US", { month: "short" })}</span>
+          </div>
+        </div>
+        <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-medium uppercase tracking-[0.06em] text-mute">
+          {(compact ? DOW : DOW_LONG).map((d, i) => (
+            <div key={i} className="py-1.5">
+              {d}
+            </div>
+          ))}
+        </div>
+        <div className={`grid grid-cols-7 gap-1 ${loading ? "opacity-50" : ""}`}>
+          {cells.map((day, i) => {
+            if (!day) return <div key={`e${i}`} className={cellH} />;
+            const iso = `${y}-${String(m + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+            const e = map.get(iso);
+            const pnl = e?.pnl ?? 0;
+            const pos = e?.positions ?? 0;
+            const tone =
+              pnl > 0
+                ? "bg-up/10 border-up/25 text-up"
+                : pnl < 0
+                  ? "bg-dn/10 border-dn/25 text-dn"
+                  : "bg-surface-raised border-border text-mute";
+            return (
+              <div key={iso} className={`${cellH} flex flex-col items-center gap-1 rounded-xl border px-0.5 pb-1 pt-1.5 text-center sm:px-1 ${tone}`} title={e ? `${iso}: ${formatUsd(pnl, true)} · ${pos} closed` : iso}>
+                <div className="text-[10px] font-medium leading-none tabular-nums text-mute">{day}</div>
+                {e && pnl !== 0 ? (
+                  <>
+                    {compact ? (
+                      <div className="max-w-full truncate text-[10px] font-semibold leading-tight tabular-nums">{formatCell(pnl)}</div>
+                    ) : (
+                      <>
+                        <div className="max-w-full truncate text-[11px] font-semibold leading-tight tracking-[-0.02em] tabular-nums sm:hidden">{formatCell(pnl)}</div>
+                        <div className="hidden max-w-full truncate text-[13px] font-semibold leading-tight tracking-[-0.01em] tabular-nums sm:block">{signed(pnl)}</div>
+                        <div className="hidden text-[10px] leading-none tabular-nums text-mute sm:block">{pos} pos</div>
+                      </>
+                    )}
+                  </>
+                ) : (
+                  <div className="text-[10px] leading-none text-border-strong" aria-hidden>
+                    ·
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        {error && <p className="mt-2 text-[11px] text-dn">{error}</p>}
+        {!compact && !error && <p className="mt-2 text-[11px] text-mute">Daily closed-position PnL · live from Meteora&apos;s portfolio calendar</p>}
+    </>
+  );
+
+  // `compact` keeps the phone layout at every width.
+  if (compact) return <div className="font-numeric">{phone}</div>;
+
   return (
     <div className="font-numeric">
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-1">
-          <button type="button" aria-label="Previous month" className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-surface-raised text-[14px] text-fg-secondary hover:bg-border hover:text-fg" onClick={() => setCursor(new Date(y, m - 1, 1))}>
-            ‹
-          </button>
-          <div className={`text-center font-semibold tracking-[-0.01em] text-fg ${compact ? "min-w-28 text-[14px]" : "min-w-[8.5rem] text-[15px] sm:min-w-40 sm:text-[16px]"}`}>{title}</div>
-          <button type="button" aria-label="Next month" disabled={isCurrent} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-surface-raised text-[14px] text-fg-secondary hover:bg-border hover:text-fg disabled:opacity-30" onClick={() => setCursor(new Date(y, m + 1, 1))}>
-            ›
-          </button>
+      <div data-layout="phone" className="md:hidden">
+        {phone}
+      </div>
+      <DesktopMonth
+        year={y}
+        month={m}
+        cells={cells}
+        map={map}
+        total={total}
+        isCurrent={isCurrent}
+        loading={loading}
+        error={error}
+        onPrev={() => setCursor(new Date(y, m - 1, 1))}
+        onNext={() => setCursor(new Date(y, m + 1, 1))}
+      />
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* md and up: borderless heatmap grid, value-first cells, hover detail */
+/* ------------------------------------------------------------------ */
+
+const DOW_MD = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+/** Flat fill steps by |PnL| relative to the month's biggest day (literal classes for Tailwind). */
+const UP_FILL = ["bg-up/[0.08]", "bg-up/[0.14]", "bg-up/[0.20]", "bg-up/[0.28]"];
+const DN_FILL = ["bg-dn/[0.08]", "bg-dn/[0.14]", "bg-dn/[0.20]", "bg-dn/[0.28]"];
+const fillStep = (ratio: number) => (ratio < 0.12 ? 0 : ratio < 0.35 ? 1 : ratio < 0.65 ? 2 : 3);
+
+const usdFull = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
+/** Exact value for the tooltip: "+$1,234.56" / "\u2212$93.95". */
+const signedFull = (n: number) => `${n > 0 ? "+" : n < 0 ? "\u2212" : ""}${usdFull.format(Math.abs(n))}`;
+/** Narrow desktop cells (~1024px two-column profile): signed, cents only under $10. */
+const signedShort = (n: number) => `${n > 0 ? "+" : ""}${formatCell(n)}`;
+
+function Chevron({ dir }: { dir: "left" | "right" }) {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <path d={dir === "left" ? "M10 3.5 5.5 8l4.5 4.5" : "M6 3.5 10.5 8 6 12.5"} stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function DesktopMonth({
+  year,
+  month,
+  cells,
+  map,
+  total,
+  isCurrent,
+  loading,
+  error,
+  onPrev,
+  onNext,
+}: {
+  year: number;
+  month: number;
+  cells: (number | null)[];
+  map: Map<string, DailyPnL>;
+  total: number;
+  isCurrent: boolean;
+  loading: boolean;
+  error: string | null;
+  onPrev: () => void;
+  onNext: () => void;
+}) {
+  const monthName = new Date(year, month, 1).toLocaleString("en-US", { month: "long" });
+  const now = new Date();
+  const todayDay = now.getFullYear() === year && now.getMonth() === month ? now.getDate() : null;
+  const iso = (day: number) => `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+
+  // Month stats from this month's days only.
+  const monthDays = cells.filter((d): d is number => d !== null).map((d) => map.get(iso(d))).filter((e): e is DailyPnL => !!e);
+  const maxAbs = monthDays.reduce((a, e) => Math.max(a, Math.abs(e.pnl)), 0);
+  const greenDays = monthDays.filter((e) => e.pnl > 0).length;
+  const redDays = monthDays.filter((e) => e.pnl < 0).length;
+  const best = monthDays.reduce<DailyPnL | null>((b, e) => (e.pnl > 0 && (!b || e.pnl > b.pnl) ? e : b), null);
+  const bestLabel = best ? new Date(`${best.date}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "";
+
+  const ghost =
+    "flex h-7 w-7 items-center justify-center rounded-md text-mute hover:bg-surface-raised hover:text-fg focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border-strong disabled:pointer-events-none disabled:opacity-30";
+
+  return (
+    <div data-layout="desktop" className="hidden max-w-[760px] md:block">
+      <div className="mb-5 flex items-start justify-between gap-6">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <h3 className="text-[16px] font-semibold tracking-[-0.01em] text-fg">
+              {monthName} {year}
+            </h3>
+            <div className="flex items-center">
+              <button type="button" aria-label="Previous month" className={ghost} onClick={onPrev}>
+                <Chevron dir="left" />
+              </button>
+              <button type="button" aria-label="Next month" className={ghost} disabled={isCurrent} onClick={onNext}>
+                <Chevron dir="right" />
+              </button>
+            </div>
+          </div>
+          {!monthDays.some((e) => e.pnl !== 0) ? (
+            <div className="mt-1.5 text-[12px] text-mute" data-testid="pnl-summary-empty">
+              No closed-position PnL {isCurrent ? "yet this month" : `in ${monthName}`}
+            </div>
+          ) : (
+            <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-mute" data-testid="pnl-summary">
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-up" aria-hidden />
+                <span className="tabular-nums text-fg-secondary">{greenDays}</span> green {greenDays === 1 ? "day" : "days"}
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-dn" aria-hidden />
+                <span className="tabular-nums text-fg-secondary">{redDays}</span> red {redDays === 1 ? "day" : "days"}
+              </span>
+              {best && (
+                <span>
+                  Best <span className="font-medium tabular-nums text-up">{signed(best.pnl)}</span> on {bestLabel}
+                </span>
+              )}
+            </div>
+          )}
         </div>
-        <div className="shrink-0 whitespace-nowrap text-[13px]">
-          <span className={`font-semibold tabular-nums ${total > 0 ? "text-up" : total < 0 ? "text-dn" : "text-fg"}`}>{signed(total)}</span>
-          <span className="ml-1 text-mute">{isCurrent ? "this month" : "in " + cursor.toLocaleString("en-US", { month: "short" })}</span>
+        <div className="shrink-0 text-right">
+          <div className={`text-[22px] font-semibold leading-none tracking-[-0.02em] tabular-nums ${total > 0 ? "text-up" : total < 0 ? "text-dn" : "text-mute"}`} data-testid="pnl-month-total">
+            {signed(total)}
+          </div>
+          <div className="mt-1.5 text-[12px] text-mute">{monthName} PnL</div>
         </div>
       </div>
-      <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-medium uppercase tracking-[0.06em] text-mute">
-        {(compact ? DOW : DOW_LONG).map((d, i) => (
-          <div key={i} className="py-1.5">
+
+      <div className="mb-1.5 grid grid-cols-7 gap-[5px]">
+        {DOW_MD.map((d) => (
+          <div key={d} className="px-2 text-[11px] font-medium text-mute lg:px-2.5">
             {d}
           </div>
         ))}
       </div>
-      <div className={`grid grid-cols-7 gap-1 ${loading ? "opacity-50" : ""}`}>
+
+      <div className={`grid grid-cols-7 gap-[5px] transition-opacity ${loading ? "opacity-50" : ""}`}>
         {cells.map((day, i) => {
-          if (!day) return <div key={`e${i}`} className={cellH} />;
-          const iso = `${y}-${String(m + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-          const e = map.get(iso);
+          if (!day) return <div key={`e${i}`} aria-hidden />;
+          const key = iso(day);
+          const e = map.get(key);
           const pnl = e?.pnl ?? 0;
           const pos = e?.positions ?? 0;
-          const tone =
-            pnl > 0
-              ? "bg-up/10 border-up/25 text-up"
-              : pnl < 0
-                ? "bg-dn/10 border-dn/25 text-dn"
-                : "bg-surface-raised border-border text-mute";
+          const hasDay = !!e && (pnl !== 0 || pos > 0);
+          const step = maxAbs > 0 ? fillStep(Math.abs(pnl) / maxAbs) : 0;
+          const fill = pnl > 0 ? UP_FILL[step] : pnl < 0 ? DN_FILL[step] : hasDay ? "bg-surface-raised" : "bg-surface-raised/25";
+          const isToday = day === todayDay;
+          const col = i % 7;
+          const tipPos = col <= 1 ? "left-0" : col >= 5 ? "right-0" : "left-1/2 -translate-x-1/2";
+          const dateLong = new Date(year, month, day).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
           return (
-            <div key={iso} className={`${cellH} flex flex-col items-center gap-1 rounded-xl border px-0.5 pb-1 pt-1.5 text-center sm:px-1 ${tone}`} title={e ? `${iso}: ${formatUsd(pnl, true)} · ${pos} closed` : iso}>
-              <div className="text-[10px] font-medium leading-none tabular-nums text-mute">{day}</div>
-              {e && pnl !== 0 ? (
-                <>
-                  {compact ? (
-                    <div className="max-w-full truncate text-[10px] font-semibold leading-tight tabular-nums">{formatCell(pnl)}</div>
-                  ) : (
-                    <>
-                      <div className="max-w-full truncate text-[11px] font-semibold leading-tight tracking-[-0.02em] tabular-nums sm:hidden">{formatCell(pnl)}</div>
-                      <div className="hidden max-w-full truncate text-[13px] font-semibold leading-tight tracking-[-0.01em] tabular-nums sm:block">{signed(pnl)}</div>
-                      <div className="hidden text-[10px] leading-none tabular-nums text-mute sm:block">{pos} pos</div>
-                    </>
-                  )}
-                </>
-              ) : (
-                <div className="text-[10px] leading-none text-border-strong" aria-hidden>
-                  ·
+            <div
+              key={key}
+              data-testid="pnl-day"
+              data-pnl={pnl}
+              data-step={pnl !== 0 ? step : undefined}
+              tabIndex={hasDay ? 0 : undefined}
+              aria-label={hasDay ? `${dateLong}: ${signedFull(pnl)}, ${pos} ${pos === 1 ? "position" : "positions"} closed` : undefined}
+              className={`group @container relative flex aspect-[5/4] flex-col justify-between rounded-[10px] p-2 outline-none lg:p-2.5 ${fill} ${
+                isToday ? "ring-1 ring-inset ring-border-strong" : ""
+              } ${hasDay ? "focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-fg-secondary" : ""}`}
+            >
+              <span className={`text-[11px] font-medium leading-none tabular-nums ${isToday ? "text-fg" : "text-mute"}`}>{day}</span>
+              {hasDay && (
+                <span className={`block truncate text-[15px] font-semibold leading-none tracking-[-0.02em] tabular-nums @min-[62px]:text-[16px] ${pnl > 0 ? "text-up" : pnl < 0 ? "text-dn" : "text-mute"}`}>
+                  <span className="@min-[62px]:hidden">{signedShort(pnl)}</span>
+                  <span className="hidden @min-[62px]:inline">{signed(pnl)}</span>
+                </span>
+              )}
+              {hasDay && (
+                <div
+                  aria-hidden
+                  data-testid="pnl-tip"
+                  className={`pointer-events-none absolute bottom-full z-20 mb-1.5 hidden w-max rounded-lg border border-border-strong bg-surface-raised px-3 py-2 text-left group-hover:block group-focus-visible:block ${tipPos}`}
+                >
+                  <div className="text-[11px] text-mute">{dateLong}</div>
+                  <div className={`mt-1 text-[14px] font-semibold leading-none tabular-nums ${pnl > 0 ? "text-up" : pnl < 0 ? "text-dn" : "text-fg"}`}>{signedFull(pnl)}</div>
+                  <div className="mt-1.5 text-[11px] tabular-nums text-fg-secondary">
+                    {pos} {pos === 1 ? "position" : "positions"} closed
+                  </div>
                 </div>
               )}
             </div>
           );
         })}
       </div>
-      {error && <p className="mt-2 text-[11px] text-dn">{error}</p>}
-      {!compact && !error && <p className="mt-2 text-[11px] text-mute">Daily closed-position PnL · live from Meteora&apos;s portfolio calendar</p>}
+      {error && <p className="mt-3 text-[11px] text-dn">{error}</p>}
+      {!error && <p className="mt-3 text-[11px] text-mute">Daily closed-position PnL · live from Meteora&apos;s portfolio calendar</p>}
     </div>
   );
 }
