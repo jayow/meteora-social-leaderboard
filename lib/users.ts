@@ -1,4 +1,4 @@
-import { desc, eq, ilike, sql } from "drizzle-orm";
+import { and, desc, eq, ilike, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { follows, pnlSnapshots, users, userWallets, type SnapshotRow, type UserRow } from "@/lib/db/schema";
 
@@ -151,20 +151,75 @@ export function toPublicSnapshot(s: SnapshotRow): PublicSnapshot {
   };
 }
 
-export async function getFollowCounts(userId: number): Promise<{ followersCount: number; followingCount: number }> {
+/**
+ * SQL condition: the other side of a follow is visible to `viewerId` (joined members are public;
+ * a not-yet-joined account only counts/appears for itself). Keeps counts and lists consistent.
+ */
+function visibleTo(userIdCol: typeof users.id, viewerId: number | null) {
+  return viewerId
+    ? sql`(${users.joinedAt} is not null or ${userIdCol} = ${viewerId})`
+    : sql`${users.joinedAt} is not null`;
+}
+
+export async function getFollowCounts(
+  userId: number,
+  viewerId: number | null = null
+): Promise<{ followersCount: number; followingCount: number }> {
   const db = getDb();
   const [followersResult] = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(follows)
-    .where(eq(follows.followeeUserId, userId));
+    .innerJoin(users, eq(users.id, follows.followerUserId))
+    .where(and(eq(follows.followeeUserId, userId), visibleTo(users.id, viewerId)));
   const [followingResult] = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(follows)
-    .where(eq(follows.followerUserId, userId));
+    .innerJoin(users, eq(users.id, follows.followeeUserId))
+    .where(and(eq(follows.followerUserId, userId), visibleTo(users.id, viewerId)));
   return {
     followersCount: followersResult?.count ?? 0,
     followingCount: followingResult?.count ?? 0,
   };
+}
+
+export type FollowListKind = "followers" | "following";
+
+export interface FollowListItem extends PublicUser {
+  followedAt: string;
+  /** Whether the viewer follows this person (drives the Follow/Following button). */
+  isFollowing: boolean;
+}
+
+/** Followers of / people followed by `userId`, newest first, visible to `viewerId`. Never includes wallets. */
+export async function getFollowList(
+  userId: number,
+  kind: FollowListKind,
+  viewerId: number | null,
+  limit: number,
+  offset: number
+): Promise<FollowListItem[]> {
+  const db = getDb();
+  const otherSide = kind === "followers" ? follows.followerUserId : follows.followeeUserId;
+  const thisSide = kind === "followers" ? follows.followeeUserId : follows.followerUserId;
+  const rows = await db
+    .select({
+      user: users,
+      followedAt: follows.createdAt,
+      isFollowing: viewerId
+        ? sql<boolean>`exists(select 1 from follows vf where vf.follower_user_id = ${viewerId} and vf.followee_user_id = ${users.id})`
+        : sql<boolean>`false`,
+    })
+    .from(follows)
+    .innerJoin(users, eq(users.id, otherSide))
+    .where(and(eq(thisSide, userId), visibleTo(users.id, viewerId)))
+    .orderBy(desc(follows.createdAt), desc(follows.id))
+    .limit(limit)
+    .offset(offset);
+  return rows.map((r) => ({
+    ...toPublicUser(r.user),
+    followedAt: r.followedAt.toISOString(),
+    isFollowing: Boolean(r.isFollowing),
+  }));
 }
 
 export async function isUserFollowing(followerId: number | null, followeeId: number): Promise<boolean> {

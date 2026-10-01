@@ -65,7 +65,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
            ${cols.fees} as fees, s.total_pnl_usd, s.portfolio_value_usd, s.positions_open, s.positions_closed,
            s.top_pool_address, s.top_pool_name, s.top_pool_bin_step, s.top_pool_protocol,
            s.top_pool_x_icon, s.top_pool_y_icon, s.updated_at, pb.updated_at as banner_updated_at,
-           (select count(*) from follows where followee_user_id = u.id) as followers_count,
+           (select count(*) from follows f join users fu on fu.id = f.follower_user_id
+             where f.followee_user_id = u.id and (fu.joined_at is not null or fu.id = $3)) as followers_count,
            ($3::int is not null and exists(select 1 from follows where follower_user_id = $3 and followee_user_id = u.id)) as is_following
     from latest s 
     join users u on u.id = s.user_id

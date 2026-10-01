@@ -19,7 +19,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
   if (!user || (!user.joinedAt && !isOwnProfile)) return NextResponse.json({ user: null }, { status: 404 });
 
   const snap = await latestSnapshot(user.id);
-  const counts = await getFollowCounts(user.id);
+  const counts = await getFollowCounts(user.id, currentUserId);
   // Primary users.wallet (wallet signups, minus X temp_ placeholders) + linked wallets.
   const walletCount = (await getUserWalletAddresses(user)).length;
 
@@ -33,7 +33,11 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
     walletCount,
   };
   
-  return NextResponse.json({ user: publicUser, snapshot: snap ? toPublicSnapshot(snap) : null });
+  // Owner responses include private fields (wallet, own counts): never cache.
+  return NextResponse.json(
+    { user: publicUser, snapshot: snap ? toPublicSnapshot(snap) : null },
+    { headers: { "Cache-Control": "private, no-store" } }
+  );
 }
 
 interface PatchBody {

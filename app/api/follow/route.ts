@@ -7,6 +7,8 @@ import { getFollowCounts } from "@/lib/users";
 
 export const dynamic = "force-dynamic";
 
+const NO_STORE = { "Cache-Control": "private, no-store" };
+
 interface FollowBody {
   targetId: number;
 }
@@ -49,8 +51,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       followeeUserId: body.targetId,
     }).onConflictDoNothing();
 
-    const { followersCount } = await getFollowCounts(body.targetId);
-    return NextResponse.json({ success: true, following: true, followersCount });
+    const [{ followersCount }, { followingCount }] = await Promise.all([
+      getFollowCounts(body.targetId, currentUser.id),
+      getFollowCounts(currentUser.id, currentUser.id),
+    ]);
+    return NextResponse.json(
+      { success: true, following: true, followersCount, viewerFollowingCount: followingCount },
+      { headers: NO_STORE }
+    );
   } catch (error) {
     console.error("Error creating follow:", error);
     return NextResponse.json({ error: "Failed to follow user" }, { status: 500 });
@@ -85,6 +93,12 @@ export async function DELETE(req: NextRequest): Promise<NextResponse> {
     )
   );
 
-  const { followersCount } = await getFollowCounts(body.targetId);
-  return NextResponse.json({ success: true, following: false, followersCount });
+  const [{ followersCount }, { followingCount }] = await Promise.all([
+    getFollowCounts(body.targetId, currentUser.id),
+    getFollowCounts(currentUser.id, currentUser.id),
+  ]);
+  return NextResponse.json(
+    { success: true, following: false, followersCount, viewerFollowingCount: followingCount },
+    { headers: NO_STORE }
+  );
 }
