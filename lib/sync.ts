@@ -6,6 +6,7 @@ import { fetchMeteora } from "@/lib/meteora-limiter";
 import { meteoraUrls } from "@/lib/meteora-endpoints";
 import { getUserWalletAddresses } from "@/lib/users";
 import { recordSyncActivity, type SyncedPosition } from "@/lib/activity";
+import { fetchWalletOpenPositions, mergeOpenPools, readOpenPositions, type WalletOpenPositions } from "@/lib/open-positions";
 import { refreshBadges } from "@/lib/badges/compute";
 
 const AVATAR_RECHECK_DAYS = 7;
@@ -155,7 +156,8 @@ export function todayUtc(): string {
 interface WalletData {
   wallet: string;
   total: Json | null;
-  open: Json | null;
+  /** Every open pool across Meteora's pages; null when any page failed. */
+  open: WalletOpenPositions | null;
   portfolio: Json | null;
   perf7: Json | null;
   perf30: Json | null;
@@ -166,7 +168,7 @@ interface WalletData {
 async function fetchWalletData(wallet: string): Promise<WalletData> {
   const [total, open, portfolio, perf7, perf30, perfAll] = await Promise.all([
     getJson(meteoraUrls.portfolioTotal(wallet)),
-    getJson(meteoraUrls.portfolioOpen(wallet)),
+    fetchWalletOpenPositions(wallet),
     getJson(meteoraUrls.portfolio(wallet, 100)),
     getJson(meteoraUrls.performance(wallet, "7d")),
     getJson(meteoraUrls.performance(wallet, "30d")),
@@ -200,35 +202,28 @@ export async function syncUser(user: UserRow): Promise<SyncResult> {
     return { ok: false, wallet: user.wallet, date, error: "Meteora APIs unavailable" };
   }
 
-  // Aggregate open positions across all wallets
-  const allOpenPools: PortfolioPool[] = [];
-  const openPoolsByAddress = new Map<string, PortfolioPool>();
-  let totalOpenPositions = 0;
-  let totalPortfolioBalances = 0;
-  let totalUnclaimedFees = 0;
-
-  for (const wd of walletDataList) {
-    if (wd.open) {
-      const openTotals = (wd.open.total as Json | undefined) || {};
-      const pools = asPools(wd.open.pools);
-      allOpenPools.push(...pools);
-      totalOpenPositions += Math.round(num(wd.open.totalPositions ?? openTotals.totalPositions));
-      totalPortfolioBalances += num(openTotals.balances);
-      totalUnclaimedFees += num(openTotals.unclaimedFees);
-
-      // Merge pools by address, summing values and position counts
-      for (const pool of pools) {
-        if (!pool.poolAddress) continue;
-        const existing = openPoolsByAddress.get(pool.poolAddress);
-        if (existing) {
-          existing.balances = num(existing.balances ?? 0) + num(pool.balances ?? 0);
-          existing.unclaimedFees = num(existing.unclaimedFees ?? 0) + num(pool.unclaimedFees ?? 0);
-          existing.openPositionCount = (existing.openPositionCount || 0) + (pool.openPositionCount as number || 0);
-        } else {
-          openPoolsByAddress.set(pool.poolAddress, { ...pool });
-        }
-      }
+  // Open positions across all wallets. Meteora lists them per pool (several positions in one pool =
+  // one entry with a count), paginated; fetchWalletOpenPositions follows every page. The snapshot's
+  // "Open positions" count and value are derived from the same merged pools that get stored in
+  // open_positions, so the profile stat and the list always agree.
+  const openOk = walletDataList.every((wd) => wd.open);
+  const allOpenPools: PortfolioPool[] = walletDataList.flatMap((wd) => wd.open?.pools ?? []);
+  const mergedPools = mergeOpenPools(walletDataList.map((wd) => wd.open?.pools ?? []));
+  let totalOpenPositions: number;
+  let openValueUsd: number;
+  if (openOk) {
+    totalOpenPositions = mergedPools.reduce((s, p) => s + p.positionCount, 0);
+    openValueUsd = mergedPools.reduce((s, p) => s + p.valueUsd, 0);
+    const reported = walletDataList.reduce((s, wd) => s + (wd.open?.reportedPositions ?? 0), 0);
+    if (reported !== totalOpenPositions) {
+      console.warn(`[sync] user ${user.id}: Meteora reports ${reported} open positions, its pools add up to ${totalOpenPositions}`);
     }
+  } else {
+    // A wallet's open positions couldn't be fetched: keep the stored list and its count rather than
+    // replacing them with a partial answer (or wiping them).
+    const stored = await readOpenPositions(user.id);
+    totalOpenPositions = stored.totalPositions;
+    openValueUsd = stored.totalValueUsd;
   }
 
   // Aggregate performance data across all wallets
@@ -330,8 +325,7 @@ export async function syncUser(user: UserRow): Promise<SyncResult> {
   const distinctPools = Math.max(seenPools.size, portfolioPoolCount);
 
   // Resolve top pool across all wallets
-  const allOpenPoolsArray = Array.from(openPoolsByAddress.values());
-  const topPool = await resolveTopPoolMultiWallet(biggestPnlPool, allPortfolioPools, allOpenPoolsArray);
+  const topPool = await resolveTopPoolMultiWallet(biggestPnlPool, allPortfolioPools, mergedPools);
 
   const snapshot: NewSnapshot = {
     userId: user.id,
@@ -348,9 +342,9 @@ export async function syncUser(user: UserRow): Promise<SyncResult> {
     winRate,
     winRate7d,
     winRate30d,
-    positionsOpen: totalOpenPositions || null,
+    positionsOpen: totalOpenPositions,
     positionsClosed: positionsClosed || null,
-    portfolioValueUsd: (totalPortfolioBalances + totalUnclaimedFees) || null,
+    portfolioValueUsd: openValueUsd || null,
     topPoolAddress: topPool?.address || null,
     topPoolName: topPool?.name || null,
     topPoolBinStep: topPool?.binStep ?? null,
@@ -363,7 +357,7 @@ export async function syncUser(user: UserRow): Promise<SyncResult> {
       wallets: walletDataList.map((wd) => ({
         wallet: wd.wallet,
         total: wd.total,
-        openTotals: wd.open ? ((wd.open.total as Json | undefined) || {}) : null,
+        openTotals: wd.open ? { totalPositions: wd.open.reportedPositions, pools: wd.open.pools.length } : null,
         perf7: wd.perf7 ? stripNested(wd.perf7) : null,
         perf30: wd.perf30 ? stripNested(wd.perf30) : null,
         perfAll: wd.perfAll ? stripNested(wd.perfAll) : null,
@@ -374,78 +368,57 @@ export async function syncUser(user: UserRow): Promise<SyncResult> {
   const { userId: _u, date: _d, ...updatable } = snapshot;
   void _u;
   void _d;
-  await db
-    .insert(pnlSnapshots)
-    .values(snapshot)
-    .onConflictDoUpdate({
-      target: [pnlSnapshots.userId, pnlSnapshots.date],
-      set: { ...updatable, updatedAt: sql`now()` },
-    });
-  
-  // Store aggregated open positions. Opened/closed rows feed the Activity feed (lib/activity.ts).
-  const mergedPools = Array.from(openPoolsByAddress.values());
+
+  // Fetch mints for pools that don't have them yet (network; outside the transaction).
+  if (openOk) await enrichPoolsWithMints(mergedPools);
+
+  // Snapshot + open_positions in one transaction, so the count and the list can't be half-updated.
+  // Opened/closed rows feed the Activity feed (lib/activity.ts).
   const openedRows: SyncedPosition[] = [];
   const closedRows: SyncedPosition[] = [];
-  if (mergedPools.length > 0) {
-    const currentPoolAddresses = mergedPools.map((p) => p.poolAddress).filter((a): a is string => Boolean(a));
-    
-    // Delete positions that are no longer open
-    if (currentPoolAddresses.length > 0) {
-      closedRows.push(
-        ...(await db
-          .delete(openPositions)
-          .where(
-            and(
-              eq(openPositions.userId, user.id),
-              sql`${openPositions.poolAddress} NOT IN ${currentPoolAddresses}`
-            )
-          )
-          .returning())
-      );
-    } else {
-      closedRows.push(...(await db.delete(openPositions).where(eq(openPositions.userId, user.id)).returning()));
-    }
-    
-    // Fetch mints for pools that don't have them yet
-    await enrichPoolsWithMints(mergedPools);
-    
-    // Upsert aggregated open positions
+  await db.transaction(async (tx) => {
+    await tx
+      .insert(pnlSnapshots)
+      .values(snapshot)
+      .onConflictDoUpdate({
+        target: [pnlSnapshots.userId, pnlSnapshots.date],
+        set: { ...updatable, updatedAt: sql`now()` },
+      });
+
+    if (!openOk) return;
+
+    // Delete pools that no longer have an open position.
+    const currentPoolAddresses = mergedPools.map((p) => p.poolAddress);
+    closedRows.push(
+      ...(await tx
+        .delete(openPositions)
+        .where(
+          currentPoolAddresses.length > 0
+            ? and(eq(openPositions.userId, user.id), sql`${openPositions.poolAddress} NOT IN ${currentPoolAddresses}`)
+            : eq(openPositions.userId, user.id)
+        )
+        .returning())
+    );
+
+    // Upsert one row per pool, with how many positions the user has in it.
     for (const pool of mergedPools) {
-      if (!pool.poolAddress) continue;
-      
-      const valueUsd = num(pool.balances ?? 0) + num(pool.unclaimedFees ?? 0);
-      const posCount = pool.openPositionCount as number | undefined;
-      
-      const [upserted] = await db
+      const fields = {
+        tokenX: pool.tokenX || "?",
+        tokenY: pool.tokenY || "?",
+        tokenXMint: pool.tokenXMint || null,
+        tokenYMint: pool.tokenYMint || null,
+        tokenXIcon: pool.tokenXIcon || null,
+        tokenYIcon: pool.tokenYIcon || null,
+        binStep: pool.binStep != null ? Math.round(num(pool.binStep)) : null,
+        valueUsd: pool.valueUsd,
+        positionCount: pool.positionCount,
+      };
+      const [upserted] = await tx
         .insert(openPositions)
-        .values({
-          userId: user.id,
-          poolAddress: pool.poolAddress,
-          tokenX: pool.tokenX || "?",
-          tokenY: pool.tokenY || "?",
-          tokenXMint: pool.tokenXMint || null,
-          tokenYMint: pool.tokenYMint || null,
-          tokenXIcon: pool.tokenXIcon || null,
-          tokenYIcon: pool.tokenYIcon || null,
-          binStep: pool.binStep != null ? Math.round(num(pool.binStep)) : null,
-          protocol: "dlmm",
-          valueUsd,
-          positionCount: posCount ?? 1,
-        })
+        .values({ userId: user.id, poolAddress: pool.poolAddress, protocol: "dlmm", ...fields })
         .onConflictDoUpdate({
           target: [openPositions.userId, openPositions.poolAddress],
-          set: {
-            tokenX: pool.tokenX || "?",
-            tokenY: pool.tokenY || "?",
-            tokenXMint: pool.tokenXMint || null,
-            tokenYMint: pool.tokenYMint || null,
-            tokenXIcon: pool.tokenXIcon || null,
-            tokenYIcon: pool.tokenYIcon || null,
-            binStep: pool.binStep != null ? Math.round(num(pool.binStep)) : null,
-            valueUsd,
-            positionCount: posCount ?? 1,
-            updatedAt: sql`now()`,
-          },
+          set: { ...fields, updatedAt: sql`now()` },
         })
         // xmax = 0 means the row was inserted (newly opened), not updated.
         .returning({
@@ -463,14 +436,11 @@ export async function syncUser(user: UserRow): Promise<SyncResult> {
         });
       if (upserted?.inserted) openedRows.push(upserted);
     }
-  } else {
-    // No open positions, delete all
-    closedRows.push(...(await db.delete(openPositions).where(eq(openPositions.userId, user.id)).returning()));
-  }
+  });
 
   // Only trust the diff when every wallet's open-positions call succeeded; a failed fetch would look
   // like closes (and reopens next sync).
-  if (walletDataList.every((wd) => wd.open)) {
+  if (openOk) {
     await recordSyncActivity(user.id, openedRows, closedRows, allPortfolioPools);
   }
 

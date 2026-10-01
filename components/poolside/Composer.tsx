@@ -163,6 +163,7 @@ export function Composer({ onPosted }: { onPosted: (post: ThesisPost) => void })
               <option key={p.address} value={p.address}>
                 {p.name}
                 {p.binStep != null ? ` · bin ${p.binStep}` : ""}
+                {p.positionCount > 1 ? ` · ${p.positionCount} positions` : ""}
               </option>
             ))}
           </select>

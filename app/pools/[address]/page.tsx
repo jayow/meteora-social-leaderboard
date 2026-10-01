@@ -6,7 +6,7 @@ import { useParams } from "next/navigation";
 import { useMe } from "@/components/MeProvider";
 import { Avatar, Flag } from "@/components/ui";
 import { FollowButton } from "@/components/FollowButton";
-import { avatarFor, displayName, fmtUsd } from "@/lib/format";
+import { avatarFor, displayName, fmtPositions, fmtUsd } from "@/lib/format";
 import { meteoraPoolUrl } from "@/lib/meteora-links";
 import { applyFollowChange, onFollowChanged } from "@/lib/session-events";
 import { ThesisCard } from "@/components/ThesisCard";
@@ -34,6 +34,8 @@ interface LP {
   anonName: string | null;
   country: string | null;
   valueUsd: number | null;
+  /** Open positions this LP holds in this pool. */
+  positionCount?: number;
   totalPnl: number | null;
   isFollowing: boolean;
 }
@@ -330,6 +332,12 @@ function LPRow({ lp }: { lp: LP }) {
         </div>
         <div className="mt-0.5 flex items-center gap-2 text-[12px] text-mute">
           <span>Value {fmtUsd(lp.valueUsd)}</span>
+          {(lp.positionCount ?? 1) > 1 && (
+            <>
+              <span>·</span>
+              <span className="num" data-testid="lp-position-count">{fmtPositions(lp.positionCount ?? 1)}</span>
+            </>
+          )}
           {lp.totalPnl != null && (
             <>
               <span>·</span>

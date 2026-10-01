@@ -49,6 +49,8 @@ export interface ComposerPool {
   yIcon: string | null;
   binStep: number | null;
   protocol: string | null;
+  /** The member's open positions in this pool (from their last sync). */
+  positionCount: number;
 }
 
 export interface ComposerResponse {

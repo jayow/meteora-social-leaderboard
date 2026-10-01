@@ -14,6 +14,7 @@ interface LPRow {
   anon_name: string | null;
   country: string | null;
   value_usd: number | null;
+  position_count: number | null;
   total_pnl_usd: number | null;
   is_following: boolean;
 }
@@ -103,6 +104,7 @@ export async function GET(
       u.anon_name,
       u.country,
       op.value_usd,
+      op.position_count,
       ls.total_pnl_usd,
       EXISTS(SELECT 1 FROM follows WHERE follower_user_id = $2 AND followee_user_id = u.id) AS is_following
     FROM open_positions op
@@ -129,6 +131,7 @@ export async function GET(
       u.anon_name,
       u.country,
       op.value_usd,
+      op.position_count,
       ls.total_pnl_usd,
       false AS is_following
     FROM open_positions op
@@ -149,6 +152,8 @@ export async function GET(
     anonName: r.anon_name,
     country: r.country,
     valueUsd: r.value_usd,
+    // Open positions this LP has in this pool (several positions in one pool are one row).
+    positionCount: Math.max(1, r.position_count ?? 1),
     totalPnl: r.total_pnl_usd,
     isFollowing: r.is_following,
   }));

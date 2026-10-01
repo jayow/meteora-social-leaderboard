@@ -22,6 +22,7 @@ interface HeldPoolRow {
   token_y_icon: string | null;
   bin_step: number | null;
   protocol: string | null;
+  position_count: number | null;
 }
 
 /** Pools the user holds that a thesis can be posted on (token mint known). Largest position first. */
@@ -37,7 +38,7 @@ export async function heldPools(userId: number, filter: { mint?: string; poolAdd
     where.push(`pool_address = $${params.length}`);
   }
   const { rows } = await getPool().query<HeldPoolRow>(
-    `SELECT pool_address, token_x, token_y, token_x_mint, token_x_icon, token_y_icon, bin_step, protocol
+    `SELECT pool_address, token_x, token_y, token_x_mint, token_x_icon, token_y_icon, bin_step, protocol, position_count
      FROM open_positions WHERE ${where.join(" AND ")}
      ORDER BY value_usd DESC NULLS LAST, id`,
     params
@@ -51,6 +52,7 @@ export async function heldPools(userId: number, filter: { mint?: string; poolAdd
     yIcon: r.token_y_icon,
     binStep: r.bin_step,
     protocol: r.protocol,
+    positionCount: Math.max(1, r.position_count ?? 1),
   }));
 }
 
