@@ -11,6 +11,7 @@ import { PnLCalendar } from "@/components/PnLCalendar";
 import { CountrySelect } from "@/components/CountrySelect";
 import { OpenPositions } from "@/components/OpenPositions";
 import { FollowButton } from "@/components/FollowButton";
+import { FollowListModal, type FollowListKind } from "@/components/FollowListModal";
 import { SharePnLModal } from "@/components/SharePnLModal";
 import { displayName, fmtPct, fmtUsd, shortAddr, timeAgo } from "@/lib/format";
 import { isValidWalletClient } from "@/lib/wallet-client";
@@ -65,6 +66,8 @@ function Profile() {
   const [range, setRange] = useState<Range>("30d");
   const [xNotice, setXNotice] = useState<string | null>(null);
   const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [followList, setFollowList] = useState<FollowListKind | null>(null);
+  const closeFollowList = useCallback(() => setFollowList(null), []);
 
   const load = useCallback(async (id: string) => {
     const res = await fetch(`/api/users/${encodeURIComponent(id)}`, { cache: "no-store" });
@@ -131,7 +134,22 @@ function Profile() {
   useEffect(() => onSessionChanged(() => setReloadKey((k) => k + 1)), []);
 
   // Follow/unfollow updates the follower count and button state instantly.
-  useEffect(() => onFollowChanged((change) => setUser((u) => (u ? applyFollowChange(u, change) : u))), []);
+  // On your own profile, your following count tracks follows made anywhere (lists, buttons).
+  const meId = me.userId;
+  useEffect(
+    () =>
+      onFollowChanged((change) =>
+        setUser((u) => {
+          if (!u) return u;
+          let next = applyFollowChange(u, change);
+          if (meId && u.id === meId && change.viewerFollowingCount !== undefined && next.followingCount !== change.viewerFollowingCount) {
+            next = { ...next, followingCount: change.viewerFollowingCount };
+          }
+          return next;
+        })
+      ),
+    [meId]
+  );
 
   // Never sit on skeletons forever.
   useEffect(() => {
@@ -327,14 +345,14 @@ function Profile() {
             {(user.followersCount !== undefined || user.followingCount !== undefined) && (
               <div className="mt-2 flex gap-4 text-[13px]">
                 {user.followersCount !== undefined && (
-                  <span>
+                  <button type="button" onClick={() => setFollowList("followers")} className="hover:underline" data-testid="followers-count">
                     <span className="font-semibold text-white">{user.followersCount}</span> <span className="text-mute">{user.followersCount === 1 ? "follower" : "followers"}</span>
-                  </span>
+                  </button>
                 )}
                 {user.followingCount !== undefined && (
-                  <span>
+                  <button type="button" onClick={() => setFollowList("following")} className="hover:underline" data-testid="following-count">
                     <span className="font-semibold text-white">{user.followingCount}</span> <span className="text-mute">following</span>
-                  </span>
+                  </button>
                 )}
               </div>
             )}
@@ -410,6 +428,7 @@ function Profile() {
           onClose={() => setShareModalOpen(false)}
         />
       )}
+      {followList && <FollowListModal key={`${user.id}-${followList}`} userId={user.id} kind={followList} onClose={closeFollowList} />}
     </main>
   );
 }

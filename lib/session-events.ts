@@ -40,6 +40,8 @@ export interface FollowChange {
   following: boolean;
   /** Authoritative follower count from the server, when known. */
   followersCount?: number;
+  /** The signed-in viewer's own following count after the change, when known. */
+  viewerFollowingCount?: number;
 }
 
 export const FOLLOW_CHANGED_EVENT = "pp:follow-changed";

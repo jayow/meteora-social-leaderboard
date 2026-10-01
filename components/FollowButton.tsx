@@ -58,8 +58,17 @@ export function FollowButton({
         body: JSON.stringify({ targetId }),
       });
       if (res.ok) {
-        const data = (await res.json().catch(() => ({}))) as { following?: boolean; followersCount?: number };
-        notifyFollowChanged({ targetId, following: data.following ?? next, followersCount: data.followersCount });
+        const data = (await res.json().catch(() => ({}))) as {
+          following?: boolean;
+          followersCount?: number;
+          viewerFollowingCount?: number;
+        };
+        notifyFollowChanged({
+          targetId,
+          following: data.following ?? next,
+          followersCount: data.followersCount,
+          viewerFollowingCount: data.viewerFollowingCount,
+        });
         return;
       }
       setIsFollowing(!next);

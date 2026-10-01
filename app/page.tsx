@@ -26,7 +26,7 @@ function shareText(e: LeaderboardEntry, range: Range): string {
 
 export default function LeaderboardPage() {
   const router = useRouter();
-  const { wallet, loading: meLoading, user: myUser, userId: sessionUserId } = useMe();
+  const { wallet, loading: meLoading, user: myUser, userId: sessionUserId, verified } = useMe();
   const { setVisible } = useWalletModal();
   const [view, setView] = useState<"leaderboard" | "countries">("leaderboard");
   const [range, setRange] = useState<Range>("30d");
@@ -35,6 +35,8 @@ export default function LeaderboardPage() {
   const [data, setData] = useState<LeaderboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  // "Following" narrows the board to people you follow (signed-in only; isFollowing comes from the API).
+  const [who, setWho] = useState<"all" | "following">("all");
 
   const myId = sessionUserId ?? myUser?.id;
 
@@ -75,7 +77,9 @@ export default function LeaderboardPage() {
     []
   );
 
-  const entries = useMemo(() => data?.entries ?? [], [data]);
+  const allEntries = useMemo(() => data?.entries ?? [], [data]);
+  const followingOnly = verified && who === "following";
+  const entries = useMemo(() => (followingOnly ? allEntries.filter((e) => e.isFollowing) : allEntries), [allEntries, followingOnly]);
   const podium = entries.slice(0, 3);
   const rest = entries.slice(3);
   const mine = wallet ? entries.find((e) => e.id === myId) : undefined;
@@ -149,6 +153,9 @@ export default function LeaderboardPage() {
             <Pills value={range} onChange={setRange} options={[{ value: "7d", label: "7D" }, { value: "30d", label: "30D" }, { value: "all", label: "All" }]} />
             <CountrySelect value={country} onChange={onCountryChange} allLabel="Global" membersOnly />
             <Pills label="Sort" value={sort} onChange={setSort} options={[{ value: "pnl", label: "PnL" }, { value: "volume", label: "Volume" }, { value: "winrate", label: "Win rate" }, { value: "fees", label: "Fees" }]} />
+            {verified && (
+              <Pills label="Show" value={who} onChange={setWho} options={[{ value: "all", label: "Everyone" }, { value: "following", label: "Following" }]} />
+            )}
           </div>
 
           {/* Claim CTA */}
@@ -176,6 +183,10 @@ export default function LeaderboardPage() {
               {[0, 1, 2].map((i) => (
                 <div key={i} className="glass h-56 animate-pulse rounded-[26px]" />
               ))}
+            </div>
+          ) : followingOnly && entries.length === 0 ? (
+            <div className="mt-6 rounded-[26px] border border-dashed border-white/10 px-6 py-10 text-center text-[13px] text-mute" data-testid="following-empty">
+              You&apos;re not following anyone on this board yet. Hit Follow on an LP to see them here.
             </div>
           ) : entries.length === 0 ? (
             <EmptyBoard country={country} onConnect={() => setVisible(true)} connected={Boolean(wallet)} />
