@@ -6,7 +6,6 @@ import {
   ConnectionProvider,
   WalletProvider,
 } from "@solana/wallet-adapter-react";
-import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
 import { SolflareWalletAdapter } from "@solana/wallet-adapter-solflare";
 import { MeProvider } from "@/components/MeProvider";
 
@@ -29,9 +28,8 @@ export function WalletProviders({ children }: { children: React.ReactNode }) {
   return (
     <ConnectionProvider endpoint={endpoint}>
       <WalletProvider wallets={wallets} autoConnect onError={onError}>
-        <WalletModalProvider>
-          <MeProvider>{children}</MeProvider>
-        </WalletModalProvider>
+        {/* No stock wallet modal: the app's Sign in modal (WalletPicker) is the only wallet UI. */}
+        <MeProvider>{children}</MeProvider>
       </WalletProvider>
     </ConnectionProvider>
   );

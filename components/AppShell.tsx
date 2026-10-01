@@ -117,7 +117,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="mx-auto flex h-[64px] max-w-[1320px] items-center gap-6 px-4 lg:px-6">
           <Link href="/" className="flex items-center gap-2">
             <Logo />
-            <span className="hidden rounded-full border border-orange/30 bg-orange/10 px-2 py-0.5 text-[11px] font-semibold text-orange sm:inline">Party starts here</span>
           </Link>
           {isMember ? (
             <nav className="mx-auto hidden items-center gap-1 rounded-full border border-white/[.06] bg-white/[.03] p-1 text-[14px] font-semibold lg:flex">
@@ -141,22 +140,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </a>
             </nav>
           ) : (
-            <div className="mx-auto">
-              <Link href="/join" className="brand-grad rounded-full px-6 py-2 text-[14px] font-semibold">
-                Join Beta
-              </Link>
-            </div>
+            <div className="mx-auto" />
           )}
-          
+
           <div className="ml-auto flex items-center gap-2 lg:ml-0">
+            {/* One entry: signed out -> Sign in (wallet picker or X); signed in, not joined -> Join beta; members -> account menu only. */}
             {!isSignedIn && (
               <button
                 type="button"
                 onClick={() => openSignIn("methods")}
-                className="h-9 rounded-full bg-orange px-4 text-[13px] font-bold text-white shadow-lg shadow-orange/25 transition hover:bg-orange-soft"
+                className="h-9 rounded-full bg-orange px-4 text-[13px] font-bold text-white transition hover:bg-orange-soft"
+                data-testid="header-entry"
               >
                 Sign in
               </button>
+            )}
+            {isSignedIn && !isMember && (
+              <Link href="/join" className="flex h-9 items-center rounded-full bg-orange px-4 text-[13px] font-bold text-white transition hover:bg-orange-soft" data-testid="header-entry">
+                Join beta
+              </Link>
             )}
 
             {isSignedIn && (

@@ -7,7 +7,7 @@ import { useMe } from "@/components/MeProvider";
 import { fmtUsd } from "@/lib/format";
 import { meteoraPoolUrl } from "@/lib/meteora-links";
 import { PoolMemberAvatars } from "@/components/PoolMemberAvatars";
-import { onFollowChanged, requestSignIn } from "@/lib/session-events";
+import { onFollowChanged } from "@/lib/session-events";
 import {
   POOL_SORTS,
   comparePoolRows,
@@ -84,7 +84,7 @@ async function fetchMembers(rows: PoolData[]): Promise<Map<string, Member[]>> {
 }
 
 function PoolsContent() {
-  const { verified, sessionChecked } = useMe();
+  const { verified } = useMe();
   const searchParams = useSearchParams();
   const router = useRouter();
   const tokenMint = searchParams.get("token");
@@ -377,22 +377,6 @@ function PoolsContent() {
           </label>
         </div>
       </div>
-
-      {sessionChecked && !verified && (
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-orange/25 bg-gradient-to-r from-orange/15 via-pink/10 to-purp/15 px-4 py-3">
-          <div className="text-[14px]">
-            <span className="font-bold">Sign in to see where your friends LP</span>{" "}
-            <span className="text-white/70">Follow friends and discover pools they trust.</span>
-          </div>
-          <button
-            type="button"
-            onClick={() => requestSignIn()}
-            className="h-9 rounded-full bg-orange px-4 text-[13px] font-bold shadow-lg shadow-orange/25 hover:bg-orange-soft"
-          >
-            Sign in →
-          </button>
-        </div>
-      )}
 
       {loading && !pools ? (
         <div className="mt-6 space-y-3">

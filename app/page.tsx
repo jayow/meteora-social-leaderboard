@@ -1,17 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import type { LeaderboardEntry, LeaderboardResponse } from "@/lib/api-types";
 import { Avatar, Flag, Pills, PoolChip } from "@/components/ui";
-import { ProfileCard } from "@/components/ProfileCard";
+import { LeaderboardSideCard } from "@/components/LeaderboardSideCard";
 import { CountrySelect } from "@/components/CountrySelect";
 import { FollowButton } from "@/components/FollowButton";
 import { useMe } from "@/components/MeProvider";
 import { displayName, fmtPct, fmtUsd } from "@/lib/format";
-import { applyFollowChange, onFollowChanged, requestSignIn } from "@/lib/session-events";
+import { applyFollowChange, onFollowChanged } from "@/lib/session-events";
 
 type Range = "7d" | "30d" | "all";
 type Sort = "pnl" | "volume" | "winrate" | "fees";
@@ -28,8 +26,6 @@ function shareText(e: LeaderboardEntry, range: Range): string {
 export default function LeaderboardPage() {
   const router = useRouter();
   const { wallet, loading: meLoading, user: myUser, userId: sessionUserId, verified } = useMe();
-  const { setVisible } = useWalletModal();
-  const [view, setView] = useState<"leaderboard" | "countries">("leaderboard");
   const [range, setRange] = useState<Range>("30d");
   const [sort, setSort] = useState<Sort>("pnl");
   const [country, setCountry] = useState<string>("");
@@ -64,8 +60,8 @@ export default function LeaderboardPage() {
   }, [range, sort, country, followingOnly]);
 
   useEffect(() => {
-    if (view === "leaderboard") load();
-  }, [load, view]);
+    load();
+  }, [load]);
 
   // Reload once the connected wallet's stats refresh finishes so a just-synced member appears.
   useEffect(() => {
@@ -120,98 +116,53 @@ export default function LeaderboardPage() {
     router.push(url.pathname + url.search);
   };
 
+  const n = podium.length;
+  const podiumOrder = n === 3 ? [podium[1], podium[0], podium[2]] : n === 2 ? [podium[1], podium[0]] : podium;
+  const podiumGrid = n === 3 ? "grid-cols-3" : n === 2 ? "mx-auto max-w-[520px] grid-cols-2" : "mx-auto max-w-[240px] grid-cols-1";
+
   return (
     <main className="mx-auto max-w-[1320px] px-4 pb-10 pt-6 lg:px-6">
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_400px]">
         <section className="min-w-0">
-          {/* View tabs */}
-          <div className="mb-4 flex gap-2">
-            <Pills
-              value={view}
-              onChange={(v: "leaderboard" | "countries") => {
-                setView(v);
-                if (v === "leaderboard") setCountry("");
-              }}
-              options={[
-                { value: "leaderboard", label: "Leaderboard" },
-                { value: "countries", label: "Countries" },
-              ]}
-            />
-          </div>
-
-          {view === "leaderboard" ? (
-            <>
-              {/* Hero */}
-              <div className="flex flex-wrap items-end justify-between gap-4">{/* existing hero code */}
-            <div>
-              <h1 className="text-[32px] font-extrabold leading-tight tracking-tight sm:text-[40px]">
-                top <span className="brand-text">LPs</span> {HERO_SUFFIX[range]} 🔥
-              </h1>
-              <p className="mt-1 text-[14px] text-mute">
-                Meteora LPs · ranked by {RANGE_LABEL[range]} {SORT_LABEL[sort]} · live data from Meteora
+          {/* Hero */}
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div className="min-w-0">
+              <h1 className="text-[28px] font-extrabold leading-tight tracking-tight sm:text-[36px]">Top LPs {HERO_SUFFIX[range]}</h1>
+              <p className="mt-1 text-[13px] text-mute sm:text-[14px]">
+                Ranked by {RANGE_LABEL[range]} {SORT_LABEL[sort]} · live data from Meteora
               </p>
             </div>
-            <div className="flex gap-6 text-right">
+            <div className="grid grid-cols-3 gap-4 sm:flex sm:shrink-0 sm:gap-6 sm:text-right" data-testid="hero-stats">
               <div>
                 <div className="text-[12px] text-mute">LPs ranked</div>
-                <div className="num text-[22px] font-bold">{data?.stats?.lps ?? "—"}</div>
+                <div className="num text-[18px] font-bold sm:text-[22px]">{data?.stats?.lps ?? "—"}</div>
               </div>
               <div>
-                <div className="text-[12px] text-mute">{RANGE_LABEL[range]} LP PnL</div>
-                <div className={`num text-[22px] font-bold ${(data?.stats?.totalPnl ?? 0) >= 0 ? "text-up" : "text-dn"}`}>{data?.stats ? fmtUsd(data.stats.totalPnl, { signed: true }) : "—"}</div>
+                <div className="text-[12px] text-mute">{RANGE_LABEL[range]} PnL</div>
+                <div className={`num text-[18px] font-bold sm:text-[22px] ${(data?.stats?.totalPnl ?? 0) >= 0 ? "text-up" : "text-dn"}`}>{data?.stats ? fmtUsd(data.stats.totalPnl, { signed: true }) : "—"}</div>
               </div>
-              <div className="hidden sm:block">
+              <div>
                 <div className="text-[12px] text-mute">Fees earned</div>
-                <div className="num text-[22px] font-bold text-orange">{data?.stats ? fmtUsd(data.stats.fees) : "—"}</div>
+                <div className="num text-[18px] font-bold sm:text-[22px]">{data?.stats ? fmtUsd(data.stats.fees) : "—"}</div>
               </div>
             </div>
           </div>
 
-          {/* Filters */}
-          <div className="no-scrollbar -mx-4 mt-5 flex items-center gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
+          {/* Filters: range pills, country, and one Sort/Show menu. Wraps only on small screens. */}
+          <div className="mt-5 flex flex-wrap items-center gap-2 sm:flex-nowrap" data-testid="board-filters">
             <Pills value={range} onChange={setRange} options={[{ value: "7d", label: "7D" }, { value: "30d", label: "30D" }, { value: "all", label: "All" }]} />
             <CountrySelect value={country} onChange={onCountryChange} allLabel="Global" membersOnly />
-            <Pills label="Sort" value={sort} onChange={setSort} options={[{ value: "pnl", label: "PnL" }, { value: "volume", label: "Volume" }, { value: "winrate", label: "Win rate" }, { value: "fees", label: "Fees" }]} />
-            {verified && (
-              <Pills label="Show" value={who} onChange={setWho} options={[{ value: "all", label: "Everyone" }, { value: "following", label: "Following" }]} />
-            )}
+            <BoardMenu sort={sort} onSort={setSort} who={followingOnly ? "following" : "all"} onWho={verified ? setWho : null} />
           </div>
 
-          {/* Claim CTA: connect → sign in → join → first sync. Connecting alone never creates an account. */}
-          {!loading && !mine && !followingOnly && (
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-orange/25 bg-gradient-to-r from-orange/15 via-pink/10 to-purp/15 px-4 py-3" data-testid="claim-cta">
-              <div className="text-[14px]">
-                <span className="font-bold">
-                  {isMember ? "Syncing your Meteora stats…" : verified ? "Join to claim your rank" : wallet ? "Sign in to claim your rank" : "LP on Meteora?"}
-                </span>{" "}
-                <span className="text-white/70">
-                  {isMember
-                    ? "Your rank shows up after the first sync."
-                    : verified
-                      ? "Join the beta to put your Meteora PnL on the board."
-                      : wallet
-                        ? "Sign a message to prove it's your wallet. Read-only, no transactions."
-                        : "Connect your wallet to claim your rank. Read-only, no transactions."}
-                </span>
-              </div>
-              {isMember ? (
-                <button type="button" onClick={load} className="h-9 rounded-full bg-white/[.1] px-4 text-[13px] font-semibold hover:bg-white/[.16]">
-                  Refresh
-                </button>
-              ) : verified ? (
-                <Link href="/join" className="flex h-9 items-center rounded-full bg-orange px-4 text-[13px] font-bold shadow-lg shadow-orange/25 hover:bg-orange-soft">
-                  Join the beta →
-                </Link>
-              ) : wallet ? (
-                <button type="button" onClick={() => requestSignIn()} className="h-9 rounded-full bg-orange px-4 text-[13px] font-bold shadow-lg shadow-orange/25 hover:bg-orange-soft">
-                  Sign in →
-                </button>
-              ) : (
-                <button type="button" onClick={() => setVisible(true)} className="h-9 rounded-full bg-orange px-4 text-[13px] font-bold shadow-lg shadow-orange/25 hover:bg-orange-soft">
-                  Claim your rank →
-                </button>
-              )}
-            </div>
+          {/* Members who aren't on the board yet (first sync pending). Sign in / join live in the header. */}
+          {!loading && isMember && !mine && !followingOnly && (
+            <p className="mt-4 text-[13px] text-mute" data-testid="sync-note">
+              Your rank shows up after your first sync.{" "}
+              <button type="button" onClick={load} className="font-semibold text-white/80 hover:text-white">
+                Refresh
+              </button>
+            </p>
           )}
 
           {/* Podium */}
@@ -226,20 +177,18 @@ export default function LeaderboardPage() {
               You&apos;re not following anyone on this board yet. Hit Follow on an LP to see them here.
             </div>
           ) : entries.length === 0 ? (
-            <EmptyBoard country={country} onConnect={() => setVisible(true)} connected={Boolean(wallet)} />
-          ) : (
-            <div className="mt-6 grid grid-cols-3 items-end gap-2 sm:gap-3">
-              {[podium[1], podium[0], podium[2]].map((e, idx) =>
-                e ? (
-                  <PodiumCard key={e.id} e={e} first={idx === 1} isMe={e.id === myId} metric={metric(e)} tone={metricTone(e)} onClick={() => onRow(e)} range={range} />
-                ) : (
-                  <div key={`empty-${idx}`} className="flex h-44 flex-col items-center justify-center rounded-[26px] border border-dashed border-white/10 text-center text-[12px] text-mute">
-                    <span className="text-[22px]">🪑</span>
-                    Spot #{idx === 0 ? 2 : 3} is open
-                  </div>
-                )
-              )}
+            <div className="glass mt-6 rounded-[28px] px-6 py-10 text-center">
+              <h2 className="text-[18px] font-bold">{country ? "No LPs from here yet" : "No LPs on the board yet"}</h2>
+              <p className="mx-auto mt-1 max-w-md text-[13px] text-mute">Members show up here once their Meteora stats sync.</p>
             </div>
+          ) : (
+            n > 0 && (
+              <div className={`mt-6 grid items-end gap-2 sm:gap-3 ${podiumGrid}`} data-testid="podium">
+                {podiumOrder.map((e) => (
+                  <PodiumCard key={e.id} e={e} first={e === podium[0]} isMe={e.id === myId} metric={metric(e)} tone={metricTone(e)} onClick={() => onRow(e)} />
+                ))}
+              </div>
+            )
           )}
 
           {/* Rows */}
@@ -250,45 +199,16 @@ export default function LeaderboardPage() {
               ))}
             </div>
           )}
-          {entries.length > 0 && entries.length < 10 && (
-            <p className="mt-5 text-center text-[13px] text-mute">
-              Early days: {entries.length} LP{entries.length === 1 ? "" : "s"} on the board. Share it with your LP friends and climb together.
-            </p>
-          )}
           {data?.error && <p className="mt-4 text-[13px] text-dn">{data.error}</p>}
-            </>
-          ) : (
-            <CountriesView range={range} setRange={setRange} onCountryClick={(c) => { setView("leaderboard"); setCountry(c); onCountryChange(c); }} />
-          )}
         </section>
 
-        {/* Side profile card */}
+        {/* Side preview: the essentials only; the full profile is one click away. */}
         <aside className="hidden lg:block">
           <div className="sticky top-[84px]">
             {selected ? (
-              <ProfileCard
-                user={selected}
-                rank={selected.rank ?? undefined}
-                isMe={selected.id === myId}
-                stats={{
-                  portfolioValue: selected.portfolioValue,
-                  totalPnl: selected.totalPnl,
-                  rangePnl: selected.pnl,
-                  rangeLabel: RANGE_LABEL[range],
-                  fees: selected.fees,
-                  winRate: selected.winRate,
-                  positionsOpen: selected.positionsOpen,
-                  positionsClosed: selected.positionsClosed,
-                  volume: selected.volume,
-                  topPool: selected.topPool,
-                }}
-              />
+              <LeaderboardSideCard user={selected} rangeLabel={RANGE_LABEL[range]} isMe={selected.id === myId} />
             ) : (
-              <div className="glass rounded-[28px] p-6 text-center">
-                <div className="text-[40px]">🏊</div>
-                <h3 className="mt-2 text-[18px] font-bold">Profiles show up here</h3>
-                <p className="mt-1 text-[13px] text-mute">Thesis, stats and the PnL calendar for any LP on the board.</p>
-              </div>
+              <div className="glass rounded-[28px] p-6 text-center text-[13px] text-mute">Select an LP to preview them here.</div>
             )}
           </div>
         </aside>
@@ -297,39 +217,106 @@ export default function LeaderboardPage() {
   );
 }
 
-function PodiumCard({ e, first, isMe, metric, tone, onClick, range }: { e: LeaderboardEntry; first: boolean; isMe: boolean; metric: string; tone: string; onClick: () => void; range: Range }) {
+const SORT_OPTIONS: { value: Sort; label: string }[] = [
+  { value: "pnl", label: "PnL" },
+  { value: "volume", label: "Volume" },
+  { value: "winrate", label: "Win rate" },
+  { value: "fees", label: "Fees" },
+];
+
+/** One small menu for Sort and (signed in) Show: Everyone / Following. Opaque, closes on outside click / Esc. */
+function BoardMenu({ sort, onSort, who, onWho }: { sort: Sort; onSort: (s: Sort) => void; who: "all" | "following"; onWho: ((w: "all" | "following") => void) | null }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (ev: MouseEvent) => {
+      if (ref.current && !ref.current.contains(ev.target as Node)) setOpen(false);
+    };
+    const onKey = (ev: KeyboardEvent) => {
+      if (ev.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const sortLabel = SORT_OPTIONS.find((o) => o.value === sort)?.label ?? "PnL";
+  const item = (active: boolean) =>
+    `flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-[13px] ${active ? "text-white" : "text-mute hover:bg-white/[.06] hover:text-white"}`;
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className="glass flex h-[38px] items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 text-[13px] font-semibold"
+        data-testid="board-menu"
+      >
+        <span className="text-mute">Sort</span> {sortLabel}
+        {who === "following" && <span className="text-mute">· Following</span>}
+        <span aria-hidden className="text-[10px] text-mute">▾</span>
+      </button>
+      {open && (
+        <div role="menu" className="absolute left-0 z-30 mt-2 w-48 rounded-2xl border border-white/10 bg-[#1A1623] p-1 shadow-xl sm:left-auto sm:right-0">
+          <div className="px-3 pb-1 pt-2 text-[10px] font-bold uppercase tracking-wider text-mute">Sort by</div>
+          {SORT_OPTIONS.map((o) => (
+            <button key={o.value} type="button" role="menuitemradio" aria-checked={sort === o.value} onClick={() => { onSort(o.value); setOpen(false); }} className={item(sort === o.value)}>
+              {o.label}
+              {sort === o.value && <span aria-hidden>✓</span>}
+            </button>
+          ))}
+          {onWho && (
+            <>
+              <div className="mx-2 my-1 border-t border-white/[.06]" />
+              <div className="px-3 pb-1 pt-1 text-[10px] font-bold uppercase tracking-wider text-mute">Show</div>
+              {(["all", "following"] as const).map((w) => (
+                <button key={w} type="button" role="menuitemradio" aria-checked={who === w} onClick={() => { onWho(w); setOpen(false); }} className={item(who === w)}>
+                  {w === "all" ? "Everyone" : "Following"}
+                  {who === w && <span aria-hidden>✓</span>}
+                </button>
+              ))}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PodiumCard({ e, first, isMe, metric, tone, onClick }: { e: LeaderboardEntry; first: boolean; isMe: boolean; metric: string; tone: string; onClick: () => void }) {
   const badge = e.rank === 1 ? "bg-orange text-white" : e.rank === 2 ? "bg-[#d9d6e6] text-black" : "bg-[#e0915a] text-black";
   return (
     <div
-      role="button"
-      tabIndex={0}
-      onClick={onClick}
-      onKeyDown={(ev) => {
-        if (ev.key === "Enter" || ev.key === " ") {
-          ev.preventDefault();
-          onClick();
-        }
-      }}
-      className={`relative flex cursor-pointer flex-col items-center rounded-[26px] px-2 pb-4 text-center transition hover:-translate-y-0.5 sm:px-4 ${first ? "podium-1 pt-6 sm:pt-7" : "glass pt-5"} ${isMe ? "outline outline-2 outline-orange/60" : ""}`}
+      className={`relative flex flex-col items-center rounded-[26px] px-2 pb-4 text-center transition hover:-translate-y-0.5 sm:px-4 ${first ? "podium-1 pt-6 sm:pt-7" : "glass pt-5"} ${isMe ? "outline outline-2 outline-orange/60" : ""}`}
     >
-      <span className={`absolute left-3 top-3 flex h-6 w-6 items-center justify-center rounded-full text-[12px] font-extrabold ${badge}`}>{e.rank}</span>
-      {first && <span className="absolute right-3 top-3 hidden rounded-full bg-orange/20 px-2 py-0.5 text-[10px] font-bold text-orange sm:inline">👑 {RANGE_LABEL[range]} #1</span>}
+      {/* Whole-card click target as an overlay button (not a wrapper), so Follow / pool links aren't nested in it. */}
+      <button type="button" onClick={onClick} aria-label={`Preview ${displayName(e)}`} className="absolute inset-0 rounded-[26px]" />
+      <span className={`pointer-events-none absolute left-3 top-3 flex h-6 w-6 items-center justify-center rounded-full text-[12px] font-extrabold ${badge}`}>{e.rank}</span>
       <Avatar user={e} size={first ? 84 : 64} ring />
-      <div className="mt-2 flex max-w-full items-center gap-1 text-[13px] font-bold sm:text-[15px]">
-        <span className="truncate">{displayName(e)}</span>
+      {/* Names wrap instead of truncating on narrow podium cards. */}
+      <div className="mt-2 flex max-w-full flex-wrap items-center justify-center gap-1 text-[13px] font-bold leading-tight sm:text-[15px]" data-testid="podium-name">
+        <span className="max-w-full [overflow-wrap:anywhere]">{displayName(e)}</span>
         <Flag code={e.country} />
       </div>
       {isMe && <span className="mt-0.5 rounded-full bg-purp/30 px-2 text-[10px] font-bold text-purp-soft">YOU</span>}
       <div className={`num mt-1 font-extrabold tracking-tight ${first ? "text-[22px] sm:text-[34px]" : "text-[18px] sm:text-[26px]"} ${tone}`}>{metric}</div>
       {!isMe && (
-        <div className="mt-2">
+        <div className="relative z-10 mt-2">
           <FollowButton targetUser={e} size="sm" />
         </div>
       )}
       <div className="mt-0.5 hidden text-[11px] text-mute sm:block">
         Vol <span className="text-white/80">{fmtUsd(e.volume)}</span> · Fees <span className="text-orange">{fmtUsd(e.fees)}</span> · Win <span className="text-white/80">{fmtPct(e.winRate)}</span>
       </div>
-      <div className="mt-2 max-w-full">
+      {/* The chip only fits on wider cards; on phones it would truncate to a stub. */}
+      <div className="relative z-10 mt-2 hidden max-w-full sm:block">
         <PoolChip pool={e.topPool} compact />
       </div>
     </div>
@@ -340,14 +327,10 @@ function Row({ e, isMe, metric, tone, onClick, range, active }: { e: Leaderboard
   const share = `https://x.com/intent/tweet?text=${encodeURIComponent(shareText(e, range))}&url=${encodeURIComponent(APP_URL)}`;
   return (
     <div
-      role="button"
-      tabIndex={0}
-      onClick={onClick}
-      onKeyDown={(ev) => {
-        if (ev.key === "Enter") onClick();
-      }}
-      className={`flex cursor-pointer items-center gap-3 rounded-[20px] px-3 py-2.5 transition sm:px-4 ${isMe ? "you-row" : active ? "glass border-orange/30" : "glass hover:bg-white/[.06]"}`}
+      className={`relative flex items-center gap-3 rounded-[20px] px-3 py-2.5 transition sm:px-4 ${isMe ? "you-row" : active ? "glass border-orange/30" : "glass hover:bg-white/[.06]"}`}
     >
+      {/* Row click target as an overlay button, so Follow / Share / pool links aren't nested in it. */}
+      <button type="button" onClick={onClick} aria-label={`Preview ${displayName(e)}`} className="absolute inset-0 rounded-[20px]" />
       <span className="num w-6 text-center text-[14px] font-bold text-mute" title={e.rank === null ? "No Meteora activity yet" : undefined}>{e.rank ?? "–"}</span>
       <Avatar user={e} size={42} />
       <div className="min-w-0 flex-1">
@@ -357,7 +340,9 @@ function Row({ e, isMe, metric, tone, onClick, range, active }: { e: Leaderboard
           {isMe && <span className="rounded-full bg-orange px-1.5 text-[10px] font-extrabold text-white">YOU</span>}
         </div>
         <div className="mt-0.5 flex items-center gap-2 text-[12px] text-mute">
-          <PoolChip pool={e.topPool} compact />
+          <span className="relative z-10 min-w-0">
+            <PoolChip pool={e.topPool} compact />
+          </span>
           <span>Win {fmtPct(e.winRate)}</span>
         </div>
       </div>
@@ -370,7 +355,7 @@ function Row({ e, isMe, metric, tone, onClick, range, active }: { e: Leaderboard
         <div className="num text-[14px] font-semibold text-orange">{fmtUsd(e.fees)}</div>
       </div>
       <div className={`num text-right text-[18px] font-extrabold sm:text-[22px] ${tone}`}>{metric}</div>
-      <div className="hidden sm:block" onClick={(ev) => ev.stopPropagation()}>
+      <div className="relative z-10 hidden sm:block">
         {isMe && e.rank === null ? null : isMe ? (
           <a href={share} target="_blank" rel="noreferrer" className="h-8 rounded-full bg-white/[.1] px-3.5 text-[13px] font-semibold leading-8 hover:bg-white/[.16]">
             Share
@@ -380,141 +365,5 @@ function Row({ e, isMe, metric, tone, onClick, range, active }: { e: Leaderboard
         )}
       </div>
     </div>
-  );
-}
-
-function EmptyBoard({ country, onConnect, connected }: { country: string; onConnect: () => void; connected: boolean }) {
-  return (
-    <div className="glass mt-6 rounded-[28px] px-6 py-12 text-center">
-      <div className="text-[46px]">🏊‍♀️</div>
-      <h2 className="mt-2 text-[22px] font-extrabold">{country ? "No LPs from here yet" : "The pool is empty. For now."}</h2>
-      <p className="mx-auto mt-1 max-w-md text-[14px] text-mute">
-        {country ? "Be the first LP to rep this country on the board." : "Connect your wallet to put your Meteora PnL on the board and set the bar."}
-      </p>
-      {!connected && (
-        <button type="button" onClick={onConnect} className="mt-5 h-11 rounded-full bg-orange px-6 text-[14px] font-bold shadow-lg shadow-orange/30 hover:bg-orange-soft">
-          Claim the #1 spot →
-        </button>
-      )}
-    </div>
-  );
-}
-
-interface CountryLeaderboardEntry {
-  rank: number;
-  country: string;
-  name: string;
-  members: number;
-  totalPnl: number | null;
-  totalFees: number | null;
-  totalVolume: number | null;
-  avgWinRate: number | null;
-  topLp: {
-    id: number;
-    xHandle: string | null;
-    xName: string | null;
-    xAvatarUrl: string | null;
-    anonName: string | null;
-    pnl: number | null;
-  } | null;
-}
-
-interface CountriesResponse {
-  range: "7d" | "30d" | "all";
-  entries: CountryLeaderboardEntry[];
-}
-
-function CountriesView({ range, setRange, onCountryClick }: { range: Range; setRange: (r: Range) => void; onCountryClick: (country: string) => void }) {
-  const [data, setData] = useState<CountriesResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    setLoading(true);
-    fetch(`/api/countries/leaderboard?range=${range}`)
-      .then((r) => r.json() as Promise<CountriesResponse>)
-      .then(setData)
-      .catch(() => setData(null))
-      .finally(() => setLoading(false));
-  }, [range]);
-
-  const entries = data?.entries ?? [];
-
-  return (
-    <>
-      {/* Hero */}
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-[32px] font-extrabold leading-tight tracking-tight sm:text-[40px]">
-            country <span className="brand-text">rankings</span> 🌍
-          </h1>
-          <p className="mt-1 text-[14px] text-mute">
-            Countries ranked by combined {RANGE_LABEL[range]} PnL across all members
-          </p>
-        </div>
-        <div className="flex gap-6 text-right">
-          <div>
-            <div className="text-[12px] text-mute">Countries</div>
-            <div className="num text-[22px] font-bold">{entries.length}</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Filters */}
-      <div className="no-scrollbar -mx-4 mt-5 flex items-center gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
-        <Pills value={range} onChange={setRange} options={[{ value: "7d", label: "7D" }, { value: "30d", label: "30D" }, { value: "all", label: "All" }]} />
-      </div>
-
-      {/* Country rows */}
-      {loading && !data ? (
-        <div className="mt-6 space-y-2">
-          {[0, 1, 2, 3, 4].map((i) => (
-            <div key={i} className="glass h-24 animate-pulse rounded-[20px]" />
-          ))}
-        </div>
-      ) : entries.length === 0 ? (
-        <div className="glass mt-6 rounded-[28px] px-6 py-12 text-center">
-          <div className="text-[46px]">🌍</div>
-          <h2 className="mt-2 text-[22px] font-extrabold">No country data yet</h2>
-          <p className="mx-auto mt-1 max-w-md text-[14px] text-mute">Waiting for LPs to join and set their country.</p>
-        </div>
-      ) : (
-        <div className="mt-6 space-y-2">
-          {entries.map((entry) => (
-            <button
-              key={entry.country}
-              type="button"
-              onClick={() => onCountryClick(entry.country)}
-              className="glass flex w-full cursor-pointer items-center gap-4 rounded-[20px] px-4 py-4 text-left transition hover:bg-white/[.06] sm:px-5"
-            >
-              <span className="num w-8 text-center text-[16px] font-bold text-mute">{entry.rank}</span>
-              <Flag code={entry.country} className="!h-[20px] !w-[28px]" />
-              <div className="min-w-0 flex-1">
-                <div className="text-[17px] font-bold">{entry.name}</div>
-                <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-mute">
-                  <span>{entry.members} {entry.members === 1 ? "member" : "members"}</span>
-                  {entry.topLp && (
-                    <span className="flex items-center gap-1">
-                      Top LP: <Avatar user={entry.topLp} size={16} /> <span className="text-white/80">{displayName(entry.topLp)}</span>
-                    </span>
-                  )}
-                  <span>Avg win rate: <span className="text-white/80">{fmtPct(entry.avgWinRate, 1)}</span></span>
-                </div>
-              </div>
-              <div className="hidden md:flex md:flex-col md:items-end md:gap-0.5 md:min-w-[90px]">
-                <div className="text-[10px] uppercase tracking-wider text-mute">Volume</div>
-                <div className="num text-[15px] font-semibold text-white/80">{fmtUsd(entry.totalVolume)}</div>
-              </div>
-              <div className="hidden sm:flex sm:flex-col sm:items-end sm:gap-0.5 sm:min-w-[90px]">
-                <div className="text-[10px] uppercase tracking-wider text-mute">Fees</div>
-                <div className="num text-[15px] font-semibold text-orange">{fmtUsd(entry.totalFees)}</div>
-              </div>
-              <div className={`num text-right text-[22px] font-extrabold sm:text-[28px] ${(entry.totalPnl ?? 0) >= 0 ? "text-up" : "text-dn"}`}>
-                {fmtUsd(entry.totalPnl, { signed: true })}
-              </div>
-            </button>
-          ))}
-        </div>
-      )}
-    </>
   );
 }

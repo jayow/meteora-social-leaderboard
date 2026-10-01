@@ -3,11 +3,8 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useWallet } from "@solana/wallet-adapter-react";
-import { useWalletModal } from "@solana/wallet-adapter-react-ui";
-import { loginMessage } from "@/lib/login-message";
 import { CountrySelect } from "@/components/CountrySelect";
-import { notifySessionChanged } from "@/lib/session-events";
+import { notifySessionChanged, requestSignIn } from "@/lib/session-events";
 
 type Step = "code" | "wallet" | "x" | "country" | "thesis" | "complete" | "member";
 
@@ -37,8 +34,6 @@ function stepAfterCode(session: JoinSession): Step {
 function JoinFlow() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { publicKey, signMessage } = useWallet();
-  const { setVisible } = useWalletModal();
   const [step, setStep] = useState<Step>("code");
   const [code, setCode] = useState(searchParams.get("code") || "");
   const [country, setCountry] = useState("");
@@ -102,12 +97,13 @@ function JoinFlow() {
     }
   };
 
-  // Coming back from "Connect X" (returnTo=/join?code=...): resume after the X step.
+  // Coming back from "Connect X" (returnTo=/join?code=...) or the Sign in modal (resume=1): resume.
   const xResult = searchParams.get("x");
+  const resume = searchParams.get("resume") === "1";
   const resumedRef = useRef(false);
   useEffect(() => {
     const returnedCode = searchParams.get("code");
-    if (!xResult || !returnedCode || !session || resumedRef.current) return;
+    if (!(xResult || resume) || !returnedCode || !session || resumedRef.current) return;
     resumedRef.current = true;
     if (session.memberNumber) return;
     void (async () => {
@@ -126,48 +122,14 @@ function JoinFlow() {
         setLoading(false);
       }
     })();
-  }, [xResult, searchParams, session]);
+  }, [xResult, resume, searchParams, session]);
 
-  const connectAndSign = async () => {
-    if (!publicKey || !signMessage) {
-      setVisible(true);
-      return;
-    }
-    setLoading(true);
-    setError("");
-    try {
-      const wallet = publicKey.toBase58();
-      const issuedAt = new Date().toISOString();
-      const message = loginMessage(wallet, issuedAt);
-      const signature = Buffer.from(await signMessage(Buffer.from(message, "utf8"))).toString("base64");
-
-      const authRes = await fetch("/api/auth/wallet", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ wallet, issuedAt, signature }),
-      });
-
-      if (!authRes.ok) {
-        const data = await authRes.json() as { error?: string };
-        setError(data.error || "Authentication failed");
-        setLoading(false);
-        return;
-      }
-
-      const s = await fetchJoinSession();
-      setSession(s);
-      notifySessionChanged();
-      if (s.memberNumber) {
-        setMemberNumber(s.memberNumber);
-        setStep("member");
-      } else {
-        setStep(s.xHandle ? "country" : "x");
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to sign");
-    } finally {
-      setLoading(false);
-    }
+  // Signed-out users sign in through the app's Sign in modal (wallet picker or X), same as
+  // everywhere else. The modal reloads the page on success, so keep the code in the URL and resume.
+  const openSignIn = () => {
+    const c = code.trim();
+    if (c) window.history.replaceState(null, "", `/join?code=${encodeURIComponent(c)}&resume=1`);
+    requestSignIn();
   };
 
   const skipX = () => {
@@ -234,10 +196,10 @@ function JoinFlow() {
 
         {step === "wallet" && (
           <div>
-            <p className="mb-4 text-center">Connect your Solana wallet and sign to continue</p>
+            <p className="mb-4 text-center">Sign in with your Solana wallet or X to continue</p>
             {error && <p className="mb-4 text-sm text-dn">{error}</p>}
-            <button onClick={connectAndSign} disabled={loading} className="brand-grad w-full rounded-full py-3 font-bold">
-              {loading ? "Signing..." : publicKey ? "Sign Message" : "Connect Wallet"}
+            <button type="button" onClick={openSignIn} disabled={loading} className="brand-grad w-full rounded-full py-3 font-bold">
+              Sign in
             </button>
           </div>
         )}
