@@ -22,14 +22,16 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const returnTo = req.nextUrl.searchParams.get("returnTo") || "/profile/me";
   const isLinking = req.nextUrl.searchParams.get("link") === "true";
   const termsVersion = req.nextUrl.searchParams.get("termsVersion");
+  // Public origin from the configured callback (req.nextUrl is the container's internal localhost address).
+  const origin = new URL(getCallbackUrl(req)).origin;
   if (!isLinking && termsVersion !== TERMS_VERSION) {
-    const consentUrl = new URL("/terms", req.nextUrl.origin);
+    const consentUrl = new URL("/terms", origin);
     consentUrl.searchParams.set("consent", "1");
     consentUrl.searchParams.set("returnTo", returnTo);
     return NextResponse.redirect(consentUrl);
   }
-  const returnUrl = new URL(returnTo, req.nextUrl.origin);
-  if (returnUrl.origin !== req.nextUrl.origin) {
+  const returnUrl = new URL(returnTo, origin);
+  if (returnUrl.origin !== origin) {
     return NextResponse.json({ error: "Invalid returnTo" }, { status: 400 });
   }
 

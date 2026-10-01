@@ -3,11 +3,12 @@ import { eq, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { getSessionUserId } from "@/lib/session";
-import { validateOAuthState, exchangeCodeForToken, fetchXProfile, oauthReturnUrl } from "@/lib/x-oauth";
+import { validateOAuthState, exchangeCodeForToken, fetchXProfile, oauthReturnUrl, getCallbackUrl } from "@/lib/x-oauth";
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const { searchParams } = new URL(req.url);
-  const baseUrl = new URL(req.url).origin;
+  // Public origin from the configured callback (req.url is the container's internal localhost address).
+  const baseUrl = new URL(getCallbackUrl(req)).origin;
   const code = searchParams.get("code");
   const state = searchParams.get("state");
   const error = searchParams.get("error");
