@@ -6,7 +6,7 @@ import { fetchMeteora } from "@/lib/meteora-limiter";
 import { meteoraUrls } from "@/lib/meteora-endpoints";
 import { getUserWalletAddresses } from "@/lib/users";
 import { recordSyncActivity, type SyncedPosition } from "@/lib/activity";
-import { fetchWalletOpenPositions, mergeOpenPools, readOpenPositions, type WalletOpenPositions } from "@/lib/open-positions";
+import { attachPositionDetails, fetchWalletOpenPositions, mergeOpenPools, readOpenPositions, type WalletOpenPositions } from "@/lib/open-positions";
 import { refreshBadges } from "@/lib/badges/compute";
 
 const AVATAR_RECHECK_DAYS = 7;
@@ -369,8 +369,14 @@ export async function syncUser(user: UserRow): Promise<SyncResult> {
   void _u;
   void _d;
 
-  // Fetch mints for pools that don't have them yet (network; outside the transaction).
-  if (openOk) await enrichPoolsWithMints(mergedPools);
+  // Fetch mints for pools that don't have them yet, and per-position details (network; outside the transaction).
+  if (openOk) {
+    await enrichPoolsWithMints(mergedPools);
+    await attachPositionDetails(
+      walletDataList.map((wd) => ({ wallet: wd.wallet, pools: wd.open?.pools ?? [] })),
+      mergedPools
+    );
+  }
 
   // Snapshot + open_positions in one transaction, so the count and the list can't be half-updated.
   // Opened/closed rows feed the Activity feed (lib/activity.ts).
@@ -412,6 +418,8 @@ export async function syncUser(user: UserRow): Promise<SyncResult> {
         binStep: pool.binStep != null ? Math.round(num(pool.binStep)) : null,
         valueUsd: pool.valueUsd,
         positionCount: pool.positionCount,
+        // Only overwrite stored details when this sync fetched them.
+        ...(pool.positions ? { positions: pool.positions } : {}),
       };
       const [upserted] = await tx
         .insert(openPositions)

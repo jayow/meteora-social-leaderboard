@@ -171,6 +171,22 @@ export const follows = pgTable(
   ]
 );
 
+/** One open position inside an open_positions pool row (public, non-wallet fields only). */
+export interface OpenPositionDetail {
+  /** Range bounds, quote (token Y) per base (token X). */
+  minPrice: number | null;
+  maxPrice: number | null;
+  inRange: boolean;
+  /** Current value incl. unclaimed fees, USD (same definition as the pool row's value). */
+  valueUsd: number;
+  unclaimedFeesUsd: number;
+  pnlUsd: number | null;
+  /** Fraction (0.01 = 1%). */
+  pnlPct: number | null;
+  /** Unix seconds. */
+  openedAt: number | null;
+}
+
 export const openPositions = pgTable(
   "open_positions",
   {
@@ -189,6 +205,8 @@ export const openPositions = pgTable(
     protocol: varchar("protocol", { length: 16 }),
     valueUsd: doublePrecision("value_usd"),
     positionCount: integer("position_count"),
+    /** Slim per-position details (lib/open-positions.ts OpenPositionDetail[]); never position/wallet addresses. */
+    positions: jsonb("positions").$type<OpenPositionDetail[]>(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

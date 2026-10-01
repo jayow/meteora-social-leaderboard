@@ -31,6 +31,12 @@ export const meteoraUrls = {
    */
   portfolioOpen: (wallet: string, page = 1, pageSize = METEORA_OPEN_PAGE_SIZE): string =>
     `${METEORA_DLMM_API}/portfolio/open?user=${enc(wallet)}&page=${page}&page_size=${pageSize}`,
+  /**
+   * One wallet's positions in one pool with per-position range, value, fees and PnL.
+   * `status` open | closed | all; `pageSize` max 100.
+   */
+  poolPositions: (poolAddress: string, wallet: string, status: "open" | "closed" | "all" = "open", page = 1, pageSize = 100): string =>
+    `${METEORA_DLMM_API}/positions/${enc(poolAddress)}/pnl?user=${enc(wallet)}&status=${status}&page=${page}&page_size=${pageSize}`,
   /** Closed + open pools history. */
   portfolio: (wallet: string, pageSize = 100): string =>
     `${METEORA_DLMM_API}/portfolio?user=${enc(wallet)}&page_size=${pageSize}`,

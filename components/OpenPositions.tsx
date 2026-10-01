@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import Link from "next/link";
-import { fmtPositions, fmtUsd } from "@/lib/format";
+import { fmtPct, fmtPositions, fmtUsd, pnlClass, timeAgo } from "@/lib/format";
 import { DipLink } from "@/components/DipLink";
+import type { OpenPositionDetail } from "@/lib/db/schema";
 
 /** One row per pool; `positionCount` = the user's open positions in that pool. Mirrors lib/open-positions.ts. */
 interface OpenPool {
@@ -18,6 +19,8 @@ interface OpenPool {
   tokenYIcon: string | null;
   valueUsd: number | null;
   positionCount: number;
+  /** Per-position details (no addresses); null when the last sync didn't fetch them. */
+  positions?: OpenPositionDetail[] | null;
 }
 
 interface OpenPositionsResponse {
@@ -225,12 +228,80 @@ function PositionCount({ count }: { count: number }) {
   );
 }
 
+/** Range bound, quote per base: 4 significant digits without exponent noise for normal sizes. */
+function fmtPrice(n: number | null): string {
+  if (n == null || !Number.isFinite(n)) return "—";
+  if (n === 0) return "0";
+  const a = Math.abs(n);
+  if (a >= 1000) return n.toLocaleString("en-US", { maximumFractionDigits: 0 });
+  if (a < 1e-6) return n.toExponential(2);
+  return String(Number(n.toPrecision(4)));
+}
+
+/** One position: range with an in/out-of-range dot, value, unclaimed fees, PnL, opened. */
+function PositionLine({ d, pool }: { d: OpenPositionDetail; pool: OpenPool }) {
+  const value = fmtUsd(d.valueUsd);
+  const opened = d.openedAt != null ? new Date(d.openedAt * 1000) : null;
+  return (
+    <div className="py-2 text-[12px] sm:flex sm:items-center sm:gap-4" data-testid="open-position-line">
+      <div className="flex min-w-0 items-center justify-between gap-3 sm:flex-1">
+        <span className="flex min-w-0 items-center gap-2">
+          <span
+            aria-hidden="true"
+            title={d.inRange ? "In range" : "Out of range"}
+            className={`h-1.5 w-1.5 shrink-0 rounded-full ${d.inRange ? "bg-up" : "bg-dn"}`}
+          />
+          <span className="sr-only">{d.inRange ? "In range" : "Out of range"}, range</span>
+          <span className="num truncate text-fg-secondary" title={`Price range, ${pool.tokenY} per ${pool.tokenX}`}>
+            {fmtPrice(d.minPrice)} – {fmtPrice(d.maxPrice)}
+          </span>
+        </span>
+        <span className="num shrink-0 font-semibold sm:hidden">{value}</span>
+      </div>
+      <div className="num mt-0.5 flex items-center gap-3 pl-3.5 text-mute sm:mt-0 sm:shrink-0 sm:pl-0">
+        <span className="hidden w-20 text-right font-semibold text-fg sm:inline">{value}</span>
+        <span title="Unclaimed fees">fees {fmtUsd(d.unclaimedFeesUsd)}</span>
+        {d.pnlUsd != null && (
+          <span className={pnlClass(d.pnlUsd)} title={d.pnlPct != null ? `PnL ${fmtPct(d.pnlPct, 2)}` : "PnL"}>
+            <span className="sr-only">PnL </span>
+            {fmtUsd(d.pnlUsd, { signed: true })}
+          </span>
+        )}
+        {opened && (
+          <span title={`Opened ${opened.toLocaleString()}`}>
+            <span className="sr-only">opened </span>
+            {timeAgo(opened.toISOString())}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function PositionCard({ pool }: { pool: OpenPool }) {
   const count = pool.positionCount || 1;
+  const details = pool.positions ?? [];
+  const pair = `${pool.tokenX}/${pool.tokenY}`;
+  // Pools with several positions expand to one line each; a single position shows its line inline.
+  const expandable = count > 1 && details.length > 0;
+  const [open, setOpen] = useState(false);
+  const panelId = useId();
   return (
     <div className="relative rounded-2xl border border-border bg-surface-raised p-4 transition hover:border-border-strong" data-testid="open-position-row">
-      {/* Whole-card link as an overlay (not a wrapper) so the token links aren't nested anchors. */}
-      <Link href={`/pools/${pool.poolAddress}`} aria-label={`${pool.tokenX}/${pool.tokenY} pool, ${fmtPositions(count)}`} className="absolute inset-0 rounded-2xl" />
+      {/* Whole-card overlay (not a wrapper) so the token links aren't nested in it. */}
+      {expandable ? (
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          aria-controls={panelId}
+          aria-label={`${pair} pool, ${fmtPositions(count)}. ${open ? "Hide" : "Show"} positions`}
+          className="absolute inset-0 rounded-2xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mute"
+          data-testid="open-position-expand"
+        />
+      ) : (
+        <Link href={`/pools/${pool.poolAddress}`} aria-label={`${pair} pool, ${fmtPositions(count)}`} className="absolute inset-0 rounded-2xl" />
+      )}
       <div className="flex items-start gap-2.5 pr-16">
         <PoolIcons pool={pool} size="md" />
         <div className="min-w-0">
@@ -248,10 +319,51 @@ function PositionCard({ pool }: { pool: OpenPool }) {
         </div>
       </div>
 
-      <div className="mt-3 text-[13px]">
-        <div className="text-[11px] text-mute">{count > 1 ? `Value across ${fmtPositions(count)}` : "Value"}</div>
-        <div className="num mt-0.5 font-semibold">{fmtUsd(pool.valueUsd ?? 0)}</div>
+      <div className="mt-3 flex items-end justify-between gap-3 text-[13px]">
+        <div>
+          <div className="text-[11px] text-mute">{count > 1 ? `Value across ${fmtPositions(count)}` : "Value"}</div>
+          <div className="num mt-0.5 font-semibold">{fmtUsd(pool.valueUsd ?? 0)}</div>
+        </div>
+        {expandable && (
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 20 20"
+            className={`mb-0.5 h-4 w-4 shrink-0 text-mute transition-transform ${open ? "rotate-180" : ""}`}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <path d="M5 7.5l5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        )}
       </div>
+
+      {count === 1 && details.length === 1 && (
+        <div className="mt-2 border-t border-border">
+          <PositionLine d={details[0]} pool={pool} />
+        </div>
+      )}
+
+      {expandable && (
+        // Above the overlay so clicks inside the list don't collapse it.
+        <div id={panelId} hidden={!open} className="relative z-10 mt-2 border-t border-border" data-testid="open-position-details">
+          <ul className="divide-y divide-border">
+            {details.map((d, i) => (
+              <li key={i}>
+                <PositionLine d={d} pool={pool} />
+              </li>
+            ))}
+          </ul>
+          {details.length !== count && (
+            <p className="pt-1 text-[11px] text-mute">
+              Details for {details.length} of {fmtPositions(count)}; the rest appear after the next sync.
+            </p>
+          )}
+          <Link href={`/pools/${pool.poolAddress}`} className="mt-1 inline-block rounded text-[12px] font-semibold text-mute hover:text-fg">
+            View pool →
+          </Link>
+        </div>
+      )}
 
       <DipLink poolAddress={pool.poolAddress} protocol={pool.protocol} className="!absolute right-4 top-4" />
     </div>
