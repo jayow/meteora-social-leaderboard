@@ -21,7 +21,6 @@ interface PoolData {
   binStep: number | null;
   protocol: string | null;
   lpCount: number;
-  totalValueUsd: number | null;
 }
 
 interface LP {
@@ -59,8 +58,6 @@ interface Comment {
   body: string;
   createdAt: string;
   author: CommentAuthor;
-  poolAddress: string | null;
-  tokenY: string | null;
 }
 
 interface CommentsResponse {
@@ -226,7 +223,7 @@ export default function PoolDetailPage() {
   return (
     <main className="mx-auto max-w-[900px] px-4 pb-10 pt-6 lg:px-6">
       <div className="glass rounded-[28px] p-5 sm:p-6">
-        {/* Mobile: pair + badges on one line, full-width Dip button below. sm+: button on the right. */}
+        {/* Mobile: pair + badges on one line, Dip button below. sm+: button on the right. */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
           <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
             <div className="flex shrink-0">
@@ -257,36 +254,14 @@ export default function PoolDetailPage() {
               )}
             </div>
           </div>
-          <div className="flex flex-col items-stretch gap-1.5 sm:items-end">
-            <a
-              href={meteoraPoolUrl(pool.poolAddress, pool.protocol || undefined)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group flex items-center justify-center gap-2 whitespace-nowrap rounded-full bg-gradient-to-r from-[#FF5C1A] to-[#FF3D7F] px-5 py-2.5 text-[15px] font-bold text-white shadow-lg shadow-orange/30 transition hover:shadow-xl hover:shadow-orange/40"
-            >
-              <span className="transition group-hover:scale-110">🏖️</span>
-              <span>Dip into this pool</span>
-            </a>
-            <span className="text-center text-[10px] text-mute sm:text-right">Opens Meteora</span>
-          </div>
-        </div>
-
-        <div className="mt-4 grid grid-cols-2 gap-4 rounded-2xl border border-white/[.07] bg-white/[.03] p-4 sm:grid-cols-3">
-          <div>
-            <div className="text-[11px] font-medium text-mute">Pool Party LPs</div>
-            {/* Same source as the "LPs in this pool" list below. */}
-            <div className="num mt-0.5 text-[20px] font-bold">{lps.length}</div>
-          </div>
-          <div>
-            <div className="text-[11px] font-medium text-mute">Total value</div>
-            <div className="num mt-0.5 text-[20px] font-bold">{fmtUsd(pool.totalValueUsd)}</div>
-          </div>
-          <div className="col-span-2 sm:col-span-1">
-            <div className="text-[11px] font-medium text-mute">Pool address</div>
-            <div className="num mt-0.5 truncate text-[13px] font-medium text-white/70">
-              {pool.poolAddress.slice(0, 8)}...{pool.poolAddress.slice(-6)}
-            </div>
-          </div>
+          <a
+            href={meteoraPoolUrl(pool.poolAddress, pool.protocol)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center whitespace-nowrap rounded-full border border-white/15 px-5 py-2 text-[14px] font-semibold text-white/90 transition hover:bg-white/[.06] hover:text-white"
+          >
+            Dip in ↗
+          </a>
         </div>
       </div>
 
@@ -314,9 +289,6 @@ export default function PoolDetailPage() {
             <h2 className="mb-4 text-[20px] font-extrabold">
               {pool.tokenX} Thesis Feed ({comments?.comments.length || 0})
             </h2>
-            <p className="mb-4 text-[13px] text-mute">
-              Share insights about {pool.tokenX} with other LPs. This feed is shared across all {pool.tokenX} pools.
-            </p>
 
             {user ? (
               <CommentComposer
@@ -426,17 +398,10 @@ function CommentComposer({
 
   if (hasPosition === false) {
     return (
-      <div className="mb-6 rounded-2xl border border-orange/30 bg-orange/10 px-4 py-3 text-center">
-        <p className="text-[14px] text-mute">
-          Open a position in any {tokenSymbol} pool to share your thesis
-        </p>
-        <a
-          href={meteoraHomeUrl()}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-2 inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-[#FF5C1A] to-[#FF3D7F] px-4 py-2 text-[13px] font-bold shadow-md hover:shadow-lg hover:shadow-orange/30"
-        >
-          <span>🏖️</span> Dip in
+      <div className="mb-6 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 rounded-2xl border border-white/[.08] bg-white/[.03] px-4 py-3 text-[14px] text-mute">
+        <span>Open a position in any {tokenSymbol} pool to share your thesis.</span>
+        <a href={meteoraHomeUrl()} target="_blank" rel="noopener noreferrer" className="whitespace-nowrap text-[12px] font-semibold text-mute transition hover:text-white">
+          Meteora ↗
         </a>
       </div>
     );
@@ -515,14 +480,6 @@ function CommentCard({
               </Link>
             ) : (
               <span className="font-semibold">{authorName}</span>
-            )}
-            {comment.poolAddress && comment.tokenY && (
-              <Link
-                href={`/pools/${comment.poolAddress}`}
-                className="flex items-center gap-1 rounded-full bg-white/[.06] px-2 py-0.5 text-[11px] font-semibold text-mute hover:text-white"
-              >
-                from {comment.tokenY}
-              </Link>
             )}
             <span className="text-[12px] text-mute">{timeAgo(comment.createdAt)}</span>
             {canDelete && (

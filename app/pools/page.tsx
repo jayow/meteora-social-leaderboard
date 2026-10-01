@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useMe } from "@/components/MeProvider";
 import { fmtUsd } from "@/lib/format";
-import { meteoraPoolUrl } from "@/lib/meteora-links";
+import { DipLink } from "@/components/DipLink";
 import { PoolMemberAvatars } from "@/components/PoolMemberAvatars";
 import { onFollowChanged } from "@/lib/session-events";
 import {
@@ -498,16 +498,7 @@ function PoolRow({
         </div>
       )}
 
-      <a
-        href={meteoraPoolUrl(pool.poolAddress, pool.protocol || undefined)}
-        target="_blank"
-        rel="noopener noreferrer"
-        onClick={(e) => e.stopPropagation()}
-        className="group relative z-10 flex shrink-0 items-center gap-1 rounded-full bg-gradient-to-r from-[#FF5C1A] to-[#FF3D7F] px-2.5 py-1 text-[11px] font-bold text-white shadow-md transition hover:shadow-lg hover:shadow-orange/30"
-      >
-        <span className="transition group-hover:scale-110">🏖️</span>
-        <span>Dip in</span>
-      </a>
+      <DipLink poolAddress={pool.poolAddress} protocol={pool.protocol} />
     </div>
   );
 }

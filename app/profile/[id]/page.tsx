@@ -6,7 +6,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import { useWallet } from "@solana/wallet-adapter-react";
 import type { ApiSnapshot, ApiUser } from "@/lib/api-types";
 import { useMe } from "@/components/MeProvider";
-import { Avatar, Flag, Pills, PoolChip, StatTile, XIcon } from "@/components/ui";
+import { Avatar, Flag, Pills, StatTile, XIcon } from "@/components/ui";
 import { PnLCalendar } from "@/components/PnLCalendar";
 import { CountrySelect } from "@/components/CountrySelect";
 import { Modal } from "@/components/Modal";
@@ -260,19 +260,6 @@ function Profile() {
               <span className="text-[13px] text-orange">→</span>
             </Link>
           )}
-          {!user.xHandle && (
-            <a
-              href={`/api/x/login?link=true&returnTo=${encodeURIComponent("/profile/me")}`}
-              className="mb-4 flex items-center justify-between rounded-2xl border border-orange/30 bg-orange/10 px-4 py-3 text-[14px] transition hover:bg-orange/15"
-            >
-              <div className="flex items-center gap-2">
-                <XIcon className="h-4 w-4 text-orange" />
-                <span className="font-semibold text-white">Link your X account</span>
-                <span className="text-[13px] text-mute">Show your identity across Pool Party</span>
-              </div>
-              <span className="text-[13px] text-orange">→</span>
-            </a>
-          )}
           {(user.walletCount === undefined || user.walletCount === 0) && user.wallet && user.wallet.startsWith("temp_") && (
             <div className="mb-4 rounded-2xl border border-orange/30 bg-orange/10 px-4 py-3">
               <div className="flex items-center gap-2 text-[14px]">
@@ -303,11 +290,6 @@ function Profile() {
                   </button>
                 )}
                 {!mine && <FollowButton targetUser={user} />}
-                {user.xHandle && (
-                  <a href={`https://x.com/${user.xHandle}`} target="_blank" rel="noreferrer" className="flex h-9 w-9 items-center justify-center rounded-full bg-white/[.08] hover:bg-white/[.14]" title={`@${user.xHandle} on X`}>
-                    <XIcon className="h-4 w-4" />
-                  </a>
-                )}
               </div>
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -315,23 +297,11 @@ function Profile() {
               <Flag code={user.country} className="!h-[14px] !w-[20px]" />
               {mine && <span className="rounded-full bg-orange px-2 py-0.5 text-[11px] font-extrabold">YOU</span>}
             </div>
-            <div className="mt-1 flex flex-wrap items-center gap-2 text-[13px] text-mute">
-              {user.xHandle && (
-                <a href={`https://x.com/${user.xHandle}`} target="_blank" rel="noreferrer" className="flex items-center gap-1 hover:text-white">
-                  @{user.xHandle}{user.xVerified && <> · <XIcon className="h-3 w-3" /> verified</>}
-                </a>
-              )}
-              {user.signupMethod && (
-                <span className="rounded-full border border-white/10 bg-white/[.04] px-2 py-0.5 text-[11px] font-medium text-mute">
-                  {user.signupMethod === "x" ? "Signed up with X" : "Signed up with wallet"}
-                </span>
-              )}
-              {user.walletCount !== undefined && user.walletCount > 0 && (
-                <span className="rounded-full border border-white/10 bg-white/[.04] px-2 py-0.5 text-[11px] font-medium text-mute">
-                  Wallet verified
-                </span>
-              )}
-            </div>
+            {user.xHandle && (
+              <a href={`https://x.com/${user.xHandle}`} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-[13px] text-mute hover:text-white">
+                <XIcon className="h-3 w-3" />@{user.xHandle}
+              </a>
+            )}
             {(user.followersCount !== undefined || user.followingCount !== undefined) && (
               <div className="mt-2 flex gap-4 text-[13px]">
                 {user.followersCount !== undefined && (
@@ -353,14 +323,6 @@ function Profile() {
             {/* {mine && <WalletsSection />} */}
 
             <RecentTheses userId={user.id} />
-
-            {snap?.topPool && (
-              <div className="mt-4 flex items-center justify-between gap-2 text-[12px] text-mute">
-                <span>Top pool (30D)</span>
-                <PoolChip pool={snap.topPool} />
-              </div>
-            )}
-            <div className="mt-3 text-[11px] text-mute">Joined {new Date(user.createdAt).toLocaleDateString("en-US", { month: "short", year: "numeric" })}</div>
           </div>
         </section>
 
@@ -388,7 +350,7 @@ function Profile() {
                   <StatTile label="Total value" value={fmtUsd(snap.portfolioValueUsd)} sub="open positions" />
                   <StatTile label={`Win rate (${RANGE_LABEL[range]})`} value={fmtPct(winBy[range], 1)} tone={(winBy[range] ?? 0) >= 0.5 ? "up" : "white"} />
                   <StatTile label={`Volume (${RANGE_LABEL[range]})`} value={fmtUsd(volBy[range])} sub="deposited" />
-                  <StatTile label={range === "all" ? "Fees earned" : "Fees earned (30D)"} value={fmtUsd(range === "all" ? snap.feesUsd : snap.fees30dUsd)} tone="orange" />
+                  <StatTile label={range === "all" ? "Fees earned" : "Fees earned (30D)"} value={fmtUsd(range === "all" ? snap.feesUsd : snap.fees30dUsd)} tone="up" />
                   <StatTile label="Open positions" value={`${snap.positionsOpen ?? 0}`} />
                   <StatTile label="Closed positions" value={`${snap.positionsClosed ?? 0}`} sub="DLMM lifetime" />
                 </div>
@@ -432,13 +394,13 @@ function NoActivityStats({ mine }: { mine: boolean }) {
       <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
         <StatTile label="Total value" value={fmtUsd(0)} sub="open positions" />
         <StatTile label="Volume" value={fmtUsd(0)} sub="deposited" />
-        <StatTile label="Fees earned" value={fmtUsd(0)} />
+        <StatTile label="Fees earned" value={fmtUsd(0)} tone="up" />
       </div>
       <p className="mt-4 text-[14px] text-mute">
         No Meteora LP activity yet.{" "}
         {mine && (
           <a href={meteoraHomeUrl()} target="_blank" rel="noreferrer" className="font-semibold text-white/80 hover:text-white">
-            Dip in 🏖️
+            Dip in ↗
           </a>
         )}
       </p>

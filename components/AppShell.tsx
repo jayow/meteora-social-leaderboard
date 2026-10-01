@@ -100,11 +100,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     forgetRememberedWallet();
   };
 
-  const handleChangeWallet = async () => {
-    await resetWallet();
-    openSignIn("wallets");
-  };
-
   const handleSignOut = async () => {
     await resetWallet();
     await fetch("/api/auth/session", { method: "DELETE" });
@@ -135,9 +130,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Link href="/invites" className={`rounded-full px-4 py-1.5 ${onInvites ? "bg-white/[.1] text-white" : "text-mute hover:text-white"}`}>
                 Invites
               </Link>
-              <a href={meteoraHomeUrl()} target="_blank" rel="noreferrer" className="rounded-full px-4 py-1.5 text-mute hover:text-white">
-                Meteora ↗
-              </a>
             </nav>
           ) : (
             <div className="mx-auto" />
@@ -179,13 +171,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
                 {menuOpen && (
                   <div className="absolute right-0 z-50 mt-2 w-48 overflow-hidden rounded-2xl border border-white/10 bg-[#1A1623] p-1 text-[14px] shadow-xl">
-                    <Link
-                      href="/profile/me"
-                      onClick={() => setMenuOpen(false)}
-                      className="block rounded-xl px-3 py-2 hover:bg-white/[.06]"
-                    >
-                      Profile
-                    </Link>
                     {!hasX && (
                       <a
                         href={`/api/x/login?link=true&returnTo=${encodeURIComponent("/profile/me")}`}
@@ -196,31 +181,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       </a>
                     )}
                     {isSignedIn && <OwnWalletRow address={hasWallet ? ownWallet : null} />}
-                    {hasWallet && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setMenuOpen(false);
-                          void handleChangeWallet();
-                        }}
-                        className="block w-full rounded-xl px-3 py-2 text-left hover:bg-white/[.06]"
-                      >
-                        Change wallet
-                      </button>
-                    )}
-                    {!hasWallet && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setMenuOpen(false);
-                          // TODO: implement wallet linking flow
-                          alert("Wallet linking coming soon");
-                        }}
-                        className="block w-full rounded-xl px-3 py-2 text-left hover:bg-white/[.06]"
-                      >
-                        Link wallet
-                      </button>
-                    )}
                     <hr className="my-1 border-white/10" />
                     <button
                       type="button"
@@ -242,6 +202,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {children}
 
+      {/* Outbound Meteora link (referral) lives here rather than in the main nav. */}
+      <footer className="mx-auto flex max-w-[1320px] justify-center px-4 pb-6 pt-4 text-[12px] text-mute lg:justify-end lg:px-6">
+        <a href={meteoraHomeUrl()} target="_blank" rel="noreferrer" className="hover:text-white">
+          Meteora ↗
+        </a>
+      </footer>
+
       {/* Mobile bottom tab bar */}
       {isMember && (
         <nav className="fixed inset-x-3 bottom-3 z-40 lg:hidden">
@@ -252,20 +219,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <Link href="/pools" className={`flex min-w-0 flex-1 flex-col items-center gap-0.5 text-[11px] font-semibold ${onPools ? "text-orange" : "text-mute"}`}>
               <span className="text-[20px]">🏊</span>Pools
             </Link>
-            <Link href="/invites" className={`flex min-w-0 flex-1 flex-col items-center gap-0.5 text-[11px] font-semibold ${onInvites ? "text-orange" : "text-mute"}`}>
-              <span className="text-[20px]">🎟️</span>Invites
-            </Link>
-            {isSignedIn ? (
-              <Link href="/profile/me" className="brand-grad -mt-7 flex h-14 w-14 items-center justify-center rounded-full border-4 border-base text-[26px] font-bold shadow-lg shadow-orange/30" aria-label="My rank">
-                +
-              </Link>
-            ) : (
-              <button type="button" onClick={() => openSignIn("methods")} className="brand-grad -mt-7 flex h-14 w-14 items-center justify-center rounded-full border-4 border-base text-[26px] font-bold shadow-lg shadow-orange/30" aria-label="Sign in">
-                +
-              </button>
-            )}
             <Link href="/feed" aria-current={onFeed ? "page" : undefined} className={`flex min-w-0 flex-1 flex-col items-center gap-0.5 text-[11px] font-semibold ${onFeed ? "text-orange" : "text-mute"}`}>
               <span className="text-[20px]">🌊</span>Activity
+            </Link>
+            <Link href="/invites" className={`flex min-w-0 flex-1 flex-col items-center gap-0.5 text-[11px] font-semibold ${onInvites ? "text-orange" : "text-mute"}`}>
+              <span className="text-[20px]">🎟️</span>Invites
             </Link>
             <Link href="/profile/me" className={`flex min-w-0 flex-1 flex-col items-center gap-0.5 text-[11px] font-semibold ${onMe ? "text-orange" : "text-mute"}`}>
               <span className="text-[20px]">👤</span>Me

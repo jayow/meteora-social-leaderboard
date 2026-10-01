@@ -5,7 +5,6 @@ import Image from "next/image";
 import type { PoolInfo } from "@/lib/api-types";
 import { flagUrl, countryName } from "@/lib/countries";
 import { avatarFor, fallbackAvatar } from "@/lib/format";
-import { meteoraPoolUrl } from "@/lib/meteora-links";
 
 export function Avatar({ user, size = 40, ring = false, className = "" }: { user: { xAvatarUrl?: string | null; id?: number }; size?: number; ring?: boolean; className?: string }) {
   const [failed, setFailed] = useState(false);
@@ -66,16 +65,6 @@ export function PoolChip({ pool, compact = false }: { pool: PoolInfo | null; com
           {pool.binStep != null && <span className="text-[10px] font-medium text-mute">Bin {pool.binStep}</span>}
         </>
       )}
-      <a
-        href={meteoraPoolUrl(pool.address, pool.protocol)}
-        target="_blank"
-        rel="noopener noreferrer"
-        onClick={(e) => e.stopPropagation()}
-        className="group ml-0.5 flex items-center gap-0.5 rounded-full bg-gradient-to-r from-[#FF5C1A] to-[#FF3D7F] px-1.5 py-0.5 text-[9px] font-bold text-white shadow-sm transition hover:shadow-lg hover:shadow-orange/25"
-        title="Dip in on Meteora"
-      >
-        <span className="transition group-hover:scale-110">🏖️</span>
-      </a>
     </span>
   );
 }

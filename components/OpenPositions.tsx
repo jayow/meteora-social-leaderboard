@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { fmtUsd } from "@/lib/format";
-import { meteoraPoolUrl } from "@/lib/meteora-links";
+import { DipLink } from "@/components/DipLink";
 
 interface MeteoraOpenPool {
   poolAddress: string;
@@ -185,16 +185,7 @@ function PositionCard({ pool }: { pool: MeteoraOpenPool }) {
         </div>
       </div>
 
-      <a
-        href={meteoraPoolUrl(pool.poolAddress, pool.protocol || undefined)}
-        target="_blank"
-        rel="noopener noreferrer"
-        onClick={(e) => e.stopPropagation()}
-        className="group absolute right-3 top-3 z-10 flex items-center gap-1 rounded-full bg-gradient-to-r from-[#FF5C1A] to-[#FF3D7F] px-2.5 py-1 text-[11px] font-bold text-white shadow-md transition hover:shadow-lg hover:shadow-orange/30"
-      >
-        <span className="transition group-hover:scale-110">🏖️</span>
-        <span>Dip in</span>
-      </a>
+      <DipLink poolAddress={pool.poolAddress} protocol={pool.protocol} className="!absolute right-4 top-4" />
     </div>
   );
 }
@@ -241,15 +232,7 @@ function PositionCardCompact({ pool }: { pool: MeteoraOpenPool }) {
         {pool.positionCount || 0}
       </div>
       
-      <a
-        href={meteoraPoolUrl(pool.poolAddress, pool.protocol || undefined)}
-        target="_blank"
-        rel="noopener noreferrer"
-        onClick={(e) => e.stopPropagation()}
-        className="group relative z-10 flex items-center gap-0.5 rounded-full bg-gradient-to-r from-[#FF5C1A] to-[#FF3D7F] px-2 py-0.5 text-[10px] font-bold text-white shadow-sm transition hover:shadow-lg hover:shadow-orange/25"
-      >
-        <span className="transition group-hover:scale-110">🏖️</span>
-      </a>
+      <DipLink poolAddress={pool.poolAddress} protocol={pool.protocol} />
     </div>
   );
 }
