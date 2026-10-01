@@ -6,7 +6,7 @@ import { getSessionUserId } from "@/lib/session";
 export const dynamic = "force-dynamic";
 
 type Range = "7d" | "30d" | "all";
-type Sort = "pnl" | "volume" | "winrate";
+type Sort = "pnl" | "fees" | "volume" | "winrate";
 
 const COLS: Record<Range, { pnl: string; volume: string; winrate: string; fees: string }> = {
   "7d": { pnl: "s.pnl_7d", volume: "s.volume_7d_usd", winrate: "s.win_rate_7d", fees: "s.fees_7d_usd" },
@@ -48,10 +48,11 @@ interface Row {
 }
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
-  if (!hasDb()) return NextResponse.json({ entries: [], stats: null, error: "Database not configured" });
+  if (!hasDb()) return NextResponse.json({ entries: [], error: "Database not configured" });
   const sp = req.nextUrl.searchParams;
   const range = (["7d", "30d", "all"].includes(sp.get("range") || "") ? sp.get("range") : "30d") as Range;
-  const sort = (["pnl", "volume", "winrate"].includes(sp.get("sort") || "") ? sp.get("sort") : "pnl") as Sort;
+  // Each sort is its own leaderboard: ranks are computed here per metric (PnL, fees, volume, win rate).
+  const sort = (["pnl", "fees", "volume", "winrate"].includes(sp.get("sort") || "") ? sp.get("sort") : "pnl") as Sort;
   const countryRaw = (sp.get("country") || "").toUpperCase();
   const country = countryRaw && isCountryCode(countryRaw) ? countryRaw : null;
   const limit = Math.min(Math.max(Number(sp.get("limit")) || 100, 1), 500);
@@ -102,17 +103,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     limit $2`;
 
   const pool = getPool();
-  const [{ rows }, statsRes] = await Promise.all([
-    // Viewer-specific: whether the signed-in user (wallet or X session) follows each entry.
-    pool.query<Row>(sql, [country, limit, viewerId, scope]),
-    pool.query<{ n: string; pnl: number | null; fees: number | null }>(
-      `with latest as (select distinct on (user_id) * from pnl_snapshots order by user_id, date desc)
-       select count(*) filter (where ${hasData})::text as n, sum(${cols.pnl}) as pnl, sum(${cols.fees}) as fees
-       from latest s join users u on u.id = s.user_id
-       where u.joined_at is not null and ($1::text is null or u.country = $1) and ${scopeWhere.replaceAll("$4", "$2")}`,
-      [country, scope]
-    ),
-  ]);
+  // Viewer-specific: whether the signed-in user (wallet or X session) follows each entry.
+  const { rows } = await pool.query<Row>(sql, [country, limit, viewerId, scope]);
 
   const entries = rows.map((r) => ({
     rank: r.board_rank === null ? null : Number(r.board_rank),
@@ -151,13 +143,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     bannerUpdatedAt: r.banner_updated_at instanceof Date ? r.banner_updated_at.toISOString() : null,
   }));
 
-  const st = statsRes.rows[0];
   return NextResponse.json({
     range,
     sort,
     country,
     scope: scopeFollowing ? "following" : "all",
     entries,
-    stats: { lps: Number(st?.n || 0), totalPnl: st?.pnl ?? 0, fees: st?.fees ?? 0 },
   }, { headers: { "Cache-Control": "private, no-store" } });
 }

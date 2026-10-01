@@ -39,12 +39,11 @@ export interface LeaderboardEntry {
 
 export interface LeaderboardResponse {
   range: "7d" | "30d" | "all";
-  sort: "pnl" | "volume" | "winrate" | "fees";
+  sort: "pnl" | "fees" | "volume" | "winrate";
   country: string | null;
   /** "following" when the board is scoped to people the viewer follows (server-side). */
   scope?: "all" | "following";
   entries: LeaderboardEntry[];
-  stats: { lps: number; totalPnl: number; fees: number } | null;
   error?: string;
 }
 
