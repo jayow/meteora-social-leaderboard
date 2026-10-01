@@ -166,7 +166,7 @@ function ScopeToggle({ value, onChange }: { value: ActivityScope; onChange: (s: 
     { value: "everyone", label: "Everyone" },
   ];
   return (
-    <div role="tablist" aria-label="Activity scope" className="flex items-center gap-0.5 rounded-full border border-border bg-surface-raised p-0.5 text-[13px] font-semibold">
+    <div role="tablist" aria-label="Poolside scope" className="flex items-center gap-0.5 rounded-full border border-border bg-surface-raised p-0.5 text-[13px] font-semibold">
       {opts.map((o) => (
         <button
           key={o.value}
@@ -241,7 +241,7 @@ export function ActivityFeed() {
         setFallback(data.fallback);
       } catch {
         if (id !== reqId.current) return;
-        setError("Couldn't load activity.");
+        setError("Couldn't load Poolside.");
         setItems([]);
         setNextCursor(null);
       } finally {
@@ -280,8 +280,8 @@ export function ActivityFeed() {
     <section className="mx-auto w-full max-w-[720px] px-4 py-8 lg:px-0">
       <div className="mb-4 flex items-end justify-between gap-3">
         <div>
-          <h1 className="text-[22px] font-bold tracking-tight">Activity</h1>
-          <p className="mt-0.5 text-[13px] text-mute">Recent moves from Pool Party members.</p>
+          <h1 className="text-[22px] font-bold tracking-tight">Poolside</h1>
+          <p className="mt-0.5 text-[13px] text-mute">What everyone at the party is up to.</p>
         </div>
         <ScopeToggle value={scope} onChange={setScope} />
       </div>

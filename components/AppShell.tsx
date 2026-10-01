@@ -40,7 +40,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const onBoard = pathname === "/";
   const onMe = pathname.startsWith("/profile");
   const onPools = pathname.startsWith("/pools");
-  const onFeed = pathname === "/feed" || pathname.startsWith("/feed/");
+  const onFeed = pathname === "/poolside" || pathname.startsWith("/poolside/");
   const onInvites = pathname === "/invites";
   // The session knows the member number even for X-only accounts with no connected wallet.
   const isMember = Boolean(session?.memberNumber || user?.memberNumber);
@@ -121,8 +121,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Link href="/pools" className={`rounded-full px-4 py-1.5 ${onPools ? "bg-border text-fg" : "text-mute hover:text-fg"}`}>
                 Pools
               </Link>
-              <Link href="/feed" aria-current={onFeed ? "page" : undefined} className={`rounded-full px-4 py-1.5 ${onFeed ? "bg-border text-fg" : "text-mute hover:text-fg"}`}>
-                Activity
+              <Link href="/poolside" aria-current={onFeed ? "page" : undefined} className={`rounded-full px-4 py-1.5 ${onFeed ? "bg-border text-fg" : "text-mute hover:text-fg"}`}>
+                Poolside
               </Link>
               {isMember && (
                 <Link href="/invites" className={`rounded-full px-4 py-1.5 ${onInvites ? "bg-border text-fg" : "text-mute hover:text-fg"}`}>
@@ -223,8 +223,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <Link href="/pools" className={`flex min-w-0 flex-1 flex-col items-center gap-0.5 text-[11px] font-semibold ${onPools ? "text-accent" : "text-mute"}`}>
               <span className="text-[20px]">🏊</span>Pools
             </Link>
-            <Link href="/feed" aria-current={onFeed ? "page" : undefined} className={`flex min-w-0 flex-1 flex-col items-center gap-0.5 text-[11px] font-semibold ${onFeed ? "text-accent" : "text-mute"}`}>
-              <span className="text-[20px]">🌊</span>Activity
+            <Link href="/poolside" aria-current={onFeed ? "page" : undefined} className={`flex min-w-0 flex-1 flex-col items-center gap-0.5 text-[11px] font-semibold ${onFeed ? "text-accent" : "text-mute"}`}>
+              <span className="text-[20px]">🌊</span>Poolside
             </Link>
             {isMember && (
               <Link href="/invites" className={`flex min-w-0 flex-1 flex-col items-center gap-0.5 text-[11px] font-semibold ${onInvites ? "text-accent" : "text-mute"}`}>

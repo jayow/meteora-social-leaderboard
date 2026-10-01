@@ -1,10 +1,5 @@
-import type { Metadata } from "next";
-import { ActivityFeed } from "@/components/ActivityFeed";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = {
-  title: "Activity · Pool Party",
-};
-
-export default function FeedPage() {
-  return <ActivityFeed />;
+export default function FeedRedirect() {
+  redirect("/poolside");
 }
