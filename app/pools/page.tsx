@@ -3,11 +3,11 @@
 import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { useMe } from "@/components/MeProvider";
 import { fmtUsd } from "@/lib/format";
 import { meteoraPoolUrl } from "@/lib/meteora-links";
 import { PoolMemberAvatars } from "@/components/PoolMemberAvatars";
+import { onFollowChanged, requestSignIn } from "@/lib/session-events";
 
 interface PoolData {
   poolAddress: string;
@@ -34,6 +34,7 @@ interface Member {
   userId: number;
   xAvatarUrl: string | null;
   xHandle: string | null;
+  anonName?: string | null;
   isFollowed: boolean;
 }
 
@@ -80,8 +81,7 @@ export default function PoolsPage() {
 }
 
 function PoolsContent() {
-  const { wallet, user } = useMe();
-  const { setVisible } = useWalletModal();
+  const { verified, sessionChecked } = useMe();
   const searchParams = useSearchParams();
   const router = useRouter();
   const tokenMint = searchParams.get("token");
@@ -89,6 +89,29 @@ function PoolsContent() {
   const [data, setData] = useState<PoolsResponse | null>(null);
   const [tokenInfo, setTokenInfo] = useState<TokenInfo | null>(null);
   const [membersData, setMembersData] = useState<Map<string, Member[]>>(new Map());
+
+  // Friends-first avatars / "N friends here" reflect follows made elsewhere without a reload.
+  useEffect(
+    () =>
+      onFollowChanged((change) =>
+        setMembersData((prev) => {
+          let changed = false;
+          const next = new Map<string, Member[]>();
+          prev.forEach((members, pool) => {
+            next.set(
+              pool,
+              members.map((m) => {
+                if (m.userId !== change.targetId || m.isFollowed === change.following) return m;
+                changed = true;
+                return { ...m, isFollowed: change.following };
+              })
+            );
+          });
+          return changed ? next : prev;
+        })
+      ),
+    []
+  );
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -264,18 +287,18 @@ function PoolsContent() {
         </div>
       </div>
 
-      {!wallet && (
+      {sessionChecked && !verified && (
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-orange/25 bg-gradient-to-r from-orange/15 via-pink/10 to-purp/15 px-4 py-3">
           <div className="text-[14px]">
-            <span className="font-bold">Connect to see where your friends LP</span>{" "}
+            <span className="font-bold">Sign in to see where your friends LP</span>{" "}
             <span className="text-white/70">Follow friends and discover pools they trust.</span>
           </div>
           <button
             type="button"
-            onClick={() => setVisible(true)}
+            onClick={() => requestSignIn()}
             className="h-9 rounded-full bg-orange px-4 text-[13px] font-bold shadow-lg shadow-orange/25 hover:bg-orange-soft"
           >
-            Connect wallet →
+            Sign in →
           </button>
         </div>
       )}
@@ -305,7 +328,7 @@ function PoolsContent() {
               key={p.poolAddress}
               pool={p}
               members={membersData.get(p.poolAddress) || []}
-              isSignedIn={Boolean(user)}
+              isSignedIn={verified}
             />
           ))}
         </div>

@@ -56,8 +56,13 @@ export function MeProvider({ children }: { children: React.ReactNode }) {
     loadSessionUserId();
   }, [loadSessionUserId]);
 
-  const load = useCallback(async (w: string) => {
-    const res = await fetch(`/api/users/${w}`, { cache: "no-store" });
+  const load = useCallback(async (key: string) => {
+    const res = await fetch(`/api/users/${encodeURIComponent(key)}`, { cache: "no-store" });
+    if (res.status === 404) {
+      setUser(null);
+      setSnapshot(null);
+      return;
+    }
     if (!res.ok) return;
     const data = (await res.json()) as { user: ApiUser | null; snapshot: ApiSnapshot | null };
     setUser(data.user);
@@ -76,31 +81,40 @@ export function MeProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Register on connect (idempotent upsert + stats sync), then load the DB profile.
+  // Register the connected wallet on connect (idempotent upsert + stats sync).
+  const [reloadTick, setReloadTick] = useState(0);
   useEffect(() => {
-    if (!wallet) {
-      setUser(null);
-      setSnapshot(null);
-      return;
-    }
-    if (registered.current === wallet) return;
+    if (!wallet || registered.current === wallet) return;
     registered.current = wallet;
     setLoading(true);
     setCached(patchCachedProfile({ wallet }));
     fetch("/api/users", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ wallet }) })
       .catch(() => null)
-      .then(() => load(wallet))
+      .then(() => setReloadTick((t) => t + 1))
       .finally(() => setLoading(false));
-  }, [wallet, load]);
+  }, [wallet]);
+
+  // "Me" is the signed-in user (wallet or X session). The extension can expose a different account
+  // than the one that signed in (account switch, autoConnect), so only fall back to the connected
+  // wallet when there's no session at all.
+  const profileKey = sessionUserId ? String(sessionUserId) : sessionChecked ? wallet : null;
+  useEffect(() => {
+    if (!profileKey) {
+      setUser(null);
+      setSnapshot(null);
+      return;
+    }
+    void load(profileKey).catch(() => null);
+  }, [profileKey, load, reloadTick]);
 
   // Joining / linking changes the profile (member number, X handle): refetch session and profile.
   useEffect(
     () =>
       onSessionChanged(() => {
         loadSessionUserId();
-        if (wallet) void load(wallet).catch(() => null);
+        setReloadTick((t) => t + 1);
       }),
-    [wallet, load, loadSessionUserId]
+    [loadSessionUserId]
   );
 
   const ensureSession = useCallback(async (): Promise<boolean> => {
@@ -137,8 +151,8 @@ export function MeProvider({ children }: { children: React.ReactNode }) {
   }, [wallet, ensureSession, signMessage]);
 
   const refresh = useCallback(async () => {
-    if (wallet) await load(wallet);
-  }, [wallet, load]);
+    if (profileKey) await load(profileKey);
+  }, [profileKey, load]);
 
   const update = useCallback(
     async (patch: { thesis?: string | null; country?: string | null; unlinkX?: boolean }) => {

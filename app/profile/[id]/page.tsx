@@ -4,7 +4,6 @@ import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { useWallet } from "@solana/wallet-adapter-react";
-import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import type { ApiSnapshot, ApiUser } from "@/lib/api-types";
 import { useMe } from "@/components/MeProvider";
 import { Avatar, Flag, Pills, PoolChip, StatTile, XIcon } from "@/components/ui";
@@ -18,7 +17,7 @@ import { isValidWalletClient } from "@/lib/wallet-client";
 import { patchCachedProfile } from "@/lib/storage";
 import { loginMessage } from "@/lib/login-message";
 import { meteoraHomeUrl } from "@/lib/meteora-links";
-import { applyFollowChange, onFollowChanged, onSessionChanged } from "@/lib/session-events";
+import { applyFollowChange, onFollowChanged, onSessionChanged, requestSignIn } from "@/lib/session-events";
 
 type Range = "7d" | "30d" | "all";
 type LoadStatus = "idle" | "loading" | "notfound" | "error" | "timeout";
@@ -51,10 +50,12 @@ function Profile() {
   const search = useSearchParams();
   const router = useRouter();
   const me = useMe();
-  const { setVisible } = useWalletModal();
   const rawId = decodeURIComponent(params.id);
   const isMeRoute = rawId === "me";
-  const target = isMeRoute ? me.wallet : rawId;
+  // /profile/me is the signed-in user (wallet or X session), not whatever account the wallet
+  // extension currently exposes; the connected wallet is only a fallback when signed out.
+  const meKey = me.userId ? String(me.userId) : me.sessionChecked ? me.wallet : null;
+  const target = isMeRoute ? meKey : rawId;
 
   const [user, setUser] = useState<ApiUser | null>(null);
   const [snap, setSnap] = useState<ApiSnapshot | null>(null);
@@ -116,7 +117,7 @@ function Profile() {
           return;
         }
         // Only the owner gets `wallet` back; refresh their stats in the background.
-        if (u.wallet) void sync(u.wallet);
+        if (u.wallet && !u.wallet.startsWith("temp_")) void sync(u.wallet);
       } catch {
         if (!cancelled) setStatus("error");
       }
@@ -139,7 +140,7 @@ function Profile() {
     return () => clearTimeout(t);
   }, [status, user]);
 
-  const mine = Boolean(me.user && user && me.user.id === user.id);
+  const mine = Boolean(user && (me.userId ? me.userId === user.id : me.user && me.user.id === user.id));
 
   // Returning from X OAuth.
   useEffect(() => {
@@ -163,15 +164,15 @@ function Profile() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search]);
 
-  if (isMeRoute && !me.wallet) {
+  if (isMeRoute && me.sessionChecked && !me.userId && !me.wallet) {
     return (
       <main className="mx-auto max-w-[640px] px-4 py-16">
         <div className="glass rounded-[28px] px-6 py-12 text-center">
           <div className="text-[46px]">👛</div>
           <h1 className="mt-2 text-[24px] font-extrabold">Your LP profile</h1>
           <p className="mx-auto mt-1 max-w-sm text-[14px] text-mute">Connect Phantom or Solflare to pull your Meteora stats, claim your rank and post your thesis.</p>
-          <button type="button" onClick={() => setVisible(true)} className="mt-5 h-11 rounded-full bg-orange px-6 text-[14px] font-bold shadow-lg shadow-orange/30 hover:bg-orange-soft">
-            Connect wallet
+          <button type="button" onClick={() => requestSignIn()} className="mt-5 h-11 rounded-full bg-orange px-6 text-[14px] font-bold shadow-lg shadow-orange/30 hover:bg-orange-soft">
+            Sign in
           </button>
         </div>
       </main>

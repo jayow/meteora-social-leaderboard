@@ -3,13 +3,12 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { useMe } from "@/components/MeProvider";
 import { Avatar, Flag } from "@/components/ui";
 import { FollowButton } from "@/components/FollowButton";
 import { avatarFor, displayName, fmtUsd, timeAgo } from "@/lib/format";
 import { meteoraPoolUrl, meteoraHomeUrl } from "@/lib/meteora-links";
-import { applyFollowChange, onFollowChanged } from "@/lib/session-events";
+import { applyFollowChange, onFollowChanged, requestSignIn } from "@/lib/session-events";
 
 interface PoolData {
   poolAddress: string;
@@ -88,8 +87,7 @@ function TokenDot({ icon, label, className = "" }: { icon: string | null; label:
 export default function PoolDetailPage() {
   const params = useParams();
   const address = params?.address as string | undefined;
-  const { wallet, user } = useMe();
-  const { setVisible } = useWalletModal();
+  const { user, verified, sessionChecked } = useMe();
   const [data, setData] = useState<PoolDetailResponse | null>(null);
 
   // Keep LP rows' follow state in sync with Follow clicks anywhere on the page.
@@ -286,18 +284,18 @@ export default function PoolDetailPage() {
         </div>
       </div>
 
-      {!wallet && lps.length > 0 && (
+      {sessionChecked && !verified && lps.length > 0 && (
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-orange/25 bg-gradient-to-r from-orange/15 via-pink/10 to-purp/15 px-4 py-3">
           <div className="text-[14px]">
-            <span className="font-bold">Connect to follow LPs</span>{" "}
+            <span className="font-bold">Sign in to follow LPs</span>{" "}
             <span className="text-white/70">Discover who&apos;s providing liquidity in this pool.</span>
           </div>
           <button
             type="button"
-            onClick={() => setVisible(true)}
+            onClick={() => requestSignIn()}
             className="h-9 rounded-full bg-orange px-4 text-[13px] font-bold shadow-lg shadow-orange/25 hover:bg-orange-soft"
           >
-            Connect wallet →
+            Sign in →
           </button>
         </div>
       )}
