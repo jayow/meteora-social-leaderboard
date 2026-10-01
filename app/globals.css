@@ -6,6 +6,8 @@
  */
 @theme {
   --font-sans: var(--font-jakarta), "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  /* Dense numbers at small sizes (PnL calendar): `font-numeric tabular-nums` */
+  --font-numeric: var(--font-inter), "Inter", ui-sans-serif, system-ui, sans-serif;
 
   /* Surfaces (darkest to lightest) */
   --color-bg: #0e0d12;

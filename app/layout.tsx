@@ -1,11 +1,14 @@
 import type { Metadata, Viewport } from "next";
-import { Plus_Jakarta_Sans } from "next/font/google";
+import { Inter, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { WalletProviders } from "@/components/WalletProviders";
 import { AppShell } from "@/components/AppShell";
 import { THEME } from "@/lib/theme";
 
 const jakarta = Plus_Jakarta_Sans({ subsets: ["latin"], weight: ["400", "500", "600", "700", "800"], variable: "--font-jakarta" });
+// Numeric UI font (PnL calendar): narrow, screen-tuned figures with true tabular numerals. Not preloaded,
+// so pages that never use it don't download it.
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap", preload: false });
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://web-production-c8f29.up.railway.app"),
@@ -41,7 +44,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`dark ${jakarta.variable}`}>
+    <html lang="en" className={`dark ${jakarta.variable} ${inter.variable}`}>
       <body className="min-h-screen font-sans text-fg antialiased">
         <WalletProviders>
           <AppShell>{children}</AppShell>
