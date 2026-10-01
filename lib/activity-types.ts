@@ -64,3 +64,15 @@ export interface ActivityResponse {
   fallback: ActivityFallback;
   signedIn: boolean;
 }
+
+/** `GET/PATCH /api/users/me/position-sharing`: the viewer's own Poolside position-sharing setting. */
+export interface PositionSharingState {
+  /** Joined the beta (only members' position activity is ever recorded). */
+  joined: boolean;
+  /** Opted in to showing opened / closed / big-win rows on Poolside. Off by default. */
+  share: boolean;
+  /** Latest opt-in time; only position activity from here on is shown. */
+  since: string | null;
+  /** Answered or dismissed the one-time prompt. */
+  asked: boolean;
+}

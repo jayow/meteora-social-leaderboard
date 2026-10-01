@@ -17,6 +17,7 @@ import { OpenPositions } from "@/components/OpenPositions";
 import { FollowButton } from "@/components/FollowButton";
 import { FollowListModal, type FollowListKind } from "@/components/FollowListModal";
 import { SharePnLModal } from "@/components/SharePnLModal";
+import { PositionSharingPrompt, PositionSharingToggle } from "@/components/PositionSharing";
 import { displayName, fmtPct, fmtUsd, shortAddr, timeAgo } from "@/lib/format";
 import { patchCachedProfile } from "@/lib/storage";
 import { loginMessage } from "@/lib/login-message";
@@ -265,6 +266,7 @@ function Profile() {
               <span className="text-[13px] text-mute">→</span>
             </Link>
           )}
+          {user.memberNumber ? <PositionSharingPrompt className="mb-4" /> : null}
           {(user.walletCount === undefined || user.walletCount === 0) && user.wallet && user.wallet.startsWith("temp_") && (
             <div className="mb-4 rounded-2xl border border-border bg-surface-raised px-4 py-3">
               <div className="flex items-center gap-2 text-[14px]">
@@ -506,6 +508,7 @@ function OwnerControls({ user, focusX, onSaved }: { user: ApiUser; focusX: boole
         <CountrySelect value={user.country || ""} onChange={saveCountry} allLabel="Set your country" disabled={busy !== null} />
       </div>
       {err && <p className="text-[12px] text-dn">{err}</p>}
+      <PositionSharingToggle />
     </div>
   );
 }

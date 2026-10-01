@@ -2,6 +2,7 @@ import {
   pgTable,
   serial,
   integer,
+  boolean,
   text,
   varchar,
   timestamp,
@@ -57,6 +58,15 @@ export const users = pgTable(
     inviteCodeId: integer("invite_code_id"),
     joinedAt: timestamp("joined_at", { withTimezone: true }),
     memberNumber: integer("member_number"),
+    /**
+     * Opt-in: show this member's position activity (opened / closed / big win) on Poolside. Off by
+     * default. Events are always stored; reads only show those at/after `sharePositionActivitySince`
+     * (reset on every opt-in), so nothing from before opting in - or from while opted out - surfaces.
+     */
+    sharePositionActivity: boolean("share_position_activity").notNull().default(false),
+    sharePositionActivitySince: timestamp("share_position_activity_since", { withTimezone: true }),
+    /** When the member answered (or dismissed) the one-time post-join sharing prompt. */
+    positionSharingAskedAt: timestamp("position_sharing_asked_at", { withTimezone: true }),
     /**
      * Fun, unique beach/pool display name ("Salty Flamingo") shown instead of an LP number when the
      * user has no X handle. Filled by the DB default `pp_random_anon_name()` (see drizzle/0012).

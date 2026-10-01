@@ -120,6 +120,13 @@
       "when": 1790838547963,
       "tag": "0016_past_leo",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1790839732170,
+      "tag": "0017_share_position_activity",
+      "breakpoints": true
     }
   ]
 }

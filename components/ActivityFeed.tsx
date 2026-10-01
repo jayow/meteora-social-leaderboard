@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ThesisCard } from "@/components/ThesisCard";
 import { Composer } from "@/components/poolside/Composer";
 import { EventRun } from "@/components/poolside/EventRows";
+import { PositionSharingPrompt } from "@/components/PositionSharing";
 import { onSessionChanged, requestSignIn } from "@/lib/session-events";
 import type {
   ActivityFallback,
@@ -183,10 +184,13 @@ export function ActivityFeed() {
     <section className="mx-auto w-full max-w-[680px] px-4 py-8 md:px-0">
       <div className="mb-4">
         <h1 className="text-[22px] font-bold tracking-tight">Poolside</h1>
-        <p className="mt-0.5 text-[13px] text-mute">Theses from LPs on the pools they&apos;re in, plus what members are up to.</p>
+        <p className="mt-0.5 text-[13px] text-mute">
+          Theses from LPs on the pools they&apos;re in, plus what members are up to. Opened and closed positions appear only for members who share them.
+        </p>
       </div>
 
       <Composer onPosted={onPosted} />
+      <PositionSharingPrompt className="mt-4" />
 
       <div className="mt-5 flex flex-wrap items-center justify-between gap-2 border-b border-border pb-1.5">
         <Tabs
@@ -231,10 +235,12 @@ export function ActivityFeed() {
             <p className="text-[14px] font-semibold text-fg">{filter === "posts" ? "No theses yet" : "Nothing here yet"}</p>
             <p className="mx-auto mt-1 max-w-[380px] text-[13px] text-mute">
               {shownScope === "following"
-                ? "People you follow haven't posted or done anything new yet."
+                ? filter === "posts"
+                  ? "People you follow haven't posted a thesis yet."
+                  : "People you follow haven't posted or done anything new yet. Opened and closed positions only show for members who share them."
                 : filter === "posts"
                   ? "When LPs share why they're in a pool, it shows up here."
-                  : "Theses and member activity show up here as they happen."}
+                  : "Theses, follows and badges show up here as they happen, plus opened and closed positions from members who choose to share them."}
             </p>
             {shownScope === "following" && (
               <button type="button" onClick={() => setScope("everyone")} className="btn-secondary mt-3 h-8 px-3 text-[12.5px]">

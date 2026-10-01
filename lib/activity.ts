@@ -18,6 +18,9 @@ import type {
  * - Writes are skipped unless the actor has joined the beta (`users.joined_at`).
  * - Reads only return joined actors; follow events need a joined target and a follow that still exists;
  *   thesis events disappear when the comment is deleted.
+ * - Position events (opened / closed / big win) are always stored but only read for members who opted
+ *   in (`users.share_position_activity`), and only those at or after their latest opt-in
+ *   (`share_position_activity_since`). Opting out hides them on the next read.
  * - Nothing in this module selects or returns wallet addresses.
  */
 
@@ -225,6 +228,14 @@ function isEventKind(k: string): k is EventKind {
   return (EVENT_KINDS as readonly string[]).includes(k);
 }
 
+/**
+ * SQL condition: the event is not a position event, or its actor shares position activity and it
+ * happened at/after their latest opt-in. `a` = activity alias, `u` = actor (users) alias.
+ */
+export function positionShareSql(a: string, u: string): string {
+  return `(${a}.kind NOT IN ('opened', 'closed', 'big_win') OR (${u}.share_position_activity AND ${u}.share_position_activity_since IS NOT NULL AND ${a}.occurred_at >= ${u}.share_position_activity_since))`;
+}
+
 /** Stream rank inside one timestamp: posts (2) sort before events (1). Part of the cursor. */
 const RANK_POST = 2;
 const RANK_EVENT = 1;
@@ -304,7 +315,8 @@ async function getEvents(ids: number[]): Promise<Map<number, ActivityItem>> {
  * Poolside stream: thesis posts (token_comments, public rule from lib/theses.ts) merged with activity
  * events (filter "all"), newest first. Keyset cursor over (time, rank, id) so the two sources page
  * together without gaps or repeats. Only joined actors; follow events need a joined target and a
- * follow that still exists. Deleted theses never appear.
+ * follow that still exists; position events need the actor's opt-in (see positionShareSql). Deleted
+ * theses never appear.
  */
 export async function listFeed(opts: {
   scope: ActivityScope;
@@ -338,6 +350,7 @@ export async function listFeed(opts: {
     WHERE a.kind IN ('joined', 'followed', 'opened', 'closed', 'big_win', 'badge')
       AND (a.kind <> 'followed' OR (t.joined_at IS NOT NULL AND EXISTS (
         SELECT 1 FROM follows f WHERE f.follower_user_id = a.actor_user_id AND f.followee_user_id = a.target_user_id)))
+      AND ${positionShareSql("a", "u")}
       ${followSql("a.actor_user_id")} ${cursorSql("a.occurred_at", RANK_EVENT, "a.id")}`;
 
   const { rows } = await getPool().query<{ rank: number; id: number; ts_text: string }>(
