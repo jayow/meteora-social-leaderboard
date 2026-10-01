@@ -4,6 +4,7 @@ import { openPositions, pnlSnapshots, users, type NewSnapshot, type UserRow } fr
 import { num } from "@/lib/meteora";
 import { fetchMeteora } from "@/lib/meteora-limiter";
 import { getUserWalletAddresses } from "@/lib/users";
+import { recordSyncActivity, type SyncedPosition } from "@/lib/activity";
 
 const DLMM = "https://dlmm.datapi.meteora.ag";
 const PORTFOLIO = "https://portfolio.datapi.meteora.ag";
@@ -372,23 +373,28 @@ export async function syncUser(user: UserRow): Promise<SyncResult> {
       set: { ...updatable, updatedAt: sql`now()` },
     });
   
-  // Store aggregated open positions
+  // Store aggregated open positions. Opened/closed rows feed the Activity feed (lib/activity.ts).
   const mergedPools = Array.from(openPoolsByAddress.values());
+  const openedRows: SyncedPosition[] = [];
+  const closedRows: SyncedPosition[] = [];
   if (mergedPools.length > 0) {
     const currentPoolAddresses = mergedPools.map((p) => p.poolAddress).filter((a): a is string => Boolean(a));
     
     // Delete positions that are no longer open
     if (currentPoolAddresses.length > 0) {
-      await db
-        .delete(openPositions)
-        .where(
-          and(
-            eq(openPositions.userId, user.id),
-            sql`${openPositions.poolAddress} NOT IN ${currentPoolAddresses}`
+      closedRows.push(
+        ...(await db
+          .delete(openPositions)
+          .where(
+            and(
+              eq(openPositions.userId, user.id),
+              sql`${openPositions.poolAddress} NOT IN ${currentPoolAddresses}`
+            )
           )
-        );
+          .returning())
+      );
     } else {
-      await db.delete(openPositions).where(eq(openPositions.userId, user.id));
+      closedRows.push(...(await db.delete(openPositions).where(eq(openPositions.userId, user.id)).returning()));
     }
     
     // Fetch mints for pools that don't have them yet
@@ -401,7 +407,7 @@ export async function syncUser(user: UserRow): Promise<SyncResult> {
       const valueUsd = num(pool.balances ?? 0) + num(pool.unclaimedFees ?? 0);
       const posCount = pool.openPositionCount as number | undefined;
       
-      await db
+      const [upserted] = await db
         .insert(openPositions)
         .values({
           userId: user.id,
@@ -431,11 +437,32 @@ export async function syncUser(user: UserRow): Promise<SyncResult> {
             positionCount: posCount ?? 1,
             updatedAt: sql`now()`,
           },
+        })
+        // xmax = 0 means the row was inserted (newly opened), not updated.
+        .returning({
+          id: openPositions.id,
+          poolAddress: openPositions.poolAddress,
+          tokenX: openPositions.tokenX,
+          tokenY: openPositions.tokenY,
+          tokenXMint: openPositions.tokenXMint,
+          tokenXIcon: openPositions.tokenXIcon,
+          tokenYIcon: openPositions.tokenYIcon,
+          binStep: openPositions.binStep,
+          protocol: openPositions.protocol,
+          createdAt: openPositions.createdAt,
+          inserted: sql<boolean>`(xmax = 0)`,
         });
+      if (upserted?.inserted) openedRows.push(upserted);
     }
   } else {
     // No open positions, delete all
-    await db.delete(openPositions).where(eq(openPositions.userId, user.id));
+    closedRows.push(...(await db.delete(openPositions).where(eq(openPositions.userId, user.id)).returning()));
+  }
+
+  // Only trust the diff when every wallet's open-positions call succeeded; a failed fetch would look
+  // like closes (and reopens next sync).
+  if (walletDataList.every((wd) => wd.open)) {
+    await recordSyncActivity(user.id, openedRows, closedRows, allPortfolioPools);
   }
   
   await db.update(users).set({ lastSyncedAt: sql`now()`, lastAttemptedAt: sql`now()` }).where(eq(users.id, user.id));

@@ -40,6 +40,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const onBoard = pathname === "/";
   const onMe = pathname.startsWith("/profile");
   const onPools = pathname.startsWith("/pools");
+  const onFeed = pathname === "/feed";
   const onInvites = pathname === "/invites";
   // The session knows the member number even for X-only accounts with no connected wallet.
   const isMember = Boolean(session?.memberNumber || user?.memberNumber);
@@ -125,6 +126,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </Link>
               <Link href="/pools" className={`rounded-full px-4 py-1.5 ${onPools ? "bg-white/[.1] text-white" : "text-mute hover:text-white"}`}>
                 Pools
+              </Link>
+              <Link href="/feed" className={`rounded-full px-4 py-1.5 ${onFeed ? "bg-white/[.1] text-white" : "text-mute hover:text-white"}`}>
+                Activity
               </Link>
               <Link href="/profile/me" className={`rounded-full px-4 py-1.5 ${onMe ? "bg-white/[.1] text-white" : "text-mute hover:text-white"}`}>
                 Profile
