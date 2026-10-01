@@ -84,7 +84,7 @@ export function getCallbackUrl(req: Request): string {
 /**
  * Store OAuth state, verifier, and returnTo in httpOnly cookies
  */
-export async function storeOAuthState(state: string, verifier: string, returnTo?: string): Promise<void> {
+export async function storeOAuthState(state: string, verifier: string, returnTo?: string, termsVersion?: string): Promise<void> {
   const cookieStore = await cookies();
   cookieStore.set("x_oauth_state", state, {
     httpOnly: true,
@@ -100,6 +100,15 @@ export async function storeOAuthState(state: string, verifier: string, returnTo?
     maxAge: 600, // 10 minutes
     path: "/",
   });
+  if (termsVersion) {
+    cookieStore.set("x_oauth_terms", termsVersion, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 600,
+      path: "/",
+    });
+  }
   if (returnTo) {
     cookieStore.set("x_oauth_return", returnTo, {
       httpOnly: true,
@@ -114,11 +123,12 @@ export async function storeOAuthState(state: string, verifier: string, returnTo?
 /**
  * Retrieve and validate OAuth state from cookies
  */
-export async function validateOAuthState(receivedState: string): Promise<{ verifier: string; returnTo: string } | null> {
+export async function validateOAuthState(receivedState: string): Promise<{ verifier: string; returnTo: string; termsVersion: string | null } | null> {
   const cookieStore = await cookies();
   const storedState = cookieStore.get("x_oauth_state")?.value;
   const verifier = cookieStore.get("x_oauth_verifier")?.value;
   const returnTo = cookieStore.get("x_oauth_return")?.value || "/profile/me";
+  const termsVersion = cookieStore.get("x_oauth_terms")?.value || null;
 
   if (!storedState || !verifier || storedState !== receivedState) {
     return null;
@@ -128,8 +138,9 @@ export async function validateOAuthState(receivedState: string): Promise<{ verif
   cookieStore.delete("x_oauth_state");
   cookieStore.delete("x_oauth_verifier");
   cookieStore.delete("x_oauth_return");
+  cookieStore.delete("x_oauth_terms");
 
-  return { verifier, returnTo };
+  return { verifier, returnTo, termsVersion };
 }
 
 /**

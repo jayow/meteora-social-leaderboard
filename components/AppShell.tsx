@@ -12,6 +12,8 @@ import { forgetRememberedWallet } from "@/lib/wallet-session";
 import { displayName } from "@/lib/format";
 import { OwnWalletRow } from "@/components/OwnWalletRow";
 import { onSessionChanged, onSignInRequested } from "@/lib/session-events";
+import { TermsConsentModal } from "@/components/TermsConsentModal";
+import { TERMS_VERSION } from "@/lib/legal";
 
 interface SessionData {
   userId?: number | null;
@@ -26,6 +28,7 @@ interface SessionData {
   wallet?: string | null;
   /** Truncated addresses of all the owner's wallets. */
   wallets?: string[];
+  termsVersionAccepted?: string | null;
 }
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -45,6 +48,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // The session knows the member number even for X-only accounts with no connected wallet.
   const isMember = Boolean(session?.memberNumber || user?.memberNumber);
   const isSignedIn = Boolean(session?.userId);
+  const needsTermsConsent = isSignedIn && session?.termsVersionAccepted !== TERMS_VERSION;
   const hasWallet = Boolean(session?.wallets && session.wallets.length > 0);
   const hasX = Boolean(session?.xHandle);
   // Private, owner-only: the connected adapter key when it belongs to this account, else the
@@ -207,10 +211,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {children}
 
       {/* Outbound Meteora link (referral) lives here rather than in the main nav. */}
-      <footer className="mx-auto flex max-w-[1320px] justify-center px-4 pb-6 pt-4 text-[12px] text-mute lg:justify-end lg:px-6">
-        <a href={meteoraHomeUrl()} target="_blank" rel="noreferrer" className="hover:text-fg">
-          Meteora ↗
-        </a>
+      <footer className="mx-auto flex max-w-[1320px] flex-col items-center gap-2 px-4 pb-6 pt-4 text-[12px] text-mute lg:items-end lg:px-6">
+        <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 lg:justify-end">
+          <Link href="/terms" className="hover:text-fg">Terms</Link>
+          <Link href="/privacy" className="hover:text-fg">Privacy</Link>
+          <a href={meteoraHomeUrl()} target="_blank" rel="noreferrer" className="hover:text-fg">Meteora ↗</a>
+        </div>
+        <p className="text-center text-[11px] lg:text-right">Pool Party is an independent project, not affiliated with, endorsed by, or sponsored by Meteora.</p>
       </footer>
 
       {/* Mobile bottom tab bar */}
@@ -241,6 +248,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       )}
 
       <SignInModal open={signInOpen} initialStep={signInStep} onClose={closeSignIn} />
+      <TermsConsentModal open={needsTermsConsent} onAccepted={loadSession} onSignOut={handleSignOut} />
     </div>
   );
 }

@@ -13,17 +13,17 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (!userId) {
     return NextResponse.json({ error: "Sign in first" }, { status: 401 });
   }
-  let body: { code?: string; country?: string | null; thesis?: string | null } = {};
+  let body: { code?: string; country?: string | null; thesis?: string | null; termsVersion?: string | null } = {};
   try {
-    body = (await req.json()) as { code?: string; country?: string | null; thesis?: string | null };
+    body = (await req.json()) as { code?: string; country?: string | null; thesis?: string | null; termsVersion?: string | null };
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
-  const { code, country, thesis } = body;
+  const { code, country, thesis, termsVersion } = body;
   if (!code || typeof code !== "string") {
     return NextResponse.json({ error: "Missing code" }, { status: 400 });
   }
-  const result = await redeemCode(userId, code.trim(), country, thesis);
+  const result = await redeemCode(userId, code.trim(), country, thesis, termsVersion);
   if (!result.ok || !result.user) {
     return NextResponse.json({ error: result.error || "Failed to join" }, { status: 400 });
   }

@@ -5,6 +5,7 @@ import { userWallets, users } from "@/lib/db/schema";
 import { isValidWallet } from "@/lib/wallet";
 import { loginMessage, setSessionUserId, verifyWalletSignature } from "@/lib/session";
 import { toPublicUser, upsertUser } from "@/lib/users";
+import { TERMS_VERSION } from "@/lib/legal";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +13,7 @@ interface Body {
   wallet?: string;
   issuedAt?: string;
   signature?: string;
+  termsVersion?: string;
 }
 
 /** Verify a signed login message and set an httpOnly session cookie bound to the user. */
@@ -22,7 +24,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
-  const { wallet, issuedAt, signature } = body;
+  const { wallet, issuedAt, signature, termsVersion } = body;
+  if (termsVersion !== TERMS_VERSION) return NextResponse.json({ error: "Please accept the current Terms and Privacy Policy" }, { status: 400 });
   if (!isValidWallet(wallet) || !issuedAt || !signature) return NextResponse.json({ error: "Missing fields" }, { status: 400 });
   const ts = Date.parse(issuedAt);
   if (!Number.isFinite(ts) || Math.abs(Date.now() - ts) > 10 * 60 * 1000) {
@@ -48,6 +51,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     user = primaryUser || (await upsertUser(wallet));
   }
 
+  await db.update(users).set({ termsVersionAccepted: TERMS_VERSION, termsAcceptedAt: new Date() }).where(eq(users.id, user.id));
   await setSessionUserId(user.id);
   return NextResponse.json({ ok: true, user: toPublicUser(user) });
 }

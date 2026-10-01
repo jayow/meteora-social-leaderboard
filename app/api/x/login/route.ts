@@ -6,6 +6,7 @@ import {
   storeOAuthState,
   getCallbackUrl,
 } from "@/lib/x-oauth";
+import { TERMS_VERSION } from "@/lib/legal";
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const clientId = process.env.X_CLIENT_ID;
@@ -20,6 +21,13 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // Capture returnTo (same-origin paths only)
   const returnTo = req.nextUrl.searchParams.get("returnTo") || "/profile/me";
   const isLinking = req.nextUrl.searchParams.get("link") === "true";
+  const termsVersion = req.nextUrl.searchParams.get("termsVersion");
+  if (!isLinking && termsVersion !== TERMS_VERSION) {
+    const consentUrl = new URL("/terms", req.nextUrl.origin);
+    consentUrl.searchParams.set("consent", "1");
+    consentUrl.searchParams.set("returnTo", returnTo);
+    return NextResponse.redirect(consentUrl);
+  }
   const returnUrl = new URL(returnTo, req.nextUrl.origin);
   if (returnUrl.origin !== req.nextUrl.origin) {
     return NextResponse.json({ error: "Invalid returnTo" }, { status: 400 });
@@ -31,7 +39,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const state = generateState();
 
   // Store state, verifier, and returnTo in httpOnly cookies
-  await storeOAuthState(state, verifier, returnUrl.pathname + returnUrl.search);
+  await storeOAuthState(state, verifier, returnUrl.pathname + returnUrl.search, isLinking ? undefined : TERMS_VERSION);
 
   // Build callback URL using getCallbackUrl helper (X_CALLBACK_URL env first, then request origin)
   const baseCallbackUrl = getCallbackUrl(req);
