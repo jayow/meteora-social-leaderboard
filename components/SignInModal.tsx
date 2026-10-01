@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { WalletName } from "@solana/wallet-adapter-base";
 import { useWallet } from "@solana/wallet-adapter-react";
-import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { XIcon } from "@/components/ui";
+import { WalletPicker } from "@/components/WalletPicker";
 import { loginMessage } from "@/lib/login-message";
 
 function toBase64(bytes: Uint8Array): string {
@@ -12,17 +13,36 @@ function toBase64(bytes: Uint8Array): string {
   return btoa(s);
 }
 
+function errorMessage(err: unknown, fallback: string): string {
+  if (err instanceof Error && err.message) return err.message;
+  return fallback;
+}
+
+export type SignInStep = "methods" | "wallets";
+
 interface SignInModalProps {
   open: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  /** Open straight on the wallet picker (used by "Change wallet"). */
+  initialStep?: SignInStep;
 }
 
-export function SignInModal({ open, onClose, onSuccess }: SignInModalProps) {
-  const { publicKey, connected, signMessage } = useWallet();
-  const { setVisible } = useWalletModal();
+export function SignInModal({ open, onClose, onSuccess, initialStep = "methods" }: SignInModalProps) {
+  const { wallet, select, connect, connected, connecting, publicKey, signMessage } = useWallet();
   const ref = useRef<HTMLDivElement>(null);
-  const [signingWallet, setSigningWallet] = useState(false);
+  const [step, setStep] = useState<SignInStep>(initialStep);
+  const [pending, setPending] = useState<WalletName | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const signingRef = useRef(false);
+  const matchedRef = useRef(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setStep(initialStep);
+    setPending(null);
+    setError(null);
+  }, [open, initialStep]);
 
   useEffect(() => {
     if (!open) return;
@@ -40,37 +60,69 @@ export function SignInModal({ open, onClose, onSuccess }: SignInModalProps) {
     };
   }, [open, onClose]);
 
-  const handleWalletConnect = async () => {
-    if (!connected || !publicKey || !signMessage) {
-      setVisible(true);
+  const signIn = useCallback(async (): Promise<void> => {
+    if (!publicKey) return;
+    if (!signMessage) {
+      setError("This wallet can't sign messages. Pick another wallet.");
       return;
     }
-
-    setSigningWallet(true);
-    try {
-      const wallet = publicKey.toBase58();
-      const issuedAt = new Date().toISOString();
-      const sig = await signMessage(new TextEncoder().encode(loginMessage(wallet, issuedAt)));
-      const res = await fetch("/api/auth/wallet", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ wallet, issuedAt, signature: toBase64(sig) }),
-      });
-      
-      if (res.ok) {
-        onSuccess?.();
-        onClose();
-        window.location.reload();
-      } else {
-        const data = (await res.json()) as { error?: string };
-        alert(data.error || "Sign in failed");
-      }
-    } catch (err) {
-      console.error("Wallet sign in error:", err);
-      alert("Failed to sign message. Please try again.");
-    } finally {
-      setSigningWallet(false);
+    const wallet58 = publicKey.toBase58();
+    const issuedAt = new Date().toISOString();
+    const sig = await signMessage(new TextEncoder().encode(loginMessage(wallet58, issuedAt)));
+    const res = await fetch("/api/auth/wallet", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ wallet: wallet58, issuedAt, signature: toBase64(sig) }),
+    });
+    if (!res.ok) {
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      throw new Error(data.error || "Sign in failed");
     }
+    onSuccess?.();
+    onClose();
+    window.location.reload();
+  }, [publicKey, signMessage, onSuccess, onClose]);
+
+  // Drive the explicitly picked wallet: select -> connect -> sign. Nothing happens until the user picks.
+  useEffect(() => {
+    if (!pending) {
+      matchedRef.current = false;
+      return;
+    }
+    if (wallet?.adapter.name !== pending) {
+      // The adapter resets the selection when a connection attempt fails or is rejected.
+      if (matchedRef.current) {
+        matchedRef.current = false;
+        setPending(null);
+        setError("Wallet connection was cancelled.");
+      }
+      return;
+    }
+    matchedRef.current = true;
+    if (!connected) {
+      if (!connecting) {
+        connect().catch((err: unknown) => {
+          setPending(null);
+          setError(errorMessage(err, "Couldn't connect to the wallet."));
+        });
+      }
+      return;
+    }
+    if (publicKey && !signingRef.current) {
+      signingRef.current = true;
+      signIn()
+        .catch((err: unknown) => setError(errorMessage(err, "Failed to sign message. Please try again.")))
+        .finally(() => {
+          signingRef.current = false;
+          setPending(null);
+        });
+    }
+  }, [pending, wallet, connected, connecting, publicKey, connect, signIn]);
+
+  const handlePick = (name: WalletName) => {
+    setError(null);
+    setPending(name);
+    if (wallet?.adapter.name !== name) select(name);
   };
 
   const handleXConnect = () => {
@@ -81,39 +133,79 @@ export function SignInModal({ open, onClose, onSuccess }: SignInModalProps) {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80">
-      <div ref={ref} className="w-full max-w-md rounded-3xl border border-white/10 bg-[#1A1623] p-6 shadow-2xl">
-        <div className="mb-6 text-center">
-          <h2 className="text-2xl font-bold text-white">Sign in</h2>
-          <p className="mt-2 text-sm text-white/60">Choose your sign in method</p>
-        </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4">
+      <div
+        ref={ref}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="signin-title"
+        className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl border border-white/10 bg-[#1A1623] p-6 shadow-2xl"
+      >
+        {step === "methods" ? (
+          <>
+            <div className="mb-6 text-center">
+              <h2 id="signin-title" className="text-2xl font-bold text-white">Sign in</h2>
+              <p className="mt-2 text-sm text-white/60">Choose your sign in method</p>
+            </div>
 
-        <div className="space-y-3">
-          <button
-            type="button"
-            onClick={handleWalletConnect}
-            disabled={signingWallet}
-            className="flex h-14 w-full items-center justify-center gap-3 rounded-2xl border border-orange/30 bg-orange text-base font-semibold text-white shadow-lg shadow-orange/25 transition hover:bg-orange-soft disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <span className="text-xl">👛</span>
-            {signingWallet ? "Signing..." : "Connect wallet"}
-          </button>
+            <div className="space-y-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setError(null);
+                  setStep("wallets");
+                }}
+                className="flex h-14 w-full items-center justify-center gap-3 rounded-2xl border border-orange/30 bg-orange text-base font-semibold text-white shadow-lg shadow-orange/25 transition hover:bg-orange-soft"
+              >
+                <span className="text-xl">👛</span>
+                Connect wallet
+              </button>
 
-          <button
-            type="button"
-            onClick={handleXConnect}
-            className="flex h-14 w-full items-center justify-center gap-3 rounded-2xl border border-white/20 bg-white/[.12] text-base font-semibold text-white transition hover:bg-white/[.18]"
-          >
-            <XIcon className="h-4 w-4" />
-            Continue with X
-          </button>
-        </div>
+              <button
+                type="button"
+                onClick={handleXConnect}
+                className="flex h-14 w-full items-center justify-center gap-3 rounded-2xl border border-white/20 bg-white/[.12] text-base font-semibold text-white transition hover:bg-white/[.18]"
+              >
+                <XIcon className="h-4 w-4" />
+                Continue with X
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="mb-5 flex items-center gap-3">
+              {initialStep === "methods" && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPending(null);
+                    setError(null);
+                    setStep("methods");
+                  }}
+                  className="flex h-9 w-9 items-center justify-center rounded-full text-white/70 transition hover:bg-white/[.08] hover:text-white"
+                  aria-label="Back"
+                >
+                  ←
+                </button>
+              )}
+              <div>
+                <h2 id="signin-title" className="text-xl font-bold text-white">
+                  {initialStep === "wallets" ? "Change wallet" : "Connect a wallet"}
+                </h2>
+                <p className="mt-0.5 text-[13px] text-white/60">Pick a wallet, then sign a free message to verify.</p>
+              </div>
+            </div>
+            <WalletPicker busyName={pending} onPick={handlePick} />
+          </>
+        )}
 
-        <button
-          type="button"
-          onClick={onClose}
-          className="mt-6 w-full text-sm text-white/60 hover:text-white"
-        >
+        {error && (
+          <p role="alert" className="mt-4 rounded-xl border border-dn/30 bg-dn/10 px-3 py-2 text-[13px] text-white">
+            {error}
+          </p>
+        )}
+
+        <button type="button" onClick={onClose} className="mt-6 w-full text-sm text-white/60 hover:text-white">
           Cancel
         </button>
       </div>

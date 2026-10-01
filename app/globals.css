@@ -90,3 +90,10 @@ body {
 .wallet-adapter-modal-list .wallet-adapter-button:hover {
   background: rgba(255, 92, 26, 0.12) !important;
 }
+.wallet-adapter-modal-overlay {
+  background: rgba(0, 0, 0, 0.8) !important;
+}
+.wallet-adapter-modal-title,
+.wallet-adapter-modal-list .wallet-adapter-button {
+  color: #ffffff !important;
+}

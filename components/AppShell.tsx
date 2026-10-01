@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import { Logo, XIcon, Avatar } from "@/components/ui";
-import { SignInModal } from "@/components/SignInModal";
+import { useWallet } from "@solana/wallet-adapter-react";
+import { SignInModal, type SignInStep } from "@/components/SignInModal";
 import { useMe } from "@/components/MeProvider";
 import { meteoraHomeUrl } from "@/lib/meteora-links";
+import { forgetRememberedWallet } from "@/lib/wallet-session";
 
 interface SessionData {
   userId?: number | null;
@@ -20,7 +22,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user } = useMe();
   const [session, setSession] = useState<SessionData | null>(null);
+  const { disconnect } = useWallet();
   const [signInOpen, setSignInOpen] = useState(false);
+  const [signInStep, setSignInStep] = useState<SignInStep>("methods");
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const onBoard = pathname === "/";
@@ -50,7 +54,26 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return () => document.removeEventListener("mousedown", onDoc);
   }, [menuOpen]);
 
+  const closeSignIn = useCallback(() => setSignInOpen(false), []);
+
+  const openSignIn = (step: SignInStep) => {
+    setSignInStep(step);
+    setSignInOpen(true);
+  };
+
+  // Disconnect the adapter and forget the remembered wallet so the picker shows again next time.
+  const resetWallet = async () => {
+    await disconnect().catch(() => undefined);
+    forgetRememberedWallet();
+  };
+
+  const handleChangeWallet = async () => {
+    await resetWallet();
+    openSignIn("wallets");
+  };
+
   const handleSignOut = async () => {
+    await resetWallet();
     await fetch("/api/auth/session", { method: "DELETE" });
     window.location.href = "/";
   };
@@ -93,7 +116,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             {!isSignedIn && (
               <button
                 type="button"
-                onClick={() => setSignInOpen(true)}
+                onClick={() => openSignIn("methods")}
                 className="h-9 rounded-full bg-orange px-4 text-[13px] font-bold text-white shadow-lg shadow-orange/25 transition hover:bg-orange-soft"
               >
                 Sign in
@@ -137,6 +160,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                         <XIcon className="h-3.5 w-3.5" />
                         Link X account
                       </a>
+                    )}
+                    {hasWallet && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMenuOpen(false);
+                          void handleChangeWallet();
+                        }}
+                        className="block w-full rounded-xl px-3 py-2 text-left hover:bg-white/[.06]"
+                      >
+                        Change wallet
+                      </button>
                     )}
                     {!hasWallet && (
                       <button
@@ -190,7 +225,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 +
               </Link>
             ) : (
-              <button type="button" onClick={() => setSignInOpen(true)} className="brand-grad -mt-7 flex h-14 w-14 items-center justify-center rounded-full border-4 border-base text-[26px] font-bold shadow-lg shadow-orange/30" aria-label="Sign in">
+              <button type="button" onClick={() => openSignIn("methods")} className="brand-grad -mt-7 flex h-14 w-14 items-center justify-center rounded-full border-4 border-base text-[26px] font-bold shadow-lg shadow-orange/30" aria-label="Sign in">
                 +
               </button>
             )}
@@ -201,7 +236,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </nav>
       )}
 
-      <SignInModal open={signInOpen} onClose={() => setSignInOpen(false)} />
+      <SignInModal open={signInOpen} initialStep={signInStep} onClose={closeSignIn} />
     </div>
   );
 }
