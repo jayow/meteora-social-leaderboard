@@ -113,7 +113,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <Link href="/" className="flex items-center gap-2">
             <Logo />
           </Link>
-          {isMember ? (
+          {(
             <nav className="mx-auto hidden items-center gap-1 rounded-full border border-border bg-surface-raised p-1 text-[14px] font-semibold lg:flex">
               <Link href="/" className={`rounded-full px-4 py-1.5 ${onBoard ? "bg-border text-fg" : "text-mute hover:text-fg"}`}>
                 Leaderboard
@@ -124,15 +124,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Link href="/feed" aria-current={onFeed ? "page" : undefined} className={`rounded-full px-4 py-1.5 ${onFeed ? "bg-border text-fg" : "text-mute hover:text-fg"}`}>
                 Activity
               </Link>
-              <Link href="/profile/me" className={`rounded-full px-4 py-1.5 ${onMe ? "bg-border text-fg" : "text-mute hover:text-fg"}`}>
-                Profile
-              </Link>
-              <Link href="/invites" className={`rounded-full px-4 py-1.5 ${onInvites ? "bg-border text-fg" : "text-mute hover:text-fg"}`}>
-                Invites
-              </Link>
+              {isSignedIn && (
+                <Link href="/profile/me" className={`rounded-full px-4 py-1.5 ${onMe ? "bg-border text-fg" : "text-mute hover:text-fg"}`}>
+                  Profile
+                </Link>
+              )}
+              {isMember && (
+                <Link href="/invites" className={`rounded-full px-4 py-1.5 ${onInvites ? "bg-border text-fg" : "text-mute hover:text-fg"}`}>
+                  Invites
+                </Link>
+              )}
             </nav>
-          ) : (
-            <div className="mx-auto" />
           )}
 
           <div className="ml-auto flex items-center gap-2 lg:ml-0">
@@ -210,7 +212,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </footer>
 
       {/* Mobile bottom tab bar */}
-      {isMember && (
+      {(
         <nav className="fixed inset-x-3 bottom-3 z-40 lg:hidden">
           <div className="flex items-center justify-around rounded-[26px] border border-border bg-surface px-2 py-2 shadow-2xl shadow-black/60">
             <Link href="/" className={`flex min-w-0 flex-1 flex-col items-center gap-0.5 text-[11px] font-semibold ${onBoard ? "text-accent" : "text-mute"}`}>
@@ -222,12 +224,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <Link href="/feed" aria-current={onFeed ? "page" : undefined} className={`flex min-w-0 flex-1 flex-col items-center gap-0.5 text-[11px] font-semibold ${onFeed ? "text-accent" : "text-mute"}`}>
               <span className="text-[20px]">🌊</span>Activity
             </Link>
-            <Link href="/invites" className={`flex min-w-0 flex-1 flex-col items-center gap-0.5 text-[11px] font-semibold ${onInvites ? "text-accent" : "text-mute"}`}>
-              <span className="text-[20px]">🎟️</span>Invites
-            </Link>
-            <Link href="/profile/me" className={`flex min-w-0 flex-1 flex-col items-center gap-0.5 text-[11px] font-semibold ${onMe ? "text-accent" : "text-mute"}`}>
-              <span className="text-[20px]">👤</span>Me
-            </Link>
+            {isMember && (
+              <Link href="/invites" className={`flex min-w-0 flex-1 flex-col items-center gap-0.5 text-[11px] font-semibold ${onInvites ? "text-accent" : "text-mute"}`}>
+                <span className="text-[20px]">🎟️</span>Invites
+              </Link>
+            )}
+            {isSignedIn && (
+              <Link href="/profile/me" className={`flex min-w-0 flex-1 flex-col items-center gap-0.5 text-[11px] font-semibold ${onMe ? "text-accent" : "text-mute"}`}>
+                <span className="text-[20px]">👤</span>Me
+              </Link>
+            )}
           </div>
         </nav>
       )}
