@@ -16,4 +16,7 @@ export const THEME = {
   accentFg: "#170b05",
   up: "#22c98a",
   dn: "#f2546b",
+  gold: "#e8b84a",
+  silver: "#b9c2cf",
+  bronze: "#cf8a57",
 } as const;

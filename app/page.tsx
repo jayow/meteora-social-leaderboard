@@ -9,6 +9,7 @@ import { CountrySelect } from "@/components/CountrySelect";
 import { FollowButton } from "@/components/FollowButton";
 import { FollowListModal, type FollowListKind } from "@/components/FollowListModal";
 import { LeaderboardHoverCard } from "@/components/LeaderboardHoverCard";
+import { MEDAL, MedalRing, RankMedal, isMedalRank, type MedalRank } from "@/components/RankMedal";
 import { useMe } from "@/components/MeProvider";
 import { displayName, fmtPct, fmtUsd } from "@/lib/format";
 import { applyFollowChange, onFollowChanged } from "@/lib/session-events";
@@ -48,6 +49,10 @@ function metricTone(e: LeaderboardEntry, m: Metric): string {
 }
 
 const profileHref = (e: LeaderboardEntry) => `/profile/${e.xHandle || e.id}`;
+
+/** Phones stack the podium 1-2-3; from `sm` the DOM order (2-1-3) takes over. Static for Tailwind. */
+const STACK_ORDER: Record<MedalRank, string> = { 1: "order-1 sm:order-none", 2: "order-2 sm:order-none", 3: "order-3 sm:order-none" };
+const PODIUM_GRID: Record<number, string> = { 1: "sm:max-w-[340px]", 2: "sm:max-w-[660px] sm:grid-cols-2", 3: "sm:max-w-[980px] sm:grid-cols-3" };
 
 interface HoverHandlers {
   /** Show the preview for this entry next to `el` (immediately for keyboard focus). */
@@ -179,9 +184,15 @@ export default function LeaderboardPage() {
   const allEntries = useMemo(() => data?.entries ?? [], [data]);
   // The API already scopes to Following; this only drops someone you just unfollowed without a refetch.
   const entries = useMemo(() => (followingOnly ? allEntries.filter((e) => e.isFollowing !== false) : allEntries), [allEntries, followingOnly]);
-  // Only ranked members (with Meteora activity) can take podium spots; unranked ones list last.
-  const podium = entries.filter((e) => e.rank !== null).slice(0, 3);
-  const rest = entries.filter((e) => !podium.includes(e));
+  // The podium is the medal positions: ranks 1-3 of this board (ranks are unique, see the API's
+  // row_number tie-break). In Following, ranks stay global, so only followed medalists sit on it and
+  // everyone else keeps their rank number in the list.
+  const podium = entries
+    .filter((e): e is LeaderboardEntry & { rank: MedalRank } => isMedalRank(e.rank))
+    .sort((a, b) => a.rank - b.rank)
+    .slice(0, 3);
+  const podiumIds = new Set(podium.map((e) => e.id));
+  const rest = entries.filter((e) => !podiumIds.has(e.id));
   const mine = myId ? entries.find((e) => e.id === myId) : undefined;
   const isMember = Boolean(verified && myUser?.memberNumber);
   const hovered = hover ? entries.find((e) => e.id === hover.id) : undefined;
@@ -196,10 +207,12 @@ export default function LeaderboardPage() {
   };
 
   const n = podium.length;
-  const podiumOrder = n === 3 ? [podium[1], podium[0], podium[2]] : n === 2 ? [podium[1], podium[0]] : podium;
-  const podiumGrid = n === 3 ? "max-w-[880px] grid-cols-3" : n === 2 ? "max-w-[600px] grid-cols-2" : "max-w-[300px] grid-cols-1";
+  // Desktop podium order: 2nd, 1st, 3rd (whichever of them are on this board).
+  const podiumOrder = [2, 1, 3].flatMap((r) => podium.filter((e) => e.rank === r));
   // Desktop: two columns read top-to-bottom (4..n/2 | rest) so a long board uses the full width.
-  const rowsPerCol = Math.ceil(rest.length / 2);
+  // A short list (e.g. Following) stays one centred column under the podium instead of half a grid.
+  const twoCols = rest.length >= 6;
+  const rowsPerCol = twoCols ? Math.ceil(rest.length / 2) : rest.length;
 
   return (
     <main className="mx-auto max-w-[1320px] px-4 pb-10 pt-6 lg:px-6">
@@ -264,10 +277,20 @@ export default function LeaderboardPage() {
       )}
 
       {loading && !data ? (
-        <div className="mx-auto mt-6 grid max-w-[880px] grid-cols-3 gap-3">
-          {[0, 1, 2].map((i) => (
-            <div key={i} className="h-48 animate-pulse rounded-2xl bg-surface" />
-          ))}
+        <div aria-hidden data-testid="board-skeleton">
+          <div className={`mx-auto mt-6 grid gap-2.5 sm:items-end sm:gap-4 ${PODIUM_GRID[3]}`}>
+            {([2, 1, 3] as const).map((r) => (
+              <div
+                key={r}
+                className={`animate-pulse rounded-2xl border ${MEDAL[r].card} ${STACK_ORDER[r]} ${r === 1 ? "h-[92px] sm:h-[328px]" : "h-[78px] sm:h-[280px]"}`}
+              />
+            ))}
+          </div>
+          <div className="mt-6 grid gap-2 lg:grid-cols-2 lg:gap-x-4">
+            {Array.from({ length: 8 }, (_, i) => (
+              <div key={i} className="h-[58px] animate-pulse rounded-xl border border-border bg-surface" />
+            ))}
+          </div>
         </div>
       ) : followingOnly && entries.length === 0 ? (
         <div className="mt-6 rounded-2xl border border-dashed border-border px-6 py-10 text-center text-[13px] text-mute" data-testid="following-empty">
@@ -281,18 +304,24 @@ export default function LeaderboardPage() {
       ) : (
         <>
           {n > 0 && (
-            <div className={`mx-auto mt-6 grid items-end gap-2 sm:gap-3 ${podiumGrid}`} data-testid="podium">
+            <div className={`mx-auto mt-6 grid gap-2.5 sm:items-end sm:gap-4 ${PODIUM_GRID[n]}`} data-testid="podium">
               {podiumOrder.map((e) => (
-                <PodiumCard key={e.id} e={e} first={e === podium[0]} isMe={e.id === myId} metric={metric} {...hoverHandlers} />
+                <PodiumCard
+                  key={e.id}
+                  e={e}
+                  rank={e.rank}
+                  isMe={e.id === myId}
+                  metric={metric}
+                  caption={`${metricInfo.label} · ${RANGE_SHORT[range]}`}
+                  {...hoverHandlers}
+                />
               ))}
             </div>
           )}
           {rest.length > 0 && (
             <div
-              className="mt-5 grid gap-2 lg:grid-flow-col lg:grid-cols-2 lg:gap-x-4"
-              style={{
-                gridTemplateRows: `repeat(${rowsPerCol}, minmax(0, auto))`,
-              }}
+              className={`grid gap-2 ${twoCols ? "lg:grid-flow-col lg:grid-cols-2 lg:gap-x-4" : "mx-auto max-w-[660px]"} ${n > 0 ? "mt-6" : "mt-5"}`}
+              style={twoCols ? { gridTemplateRows: `repeat(${rowsPerCol}, minmax(0, auto))` } : undefined}
               data-testid="rows"
             >
               {rest.map((e) => (
@@ -354,49 +383,63 @@ function hoverProps(e: LeaderboardEntry, { onPreview, onPreviewEnd }: HoverHandl
   };
 }
 
+/**
+ * Ranks 1-3. Phones: a full-width row (medal, ringed avatar, name + stat, Follow), stacked 1-2-3.
+ * From `sm`: a podium column (2-1-3, #1 tallest) with the medal in the corner.
+ */
 function PodiumCard({
   e,
-  first,
+  rank,
   isMe,
   metric,
+  caption,
   ...handlers
 }: {
   e: LeaderboardEntry;
-  first: boolean;
+  rank: MedalRank;
   isMe: boolean;
   metric: Metric;
+  caption: string;
 } & HoverHandlers) {
   const hp = hoverProps(e, handlers);
   const name = displayName(e);
+  const first = rank === 1;
+  const medal = MEDAL[rank];
   return (
     <div
       {...hp.container}
-      className={`relative flex flex-col items-center rounded-2xl border bg-surface px-2 pb-4 text-center transition sm:px-4 ${first ? "pt-7 sm:pt-9" : "pt-5 sm:pt-6"} ${isMe ? "border-accent" : "border-border hover:border-border-strong"}`}
+      className={`relative flex min-w-0 items-center gap-3 rounded-2xl border px-3.5 transition sm:flex-col sm:gap-0 sm:px-5 sm:pb-5 sm:text-center ${medal.card} ${STACK_ORDER[rank]} ${first ? "py-4 sm:pt-10" : "py-3 sm:pt-8"}`}
       data-testid="podium-card"
+      data-rank={rank}
     >
       <Link href={profileHref(e)} aria-label={`${name}'s profile`} className="absolute inset-0 rounded-2xl" {...hp.link} />
-      <span
-        className={`pointer-events-none absolute left-3 top-3 flex h-6 w-6 items-center justify-center rounded-full border text-[12px] font-bold ${e.rank === 1 ? "border-border-strong bg-surface-raised text-fg" : "border-border bg-surface-raised text-mute"}`}
-      >
-        {e.rank}
-      </span>
-      <Avatar user={e} size={first ? 72 : 56} />
-      {/* Names wrap instead of truncating on narrow cards. */}
-      <div
-        className="mt-2 flex max-w-full flex-wrap items-center justify-center gap-1 text-[13px] font-bold leading-tight sm:text-[15px]"
-        data-testid="podium-name"
-      >
-        <span className="max-w-full [overflow-wrap:anywhere]">{name}</span>
-        <Flag code={e.country} />
+      <RankMedal rank={rank} size={first ? 30 : 26} className={`pointer-events-none sm:absolute sm:left-4 sm:top-4 ${first ? "sm:h-10 sm:w-[34px]" : "sm:h-8 sm:w-[27px]"}`} />
+      <MedalRing rank={rank} className="pointer-events-none">
+        {/* Two sizes instead of resizing one <img>; the hidden one is lazy and never loads. */}
+        <span className="flex sm:hidden">
+          <Avatar user={e} size={first ? 48 : 42} />
+        </span>
+        <span className="hidden sm:flex">
+          <Avatar user={e} size={first ? 96 : 72} />
+        </span>
+      </MedalRing>
+      <div className="pointer-events-none min-w-0 flex-1 sm:mt-3 sm:w-full sm:flex-none">
+        <div className={`flex min-w-0 items-center gap-1.5 font-bold leading-tight sm:justify-center ${first ? "text-[15px] sm:text-[19px]" : "text-[15px] sm:text-[16px]"}`} data-testid="podium-name">
+          <span className="truncate" title={name}>
+            {name}
+          </span>
+          <Flag code={e.country} className="shrink-0" />
+        </div>
+        <div
+          className={`num mt-0.5 font-extrabold leading-tight tracking-tight sm:mt-2 ${first ? "text-[22px] sm:text-[38px]" : "text-[19px] sm:text-[29px]"} ${metricTone(e, metric)}`}
+          data-testid="podium-metric"
+        >
+          {metricValue(e, metric)}
+        </div>
+        <div className="mt-0.5 hidden text-[12px] text-mute sm:block">{caption}</div>
       </div>
-      <div
-        className={`num mt-1.5 font-extrabold tracking-tight ${first ? "text-[20px] sm:text-[32px]" : "text-[17px] sm:text-[26px]"} ${metricTone(e, metric)}`}
-        data-testid="podium-metric"
-      >
-        {metricValue(e, metric)}
-      </div>
-      <div className="relative z-10 mt-2.5 h-8">
-        {isMe ? <span className="text-[12px] font-semibold leading-8 text-mute">You</span> : <FollowButton targetUser={e} size="sm" />}
+      <div className="relative z-10 shrink-0 sm:mt-4">
+        {isMe ? <span className="px-1 text-[12px] font-semibold text-mute">You</span> : <FollowButton targetUser={e} size="sm" />}
       </div>
     </div>
   );

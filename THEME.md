@@ -19,6 +19,7 @@ Tokens live in `app/globals.css` (`@theme`, Tailwind v4), so each one is both a 
 | `accent-hover` | `#ff7a3d` | Hover on accent |
 | `accent-fg` | `#170b05` | Text on a solid accent background (white on this orange fails contrast) |
 | `up` / `dn` | `#22c98a` / `#f2546b` | PnL positive/negative only (fees count as earnings, so fees are `up`). Not for win rate, badges or buttons. `dn` also marks errors and destructive actions (Sign out, Delete). |
+| `gold` / `silver` / `bronze` | `#e8b84a` / `#b9c2cf` / `#cf8a57` | Leaderboard ranks 1-3 only. See "Medals" below. |
 
 No secondary accent. X/Twitter, badges and chips are neutral (`surface-raised` + `border` + `mute`/`fg`).
 
@@ -38,6 +39,16 @@ Size them at the call site: `btn-primary h-9 px-4 text-[13px]`.
 - Chip/badge: `rounded-full border border-border bg-surface-raised px-2 py-0.5 text-[11px] text-mute`.
 - Small text (9-11px): `text-mute` or brighter, never `text-white/40`, `opacity-50` etc.
 - Shadows: none, or a neutral `shadow-black/40` for floating menus only.
+
+## Medals (leaderboard top 3)
+
+The one place colour is used for celebration. Ranks 1, 2 and 3 get `gold`, `silver` and `bronze`; everyone else stays neutral.
+
+- Rank mark: `components/RankMedal.tsx` (inline SVG medal, solid metal, number in `text-bg`). Use it wherever a top-3 rank is shown, and nowhere else.
+- Avatar ring: a solid 2px metal border around the avatar (`border-2 border-gold p-[3px] rounded-full`).
+- Card: a light tint and border, e.g. `bg-gold/[.07] border-gold/50`. Keep the stat in its own semantic colour (`up`/`dn`/`fg`), not the metal.
+- Flat only: no metallic gradients, sheen, glow or animation.
+- Contrast on the dark theme: metal on `bg` is 10.5:1 (gold), 10.8:1 (silver) and 6.8:1 (bronze), and `bg` text on a solid metal gives the same ratios. A `/50` border is 3:1 or more against `surface`. `fg`, `mute` and `up` keep 14:1, 5.6:1 and 7.3:1 on a `/[.07]` tint.
 
 ## Deprecated (render flat now, migrate when touching the file)
 

@@ -31,6 +31,14 @@
   --color-dn: #f2546b;
 
   /*
+   * Medal metals for leaderboard ranks 1-3 only (rank mark, avatar ring, a light tint/border on the
+   * podium card). Flat tones: never in gradients. Text on a solid metal uses `text-bg`.
+   */
+  --color-gold: #e8b84a;
+  --color-silver: #b9c2cf;
+  --color-bronze: #cf8a57;
+
+  /*
    * Deprecated aliases, kept so older classes keep rendering flat while they are migrated.
    * Don't use them in new code.
    */

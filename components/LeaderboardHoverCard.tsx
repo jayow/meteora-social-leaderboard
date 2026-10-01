@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import type { LeaderboardEntry } from "@/lib/api-types";
 import { Avatar, Flag } from "@/components/ui";
 import { FollowButton } from "@/components/FollowButton";
+import { RankMedal, isMedalRank } from "@/components/RankMedal";
 import type { FollowListKind } from "@/components/FollowListModal";
 import { displayName, fmtPct, fmtUsd } from "@/lib/format";
 
@@ -85,9 +86,10 @@ export function LeaderboardHoverCard({
             <span className="truncate text-[15px] font-bold">{name}</span>
             <Flag code={entry.country} className="shrink-0" />
           </div>
-          <div className="mt-0.5 truncate text-[12px] text-mute">
-            {rankLabel}
-            {isMe && <span className="text-fg-secondary"> · You</span>}
+          <div className="mt-0.5 flex min-w-0 items-center gap-1 text-[12px] text-mute">
+            {isMedalRank(entry.rank) && <RankMedal rank={entry.rank} size={15} />}
+            <span className="truncate">{rankLabel}</span>
+            {isMe && <span className="shrink-0 text-fg-secondary">· You</span>}
           </div>
         </div>
       </div>
