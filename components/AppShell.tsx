@@ -124,11 +124,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Link href="/feed" aria-current={onFeed ? "page" : undefined} className={`rounded-full px-4 py-1.5 ${onFeed ? "bg-border text-fg" : "text-mute hover:text-fg"}`}>
                 Activity
               </Link>
-              {isSignedIn && (
-                <Link href="/profile/me" className={`rounded-full px-4 py-1.5 ${onMe ? "bg-border text-fg" : "text-mute hover:text-fg"}`}>
-                  Profile
-                </Link>
-              )}
               {isMember && (
                 <Link href="/invites" className={`rounded-full px-4 py-1.5 ${onInvites ? "bg-border text-fg" : "text-mute hover:text-fg"}`}>
                   Invites
@@ -173,6 +168,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
                 {menuOpen && (
                   <div className="absolute right-0 z-50 mt-2 w-48 overflow-hidden rounded-2xl border border-border bg-surface p-1 text-[14px] shadow-xl shadow-black/40">
+                    <Link
+                      href="/profile/me"
+                      onClick={() => setMenuOpen(false)}
+                      className={`block rounded-xl px-3 py-2 hover:bg-surface-raised ${onMe ? "text-fg" : ""}`}
+                    >
+                      Profile
+                    </Link>
                     {!hasX && (
                       <a
                         href={`/api/x/login?link=true&returnTo=${encodeURIComponent("/profile/me")}`}
