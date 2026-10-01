@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { getSessionUserId } from "@/lib/session";
@@ -68,8 +68,13 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const xHandle = profile.username.replace(/^@/, "");
 
-  // Check if this X account is already linked to another user
-  const [existingXUser] = await db.select().from(users).where(eq(users.xId, xId)).limit(1);
+  // Check if this X account is already linked to another user (by xId or legacy xHandle)
+  const [existingByXId] = await db.select().from(users).where(eq(users.xId, xId)).limit(1);
+  const [existingByHandle] = await db.select().from(users)
+    .where(sql`${users.xId} IS NULL AND lower(${users.xHandle}) = lower(${xHandle})`)
+    .limit(1);
+  const existingXUser = existingByXId || existingByHandle;
+  
   if (existingXUser && existingXUser.id !== userId) {
     return NextResponse.redirect(
       new URL(`${returnTo}?link=error&message=This+X+account+is+already+linked+to+another+user`, baseUrl)

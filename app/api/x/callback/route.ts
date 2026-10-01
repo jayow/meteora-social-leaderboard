@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import {
   validateOAuthState,
   exchangeCodeForToken,
@@ -71,8 +71,13 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       
       if (currentUserId) {
         // We're in a join flow or linking X to an existing session
-        // First, check if this X account is already linked to a different user
-        const [existingUser] = await db.select().from(users).where(eq(users.xId, xId)).limit(1);
+        // Check if this X account is already linked to a different user (by xId or legacy xHandle)
+        const [existingByXId] = await db.select().from(users).where(eq(users.xId, xId)).limit(1);
+        const [existingByHandle] = await db.select().from(users)
+          .where(sql`${users.xId} IS NULL AND lower(${users.xHandle}) = lower(${xHandle})`)
+          .limit(1);
+        const existingUser = existingByXId || existingByHandle;
+        
         if (existingUser && existingUser.id !== currentUserId) {
           return NextResponse.redirect(
             new URL(`${returnTo}?x=error&message=This+X+account+is+already+linked+to+another+Pool+Party+account`, baseUrl)
@@ -96,22 +101,41 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         }
       }
 
-      // No existing session: X-first auth (create or find user by X ID)
+      // No existing session: X-first auth (find by xId, fall back to legacy xHandle, or create new)
       let [user] = await db.select().from(users).where(eq(users.xId, xId)).limit(1);
       
       if (!user) {
-        // Create new user with X identity (no wallet yet)
-        [user] = await db
-          .insert(users)
-          .values({
-            wallet: `temp_${xId}_${Date.now()}`, // Temporary unique value, will be replaced when wallet added
-            signupMethod: 'x',
-            xId,
-            xHandle,
-            xName: profile.name,
-            xAvatarUrl: profile.avatarUrl ? profile.avatarUrl.replace("_normal.", "_400x400.") : null,
-          })
-          .returning();
+        // Fall back to case-insensitive xHandle match for users with null xId (legacy users)
+        [user] = await db.select().from(users)
+          .where(sql`${users.xId} IS NULL AND lower(${users.xHandle}) = lower(${xHandle})`)
+          .limit(1);
+        
+        if (user) {
+          // Backfill xId for legacy user
+          [user] = await db
+            .update(users)
+            .set({
+              xId,
+              xHandle,
+              xName: profile.name,
+              xAvatarUrl: profile.avatarUrl ? profile.avatarUrl.replace("_normal.", "_400x400.") : null,
+            })
+            .where(eq(users.id, user.id))
+            .returning();
+        } else {
+          // Create new user with X identity (no wallet yet)
+          [user] = await db
+            .insert(users)
+            .values({
+              wallet: `temp_${xId}_${Date.now()}`, // Temporary unique value, will be replaced when wallet added
+              signupMethod: 'x',
+              xId,
+              xHandle,
+              xName: profile.name,
+              xAvatarUrl: profile.avatarUrl ? profile.avatarUrl.replace("_normal.", "_400x400.") : null,
+            })
+            .returning();
+        }
       } else {
         // Update existing user's X profile
         [user] = await db
