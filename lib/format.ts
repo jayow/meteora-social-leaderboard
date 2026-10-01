@@ -14,7 +14,7 @@ export function fmtUsd(n: number | null | undefined, opts: { signed?: boolean; c
 
 export function fmtPct(n: number | null | undefined, digits = 0): string {
   if (n == null || !Number.isFinite(n)) return "—";
-  return `${n.toFixed(digits)}%`;
+  return `${(n * 100).toFixed(digits)}%`;
 }
 
 export function pnlClass(n: number | null | undefined): string {

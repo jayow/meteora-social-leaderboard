@@ -302,7 +302,7 @@ function Profile() {
                 </div>
                 <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
                   <StatTile label="Total value" value={fmtUsd(snap.portfolioValueUsd)} sub="open positions" />
-                  <StatTile label={`Win rate (${RANGE_LABEL[range]})`} value={fmtPct(winBy[range], 1)} tone={(winBy[range] ?? 0) >= 50 ? "up" : "white"} />
+                  <StatTile label={`Win rate (${RANGE_LABEL[range]})`} value={fmtPct(winBy[range], 1)} tone={(winBy[range] ?? 0) >= 0.5 ? "up" : "white"} />
                   <StatTile label={`Volume (${RANGE_LABEL[range]})`} value={fmtUsd(volBy[range])} sub="deposited" />
                   <StatTile label={range === "all" ? "Fees earned" : "Fees earned (30D)"} value={fmtUsd(range === "all" ? snap.feesUsd : snap.fees30dUsd)} tone="orange" />
                   <StatTile label="Open positions" value={`${snap.positionsOpen ?? 0}`} />
@@ -895,7 +895,7 @@ function RecentTheses({ userId }: { userId: number }) {
     const load = async () => {
       setLoading(true);
       try {
-        const res = await fetch(`/api/users/\${userId}/theses`, { cache: "no-store" });
+        const res = await fetch(`/api/users/${userId}/theses`, { cache: "no-store" });
         const data = await res.json();
         setTheses(data.theses || []);
       } catch {

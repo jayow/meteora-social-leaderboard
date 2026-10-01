@@ -9,7 +9,7 @@ import {
 } from "@/lib/x-oauth";
 import { getDb, hasDb } from "@/lib/db";
 import { users } from "@/lib/db/schema";
-import { setSessionUserId } from "@/lib/session";
+import { setSessionUserId, getSessionUserId } from "@/lib/session";
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const { searchParams } = new URL(req.url);
@@ -65,11 +65,15 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       if (!xId) throw new Error("Missing X user ID");
       
       const xHandle = profile.username.replace(/^@/, "");
-
-      // Special case: map jayowtrades to user 1 (Jay)
-      if (xHandle === "jayowtrades") {
-        const [jay] = await db.select().from(users).where(eq(users.id, 1)).limit(1);
-        if (jay) {
+      
+      // Check if we already have a session user (e.g., during join flow)
+      const currentUserId = await getSessionUserId();
+      
+      if (currentUserId) {
+        // We're in a join flow or linking X to an existing session
+        // Update the current user's X profile instead of switching users
+        const [currentUser] = await db.select().from(users).where(eq(users.id, currentUserId)).limit(1);
+        if (currentUser) {
           const [updated] = await db
             .update(users)
             .set({
@@ -78,14 +82,14 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
               xName: profile.name,
               xAvatarUrl: profile.avatarUrl ? profile.avatarUrl.replace("_normal.", "_400x400.") : null,
             })
-            .where(eq(users.id, 1))
+            .where(eq(users.id, currentUserId))
             .returning();
-          await setSessionUserId(updated.id);
+          // Keep the current session (don't switch users)
           return NextResponse.redirect(new URL(`${returnTo}?x=connected`, baseUrl));
         }
       }
 
-      // Find or create user by X ID
+      // No existing session: X-first auth (create or find user by X ID)
       let [user] = await db.select().from(users).where(eq(users.xId, xId)).limit(1);
       
       if (!user) {

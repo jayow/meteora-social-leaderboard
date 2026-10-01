@@ -18,6 +18,12 @@ export async function GET(
 ): Promise<NextResponse> {
   const { id } = await params;
   
+  // Validate ID is numeric
+  const userId = Number(id);
+  if (isNaN(userId) || userId <= 0) {
+    return NextResponse.json({ error: "Invalid user ID" }, { status: 400 });
+  }
+  
   if (!hasDb()) return NextResponse.json({ theses: [] });
 
   const pool = getPool();
@@ -39,7 +45,7 @@ export async function GET(
     LIMIT 10
   `;
 
-  const { rows } = await pool.query<ThesisRow>(query, [Number(id)]);
+  const { rows } = await pool.query<ThesisRow>(query, [userId]);
 
   const theses = rows.map((r) => ({
     id: r.id,
