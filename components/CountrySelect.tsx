@@ -8,7 +8,7 @@ interface CountryOption {
   name: string;
 }
 
-export function CountrySelect({ value, onChange, allLabel = "All countries", disabled = false, membersOnly = false }: { value: string; onChange: (v: string) => void; allLabel?: string; disabled?: boolean; membersOnly?: boolean }) {
+export function CountrySelect({ value, onChange, allLabel = "All countries", disabled = false, membersOnly = false, className = "shrink-0" }: { value: string; onChange: (v: string) => void; allLabel?: string; disabled?: boolean; membersOnly?: boolean; className?: string }) {
   const [apiOptions, setApiOptions] = useState<CountryOption[] | null>(null);
   const allOptions = useMemo(() => countryOptions(), []);
   
@@ -23,12 +23,12 @@ export function CountrySelect({ value, onChange, allLabel = "All countries", dis
   const options = membersOnly ? (apiOptions ?? []) : allOptions;
 
   return (
-    <label className="relative flex h-10 shrink-0 items-center gap-2 rounded-full border border-border bg-surface pl-3 pr-8 text-[13px] font-semibold">
+    <label className={`relative flex h-10 items-center gap-2 rounded-full border border-border bg-surface pl-3 pr-8 text-[13px] font-semibold ${className}`}>
       {value ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={flagUrl(value, 40)} alt="" className="h-[12px] w-[17px] rounded-[2px] object-cover" />
+        <img src={flagUrl(value, 40)} alt="" className="h-[12px] w-[17px] shrink-0 rounded-[2px] object-cover" />
       ) : (
-        <span aria-hidden>🌍</span>
+        <span aria-hidden className="shrink-0">🌍</span>
       )}
       <select
         value={value}
@@ -44,7 +44,7 @@ export function CountrySelect({ value, onChange, allLabel = "All countries", dis
           </option>
         ))}
       </select>
-      <span className="pointer-events-none">{value ? options.find((o) => o.code === value)?.name : allLabel}</span>
+      <span className="pointer-events-none min-w-0 truncate">{value ? options.find((o) => o.code === value)?.name : allLabel}</span>
       <span className="pointer-events-none absolute right-3 text-[10px] text-mute">▼</span>
     </label>
   );

@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import type { LeaderboardEntry, LeaderboardResponse } from "@/lib/api-types";
 import { Avatar, Flag, Pills } from "@/components/ui";
 import { CountrySelect } from "@/components/CountrySelect";
@@ -14,6 +14,7 @@ import { MEDAL, MedalRing, PODIUM_GRID, PODIUM_STACK_ORDER, PodiumSkeleton, Rank
 import { useMe } from "@/components/MeProvider";
 import { displayName, fmtPct, fmtUsd } from "@/lib/format";
 import { applyFollowChange, onFollowChanged } from "@/lib/session-events";
+import { isCountryCode } from "@/lib/countries";
 
 type Range = "7d" | "30d" | "all";
 type Metric = "pnl" | "fees" | "volume" | "winrate";
@@ -53,27 +54,78 @@ const profileHref = (e: LeaderboardEntry) => `/profile/${e.xHandle || e.id}`;
 
 const STACK_ORDER = PODIUM_STACK_ORDER;
 
+/** How the preview was opened: mouse hover, keyboard focus, or a touch long-press. */
+type PreviewMode = "mouse" | "keyboard" | "touch";
+const LONG_PRESS_MS = 450;
+const LONG_PRESS_SLOP = 10;
+
 interface HoverHandlers {
-  /** Show the preview for this entry next to `el` (immediately for keyboard focus). */
-  onPreview: (e: LeaderboardEntry, el: HTMLElement, immediate?: boolean) => void;
+  /** Show the preview for this entry next to `box` (mouse waits a beat; keyboard/touch are immediate). */
+  onPreview: (e: LeaderboardEntry, box: HTMLElement, mode: PreviewMode, link?: HTMLAnchorElement | null) => void;
   onPreviewEnd: () => void;
+  /** Keyboard: Tab from a card's link moves into its open preview. True when handled. */
+  onEnterPreview: (e: LeaderboardEntry) => boolean;
+  /** A long-press just opened a preview: swallow the click that follows the finger lifting. */
+  consumeClick: () => boolean;
+  /** Long-press bookkeeping (one touch at a time). */
+  press: React.MutableRefObject<{ timer: number; x: number; y: number } | null>;
 }
 
+const FOCUSABLE = 'a[href], button:not([disabled]), select:not([disabled]), input:not([disabled]), textarea, [tabindex]:not([tabindex="-1"])';
+
+// useSearchParams needs a Suspense boundary for the static build; the fallback mirrors the loading state.
 export default function LeaderboardPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="mx-auto max-w-[1320px] px-4 pb-10 pt-6 lg:px-6">
+          <PodiumSkeleton />
+        </main>
+      }
+    >
+      <LeaderboardBoard />
+    </Suspense>
+  );
+}
+
+function LeaderboardBoard() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { wallet, loading: meLoading, user: myUser, userId: sessionUserId, verified } = useMe();
   const [range, setRange] = useState<Range>("30d");
   const [metric, setMetric] = useState<Metric>("pnl");
-  const [country, setCountry] = useState<string>("");
+  // View and country filter live in the URL (?view=countries, ?country=XX): shareable, and back/forward work.
+  const countryParam = (searchParams.get("country") || "").toUpperCase();
+  const country = isCountryCode(countryParam) ? countryParam : "";
+  const view: "members" | "countries" = searchParams.get("view") === "countries" ? "countries" : "members";
+  const setUrl = useCallback(
+    (next: { view?: "members" | "countries"; country?: string }) => {
+      const p = new URLSearchParams(searchParams.toString());
+      if (next.view !== undefined) {
+        if (next.view === "countries") p.set("view", "countries");
+        else p.delete("view");
+      }
+      if (next.country !== undefined) {
+        if (next.country) p.set("country", next.country);
+        else p.delete("country");
+      }
+      const qs = p.toString();
+      router.push(qs ? `/?${qs}` : "/", { scroll: false });
+    },
+    [router, searchParams],
+  );
+  const setView = (v: "members" | "countries") => setUrl({ view: v });
   const [data, setData] = useState<LeaderboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
   // "Following" narrows the whole board server-side (scope=following) to people you follow; signed-in only.
   const [who, setWho] = useState<"all" | "following">("all");
-  // Members (people) or Countries (aggregated per country). Following and the country filter only
-  // apply to Members, so their controls hide in the Countries view.
-  const [view, setView] = useState<"members" | "countries">("members");
+  // Members (people) or Countries (aggregated per country) comes from the URL above. Following and
+  // the country filter only apply to Members, so their controls hide in the Countries view.
   const followingOnly = verified && who === "following";
-  const [hover, setHover] = useState<{ id: number; rect: DOMRect } | null>(null);
+  const [hover, setHover] = useState<{ id: number; rect: DOMRect; mode: PreviewMode; link: HTMLAnchorElement | null } | null>(null);
+  const press = useRef<{ timer: number; x: number; y: number } | null>(null);
+  const swallowClickUntil = useRef(0);
+  const skipFocusOpen = useRef(false);
   const [followList, setFollowList] = useState<{
     userId: number;
     kind: FollowListKind;
@@ -148,17 +200,56 @@ export default function LeaderboardPage() {
     showTimer.current = hideTimer.current = null;
   };
   const hoverHandlers: HoverHandlers = {
-    onPreview: (e, el, immediate) => {
+    onPreview: (e, box, mode, link = null) => {
+      if (mode === "keyboard" && skipFocusOpen.current) {
+        skipFocusOpen.current = false;
+        return;
+      }
       clearTimers();
-      const show = () => setHover({ id: e.id, rect: el.getBoundingClientRect() });
-      if (immediate) show();
-      else showTimer.current = window.setTimeout(show, 180);
+      const show = () => setHover({ id: e.id, rect: box.getBoundingClientRect(), mode, link });
+      if (mode === "mouse") showTimer.current = window.setTimeout(show, 180);
+      else show();
+      if (mode === "touch") swallowClickUntil.current = Date.now() + 1000;
     },
     onPreviewEnd: () => {
       if (showTimer.current) window.clearTimeout(showTimer.current);
       showTimer.current = null;
+      // A touch preview stays until tap outside / Esc.
+      if (hover?.mode === "touch") return;
       hideTimer.current = window.setTimeout(() => setHover(null), 160);
     },
+    onEnterPreview: (e) => {
+      if (hover?.id !== e.id || hover.mode !== "keyboard") return false;
+      const first = document.querySelector<HTMLElement>(`[data-testid="hover-card"] :is(${FOCUSABLE})`);
+      if (!first) return false;
+      keepPreview();
+      first.focus();
+      return true;
+    },
+    consumeClick: () => {
+      if (Date.now() > swallowClickUntil.current) return false;
+      swallowClickUntil.current = 0;
+      return true;
+    },
+    press,
+  };
+  const closePreview = () => {
+    clearTimers();
+    setHover(null);
+  };
+  // Keyboard out of the preview: forward to whatever follows the card's link (closes it), back to the link
+  // itself (its focus re-opens the preview, so Tab / Shift+Tab can go in and out).
+  const leavePreview = (dir: "forward" | "back") => {
+    const link = hover?.link;
+    closePreview();
+    if (!link) return;
+    if (dir === "back") {
+      link.focus();
+      return;
+    }
+    const all = [...document.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((el) => el.getClientRects().length > 0 && !el.closest('[data-testid="hover-card"]'));
+    const next = all[all.indexOf(link) + 1];
+    (next ?? link).focus();
   };
   const keepPreview = () => {
     if (hideTimer.current) window.clearTimeout(hideTimer.current);
@@ -168,7 +259,14 @@ export default function LeaderboardPage() {
     if (!hover) return;
     const close = () => setHover(null);
     const onKey = (ev: KeyboardEvent) => {
-      if (ev.key === "Escape") close();
+      if (ev.key !== "Escape") return;
+      // Esc from inside the preview returns focus to the card it belongs to.
+      const fromInside = Boolean(document.activeElement?.closest('[data-testid="hover-card"]'));
+      close();
+      if (fromInside && hover.link) {
+        skipFocusOpen.current = true;
+        hover.link.focus();
+      }
     };
     window.addEventListener("scroll", close, { passive: true });
     window.addEventListener("resize", close);
@@ -200,13 +298,7 @@ export default function LeaderboardPage() {
   const hovered = hover ? entries.find((e) => e.id === hover.id) : undefined;
   const metricInfo = METRICS.find((m) => m.value === metric) ?? METRICS[0];
 
-  const onCountryChange = (c: string) => {
-    setCountry(c);
-    const url = new URL(window.location.href);
-    if (c) url.searchParams.set("country", c);
-    else url.searchParams.delete("country");
-    router.push(url.pathname + url.search);
-  };
+  const onCountryChange = (c: string) => setUrl({ country: c });
 
   const n = podium.length;
   // Desktop podium order: 2nd, 1st, 3rd (whichever of them are on this board).
@@ -225,15 +317,17 @@ export default function LeaderboardPage() {
           </h1>
           <p className="mt-1 text-[13px] text-mute">{RANGE_TEXT[range]} · live data from Meteora</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2" data-testid="board-filters">
-          <div className="flex items-center gap-0.5 rounded-full border border-border bg-surface p-1" role="group" aria-label="Rank" data-testid="view-toggle">
+        {/* Phones: the Members / Countries switch gets its own full-width row; range + country share the
+            next one (the country name truncates). From sm everything sits on one line. */}
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap" data-testid="board-filters">
+          <div className="flex w-full items-center gap-0.5 rounded-full border border-border bg-surface p-1 sm:w-auto" role="group" aria-label="Rank" data-testid="view-toggle">
             {(["members", "countries"] as const).map((v) => (
               <button
                 key={v}
                 type="button"
                 aria-pressed={view === v}
                 onClick={() => setView(v)}
-                className={`h-8 rounded-full px-3.5 text-[13px] font-semibold transition ${view === v ? "bg-surface-raised text-fg" : "text-mute hover:text-fg"}`}
+                className={`h-8 flex-1 rounded-full px-3.5 text-[13px] font-semibold transition sm:flex-none ${view === v ? "bg-surface-raised text-fg" : "text-mute hover:text-fg"}`}
               >
                 {v === "members" ? "Members" : "Countries"}
               </button>
@@ -248,7 +342,9 @@ export default function LeaderboardPage() {
               { value: "all", label: "All" },
             ]}
           />
-          {view === "members" && <CountrySelect value={country} onChange={onCountryChange} allLabel="Global" membersOnly />}
+          {view === "members" && (
+            <CountrySelect value={country} onChange={onCountryChange} allLabel="Global" membersOnly className="min-w-0 flex-1 sm:max-w-[220px] sm:flex-none" />
+          )}
         </div>
       </div>
 
@@ -298,8 +394,8 @@ export default function LeaderboardPage() {
           metricLabel={metricInfo.label}
           rangeShort={RANGE_SHORT[range]}
           onPick={(code) => {
-            onCountryChange(code);
-            setView("members");
+            // One history entry, so Back returns to the Countries view.
+            setUrl({ view: "members", country: code });
             window.scrollTo({ top: 0 });
           }}
         />
@@ -352,8 +448,17 @@ export default function LeaderboardPage() {
           anchor={hover.rect}
           rankLabel={hovered.rank !== null ? `#${hovered.rank} by ${metricInfo.heading} · ${RANGE_SHORT[range]}` : "Not ranked yet"}
           isMe={hovered.id === myId}
+          mode={hover.mode}
           onPointerEnter={keepPreview}
-          onPointerLeave={hoverHandlers.onPreviewEnd}
+          onPointerLeave={(ev) => {
+            if (ev.pointerType === "mouse") hoverHandlers.onPreviewEnd();
+          }}
+          onFocusInside={keepPreview}
+          onFocusOutside={closePreview}
+          onKeyboardExit={leavePreview}
+          onDismiss={() => {
+            if (!hoverHandlers.consumeClick()) closePreview();
+          }}
           onOpenList={(kind) => {
             setFollowList({ userId: hovered.id, kind });
             setHover(null);
@@ -374,27 +479,66 @@ export default function LeaderboardPage() {
 
 /**
  * Card/row interaction: the whole surface is a profile link drawn as an overlay (not a wrapper, so
- * Follow isn't nested in it). Mouse hover or keyboard focus shows the preview; tap/click opens the profile.
+ * Follow isn't nested in it). Tap/click opens the profile. The preview opens on mouse hover, on
+ * keyboard focus (Tab then moves into it), or on a ~450ms touch long-press (the click that follows is
+ * swallowed; the native callout/menu and text selection are suppressed on touch).
  */
-function hoverProps(e: LeaderboardEntry, { onPreview, onPreviewEnd }: HoverHandlers) {
+function hoverProps(e: LeaderboardEntry, h: HoverHandlers) {
+  const cancelPress = () => {
+    if (h.press.current) window.clearTimeout(h.press.current.timer);
+    h.press.current = null;
+  };
   return {
     container: {
       onPointerEnter: (ev: React.PointerEvent<HTMLDivElement>) => {
-        if (ev.pointerType === "mouse") onPreview(e, ev.currentTarget);
+        if (ev.pointerType === "mouse") h.onPreview(e, ev.currentTarget, "mouse");
       },
       onPointerLeave: (ev: React.PointerEvent<HTMLDivElement>) => {
-        if (ev.pointerType === "mouse") onPreviewEnd();
+        if (ev.pointerType === "mouse") h.onPreviewEnd();
+      },
+      onPointerDown: (ev: React.PointerEvent<HTMLDivElement>) => {
+        if (ev.pointerType === "mouse" || (ev.target as HTMLElement).closest("button")) return;
+        cancelPress();
+        const box = ev.currentTarget;
+        const link = box.querySelector<HTMLAnchorElement>(":scope > a");
+        h.press.current = {
+          x: ev.clientX,
+          y: ev.clientY,
+          timer: window.setTimeout(() => {
+            h.press.current = null;
+            h.onPreview(e, box, "touch", link);
+          }, LONG_PRESS_MS),
+        };
+      },
+      onPointerMove: (ev: React.PointerEvent<HTMLDivElement>) => {
+        const p = h.press.current;
+        if (p && Math.hypot(ev.clientX - p.x, ev.clientY - p.y) > LONG_PRESS_SLOP) cancelPress();
+      },
+      onPointerUp: cancelPress,
+      onPointerCancel: cancelPress,
+      // Long-press on a link would open the browser's context menu / link preview.
+      onContextMenu: (ev: React.MouseEvent<HTMLDivElement>) => {
+        if (window.matchMedia("(pointer: coarse)").matches) ev.preventDefault();
       },
     },
     link: {
       onFocus: (ev: React.FocusEvent<HTMLAnchorElement>) => {
         const box = ev.currentTarget.parentElement;
-        if (box && ev.currentTarget.matches(":focus-visible")) onPreview(e, box, true);
+        if (box && ev.currentTarget.matches(":focus-visible")) h.onPreview(e, box, "keyboard", ev.currentTarget);
       },
-      onBlur: () => onPreviewEnd(),
+      onBlur: () => h.onPreviewEnd(),
+      onKeyDown: (ev: React.KeyboardEvent<HTMLAnchorElement>) => {
+        if (ev.key === "Tab" && !ev.shiftKey && h.onEnterPreview(e)) ev.preventDefault();
+      },
+      onClick: (ev: React.MouseEvent<HTMLAnchorElement>) => {
+        if (h.consumeClick()) ev.preventDefault();
+      },
     },
   };
 }
+
+/** Touch: no callout, no accidental text selection while holding a card. */
+const TOUCH_SAFE = "[-webkit-touch-callout:none] pointer-coarse:select-none";
 
 /**
  * Ranks 1-3. Phones: a full-width row (medal, ringed avatar, name + stat, Follow), stacked 1-2-3.
@@ -421,7 +565,7 @@ function PodiumCard({
   return (
     <div
       {...hp.container}
-      className={`relative flex min-w-0 items-center gap-3 rounded-2xl border px-3.5 transition sm:flex-col sm:gap-0 sm:px-5 sm:pb-5 sm:text-center ${medal.card} ${STACK_ORDER[rank]} ${first ? "py-4 sm:pt-10" : "py-3 sm:pt-8"}`}
+      className={`relative flex min-w-0 items-center gap-3 rounded-2xl border px-3.5 transition ${TOUCH_SAFE} sm:flex-col sm:gap-0 sm:px-5 sm:pb-5 sm:text-center ${medal.card} ${STACK_ORDER[rank]} ${first ? "py-4 sm:pt-10" : "py-3 sm:pt-8"}`}
       data-testid="podium-card"
       data-rank={rank}
     >
@@ -464,7 +608,7 @@ function Row({ e, isMe, metric, ...handlers }: { e: LeaderboardEntry; isMe: bool
   return (
     <div
       {...hp.container}
-      className={`group relative flex min-w-0 items-center gap-3 rounded-xl border bg-surface px-3 py-2.5 transition sm:px-4 ${isMe ? "border-accent" : "border-border hover:border-border-strong"}`}
+      className={`group relative flex min-w-0 items-center gap-3 rounded-xl border bg-surface ${TOUCH_SAFE} px-3 py-2.5 transition sm:px-4 ${isMe ? "border-accent" : "border-border hover:border-border-strong"}`}
       data-testid="board-row"
     >
       <Link href={profileHref(e)} aria-label={`${name}'s profile`} className="absolute inset-0 rounded-xl" {...hp.link} />
