@@ -19,11 +19,18 @@ export function isMeteoraTimeRange(v: string): v is MeteoraTimeRange {
 
 const enc = encodeURIComponent;
 
+/** Max page size Meteora allows on /portfolio/open. */
+export const METEORA_OPEN_PAGE_SIZE = 50;
+
 export const meteoraUrls = {
   /** All-time totals: { totalPnlUsd, totalPnlSol, totalPnlPctChange, totalPnlSolPctChange, totalClosedPositions } */
   portfolioTotal: (wallet: string): string => `${METEORA_DLMM_API}/portfolio/total?user=${enc(wallet)}`,
-  /** Open positions grouped by pool. */
-  portfolioOpen: (wallet: string): string => `${METEORA_DLMM_API}/portfolio/open?user=${enc(wallet)}`,
+  /**
+   * Open positions grouped by pool. Paginated by POOL: `page` is 1-based, `pageSize` max 50
+   * (Meteora's default is 20). `totalPositions` / `total` in the response cover every page.
+   */
+  portfolioOpen: (wallet: string, page = 1, pageSize = METEORA_OPEN_PAGE_SIZE): string =>
+    `${METEORA_DLMM_API}/portfolio/open?user=${enc(wallet)}&page=${page}&page_size=${pageSize}`,
   /** Closed + open pools history. */
   portfolio: (wallet: string, pageSize = 100): string =>
     `${METEORA_DLMM_API}/portfolio?user=${enc(wallet)}&page_size=${pageSize}`,

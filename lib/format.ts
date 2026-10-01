@@ -56,3 +56,8 @@ export function timeAgo(iso: string | null | undefined): string {
   if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
   return `${Math.floor(s / 86400)}d ago`;
 }
+
+/** "1 position" / "4 positions" (open LP positions; several can sit in one pool). */
+export function fmtPositions(n: number): string {
+  return `${n} position${n === 1 ? "" : "s"}`;
+}

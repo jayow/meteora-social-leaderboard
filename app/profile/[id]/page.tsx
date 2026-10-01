@@ -374,7 +374,7 @@ function Profile() {
             <PnLCalendar userId={user.id} />
           </div>
 
-          <OpenPositions userId={user.id} />
+          <OpenPositions userId={user.id} mine={mine} refreshKey={snap?.updatedAt ?? null} />
         </section>
       </div>
 
