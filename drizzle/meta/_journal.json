@@ -78,6 +78,13 @@
       "when": 1790796059931,
       "tag": "0010_stale_frightful_four",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1790818701000,
+      "tag": "0011_add_unique_x_id_index",
+      "breakpoints": true
     }
   ]
 }

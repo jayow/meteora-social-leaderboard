@@ -33,9 +33,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // Store state, verifier, and returnTo in httpOnly cookies
   await storeOAuthState(state, verifier, returnUrl.pathname + returnUrl.search);
 
-  // Build callback URL - use link-callback if linking, otherwise regular callback
-  const callbackPath = isLinking ? "/api/x/link-callback" : "/api/x/callback";
-  const callbackUrl = new URL(callbackPath, req.nextUrl.origin).toString();
+  // Build callback URL using getCallbackUrl helper (X_CALLBACK_URL env first, then request origin)
+  const baseCallbackUrl = getCallbackUrl(req);
+  const callbackPath = isLinking ? "/link-callback" : "/callback";
+  const callbackUrl = baseCallbackUrl.replace(/\/api\/x\/callback$/, `/api/x${callbackPath}`);
 
   // Build authorization URL
   const authUrl = new URL("https://twitter.com/i/oauth2/authorize");

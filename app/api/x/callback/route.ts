@@ -71,10 +71,18 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       
       if (currentUserId) {
         // We're in a join flow or linking X to an existing session
+        // First, check if this X account is already linked to a different user
+        const [existingUser] = await db.select().from(users).where(eq(users.xId, xId)).limit(1);
+        if (existingUser && existingUser.id !== currentUserId) {
+          return NextResponse.redirect(
+            new URL(`${returnTo}?x=error&message=This+X+account+is+already+linked+to+another+Pool+Party+account`, baseUrl)
+          );
+        }
+        
         // Update the current user's X profile instead of switching users
         const [currentUser] = await db.select().from(users).where(eq(users.id, currentUserId)).limit(1);
         if (currentUser) {
-          const [updated] = await db
+          await db
             .update(users)
             .set({
               xId,
@@ -82,8 +90,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
               xName: profile.name,
               xAvatarUrl: profile.avatarUrl ? profile.avatarUrl.replace("_normal.", "_400x400.") : null,
             })
-            .where(eq(users.id, currentUserId))
-            .returning();
+            .where(eq(users.id, currentUserId));
           // Keep the current session (don't switch users)
           return NextResponse.redirect(new URL(`${returnTo}?x=connected`, baseUrl));
         }
