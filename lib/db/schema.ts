@@ -185,6 +185,10 @@ export interface OpenPositionDetail {
   pnlPct: number | null;
   /** Unix seconds. */
   openedAt: number | null;
+  /** Pool's active price at sync (same units as min/max). Optional: rows synced before it existed lack it. */
+  poolPrice?: number | null;
+  /** All-time deposits, USD: the basis for pnlPct. */
+  depositUsd?: number | null;
 }
 
 export const openPositions = pgTable(

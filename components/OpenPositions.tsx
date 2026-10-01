@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { fmtPct, fmtPositions, fmtUsd, pnlClass, timeAgo } from "@/lib/format";
 import { DipLink } from "@/components/DipLink";
@@ -215,19 +215,6 @@ function PoolName({ pool }: { pool: OpenPool }) {
   );
 }
 
-/** "4 positions" as a visible pill when a pool holds several, plain muted text for one. */
-function PositionCount({ count }: { count: number }) {
-  return count > 1 ? (
-    <span className="num rounded-full border border-border-strong bg-surface px-2 py-0.5 text-[11px] font-semibold text-fg" data-testid="pool-position-count">
-      {fmtPositions(count)}
-    </span>
-  ) : (
-    <span className="num text-[12px] text-mute" data-testid="pool-position-count">
-      {fmtPositions(count)}
-    </span>
-  );
-}
-
 /** Range bound, quote per base: 4 significant digits without exponent noise for normal sizes. */
 function fmtPrice(n: number | null): string {
   if (n == null || !Number.isFinite(n)) return "—";
@@ -238,42 +225,168 @@ function fmtPrice(n: number | null): string {
   return String(Number(n.toPrecision(4)));
 }
 
-/** One position: range with an in/out-of-range dot, value, unclaimed fees, PnL, opened. */
-function PositionLine({ d, pool }: { d: OpenPositionDetail; pool: OpenPool }) {
-  const value = fmtUsd(d.valueUsd);
+/* ------------------------------------------------------------------------------------------------ */
+/* Range bars                                                                                        */
+/* ------------------------------------------------------------------------------------------------ */
+
+interface PriceScale {
+  lo: number;
+  hi: number;
+}
+
+const finitePos = (n: number | null | undefined): n is number => n != null && Number.isFinite(n) && n > 0;
+
+/**
+ * One log scale (DLMM bins are geometric) covering every position's range and the pool price, so
+ * several positions in a pool line up and overlaps read at a glance. Null if any bound is missing.
+ */
+function priceScale(details: OpenPositionDetail[]): PriceScale | null {
+  const xs: number[] = [];
+  for (const d of details) {
+    if (!finitePos(d.minPrice) || !finitePos(d.maxPrice)) return null;
+    xs.push(d.minPrice, d.maxPrice);
+    if (finitePos(d.poolPrice)) xs.push(d.poolPrice);
+  }
+  if (xs.length === 0) return null;
+  let lo = Math.log10(Math.min(...xs));
+  let hi = Math.log10(Math.max(...xs));
+  if (hi - lo < 1e-9) {
+    lo -= 0.05;
+    hi += 0.05;
+  }
+  const pad = (hi - lo) * 0.04;
+  return { lo: lo - pad, hi: hi + pad };
+}
+
+const at = (scale: PriceScale, x: number) => Math.min(100, Math.max(0, ((Math.log10(x) - scale.lo) / (scale.hi - scale.lo)) * 100));
+
+function poolPriceOf(details: OpenPositionDetail[]): number | null {
+  for (const d of details) if (finitePos(d.poolPrice)) return d.poolPrice;
+  return null;
+}
+
+/** Thin track with the position's range filled and a tick at the pool's current price; bounds underneath. */
+function RangeBar({ d, scale, unit }: { d: OpenPositionDetail; scale: PriceScale | null; unit: string }) {
+  if (!scale || !finitePos(d.minPrice) || !finitePos(d.maxPrice)) {
+    return (
+      <span className="num text-[12px] text-fg-secondary">
+        {fmtPrice(d.minPrice)} – {fmtPrice(d.maxPrice)}
+      </span>
+    );
+  }
+  const a = at(scale, d.minPrice);
+  const b = at(scale, d.maxPrice);
+  const p = finitePos(d.poolPrice) ? at(scale, d.poolPrice) : null;
+  const min = fmtPrice(d.minPrice);
+  const max = fmtPrice(d.maxPrice);
+  // Narrow ranges get one combined label so the two bounds don't collide.
+  const split = b - a >= 36;
+  const label = `Range ${min} to ${max} ${unit}${p != null ? `, current ${fmtPrice(d.poolPrice ?? null)}` : ""}, ${d.inRange ? "in range" : "out of range"}`;
+  return (
+    <div role="img" aria-label={label} className="min-w-0">
+      <div className="relative h-3">
+        <div className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-border" />
+        <div
+          className={`absolute top-1/2 h-1 -translate-y-1/2 rounded-full ${d.inRange ? "bg-up/70" : "bg-mute/40"}`}
+          style={{ left: `${a}%`, width: `${Math.max(b - a, 1.5)}%` }}
+        />
+        {p != null && (
+          <div
+            className={`absolute top-1/2 h-3 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded-full ${d.inRange ? "bg-fg" : "bg-dn"}`}
+            style={{ left: `${p}%` }}
+          />
+        )}
+      </div>
+      <div className="num relative mt-0.5 h-3.5 whitespace-nowrap text-[10px] leading-none text-mute" aria-hidden="true">
+        {split ? (
+          <>
+            <span className="absolute" style={{ left: `${a}%` }}>
+              {min}
+            </span>
+            <span className="absolute" style={{ right: `${100 - b}%` }}>
+              {max}
+            </span>
+          </>
+        ) : a < 50 ? (
+          <span className="absolute" style={{ left: `${a}%` }}>
+            {min} – {max}
+          </span>
+        ) : (
+          <span className="absolute" style={{ right: `${100 - b}%` }}>
+            {min} – {max}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------------------------------------ */
+/* Pool card                                                                                         */
+/* ------------------------------------------------------------------------------------------------ */
+
+/** PnL as a fraction of what was deposited (Meteora's basis), or null when the basis isn't known. */
+function pnlFraction(pnl: number | null, deposit: number | null | undefined): number | null {
+  return pnl != null && deposit != null && deposit > 0 ? pnl / deposit : null;
+}
+
+function PnL({ usd, pct, className = "" }: { usd: number | null; pct: number | null; className?: string }) {
+  if (usd == null) return <span className={`text-mute ${className}`}>—</span>;
+  return (
+    <span className={`${pnlClass(usd)} ${className}`} title={pct != null ? "PnL vs. deposits" : "PnL"}>
+      {fmtUsd(usd, { signed: true })}
+      {pct != null && <span className="ml-1 text-[10px] opacity-75">{pct >= 0 ? "+" : "−"}{fmtPct(Math.abs(pct), 1)}</span>}
+    </span>
+  );
+}
+
+/** Row stats from the positions (only when every position's details are in, so totals are whole). */
+function poolTotals(pool: OpenPool) {
+  const details = pool.positions ?? [];
+  const count = pool.positionCount || 1;
+  if (details.length === 0 || details.length !== count) return null;
+  const fees = details.reduce((s, d) => s + d.unclaimedFeesUsd, 0);
+  const pnl = details.every((d) => d.pnlUsd != null) ? details.reduce((s, d) => s + (d.pnlUsd ?? 0), 0) : null;
+  const deposit = details.every((d) => finitePos(d.depositUsd)) ? details.reduce((s, d) => s + (d.depositUsd ?? 0), 0) : null;
+  return { fees, pnl, pct: pnlFraction(pnl, deposit), inRange: details.filter((d) => d.inRange).length, count };
+}
+
+/** Desktop column template shared by the column header and each position row. */
+const COLS = "sm:grid sm:grid-cols-[minmax(0,1fr)_4.75rem_4.25rem_6.75rem_2.75rem] sm:items-center sm:gap-x-4";
+
+/** One position: shared-scale range bar, then value / fees / PnL / age (stacked under the bar on phones). */
+function PositionRow({ d, scale, unit }: { d: OpenPositionDetail; scale: PriceScale | null; unit: string }) {
   const opened = d.openedAt != null ? new Date(d.openedAt * 1000) : null;
   return (
-    <div className="py-2 text-[12px] sm:flex sm:items-center sm:gap-4" data-testid="open-position-line">
-      <div className="flex min-w-0 items-center justify-between gap-3 sm:flex-1">
-        <span className="flex min-w-0 items-center gap-2">
-          <span
-            aria-hidden="true"
-            title={d.inRange ? "In range" : "Out of range"}
-            className={`h-1.5 w-1.5 shrink-0 rounded-full ${d.inRange ? "bg-up" : "bg-dn"}`}
-          />
-          <span className="sr-only">{d.inRange ? "In range" : "Out of range"}, range</span>
-          <span className="num truncate text-fg-secondary" title={`Price range, ${pool.tokenY} per ${pool.tokenX}`}>
-            {fmtPrice(d.minPrice)} – {fmtPrice(d.maxPrice)}
-          </span>
+    <div className={`py-3 text-[12px] ${COLS}`} data-testid="open-position-line">
+      <RangeBar d={d} scale={scale} unit={unit} />
+      <div className="num mt-2 flex items-baseline gap-3 sm:contents">
+        <span className="font-semibold text-fg sm:text-right">
+          <span className="sr-only">Value </span>
+          {fmtUsd(d.valueUsd)}
         </span>
-        <span className="num shrink-0 font-semibold sm:hidden">{value}</span>
+        <span className="text-mute sm:text-right" title="Unclaimed fees">
+          <span className="sm:sr-only">fees </span>
+          {fmtUsd(d.unclaimedFeesUsd)}
+        </span>
+        <span className="ml-auto sm:ml-0 sm:text-right">
+          <span className="sr-only">PnL </span>
+          <PnL usd={d.pnlUsd} pct={d.pnlPct ?? pnlFraction(d.pnlUsd, d.depositUsd)} />
+        </span>
+        <span className="w-9 text-right text-mute sm:w-auto" title={opened ? `Opened ${opened.toLocaleString()}` : undefined}>
+          <span className="sr-only">opened </span>
+          {opened ? timeAgo(opened.toISOString()).replace(" ago", "") : "—"}
+        </span>
       </div>
-      <div className="num mt-0.5 flex items-center gap-3 pl-3.5 text-mute sm:mt-0 sm:shrink-0 sm:pl-0">
-        <span className="hidden w-20 text-right font-semibold text-fg sm:inline">{value}</span>
-        <span title="Unclaimed fees">fees {fmtUsd(d.unclaimedFeesUsd)}</span>
-        {d.pnlUsd != null && (
-          <span className={pnlClass(d.pnlUsd)} title={d.pnlPct != null ? `PnL ${fmtPct(d.pnlPct, 2)}` : "PnL"}>
-            <span className="sr-only">PnL </span>
-            {fmtUsd(d.pnlUsd, { signed: true })}
-          </span>
-        )}
-        {opened && (
-          <span title={`Opened ${opened.toLocaleString()}`}>
-            <span className="sr-only">opened </span>
-            {timeAgo(opened.toISOString())}
-          </span>
-        )}
-      </div>
+    </div>
+  );
+}
+
+function Stat({ label, children, className = "" }: { label: string; children: ReactNode; className?: string }) {
+  return (
+    <div className={`shrink-0 ${className}`}>
+      <div className="text-[10px] font-semibold uppercase tracking-wide text-mute">{label}</div>
+      <div className="num mt-0.5 whitespace-nowrap">{children}</div>
     </div>
   );
 }
@@ -282,7 +395,11 @@ function PositionCard({ pool }: { pool: OpenPool }) {
   const count = pool.positionCount || 1;
   const details = pool.positions ?? [];
   const pair = `${pool.tokenX}/${pool.tokenY}`;
-  // Pools with several positions expand to one line each; a single position shows its line inline.
+  const unit = `${pool.tokenY} per ${pool.tokenX}`;
+  const totals = poolTotals(pool);
+  const scale = priceScale(details);
+  const price = poolPriceOf(details);
+  // Pools with several positions expand to a row each; a single position shows its range bar inline.
   const expandable = count > 1 && details.length > 0;
   const [open, setOpen] = useState(false);
   const panelId = useId();
@@ -302,33 +419,54 @@ function PositionCard({ pool }: { pool: OpenPool }) {
       ) : (
         <Link href={`/pools/${pool.poolAddress}`} aria-label={`${pair} pool, ${fmtPositions(count)}`} className="absolute inset-0 rounded-2xl" />
       )}
-      <div className="flex items-start gap-2.5 pr-16">
+
+      <div className="flex items-center gap-3 pr-16">
         <PoolIcons pool={pool} size="md" />
         <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="text-[15px] font-bold">
+          <div className="flex items-center gap-2">
+            <span className="truncate text-[15px] font-bold leading-tight">
               <PoolName pool={pool} />
             </span>
             {pool.binStep != null && (
-              <span className="rounded-full border border-border px-2 py-0.5 text-[10px] font-semibold text-mute">DLMM {pool.binStep}bp</span>
+              <span className="shrink-0 rounded-full border border-border px-1.5 py-px text-[10px] font-semibold text-mute" title="DLMM bin step">{pool.binStep}bp</span>
             )}
           </div>
-          <div className="mt-1">
-            <PositionCount count={count} />
+          <div className="num mt-0.5 flex items-center gap-1.5 whitespace-nowrap text-[12px] text-mute">
+            <span data-testid="pool-position-count">{fmtPositions(count)}</span>
+            {totals && (
+              <>
+                <span aria-hidden="true">·</span>
+                <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${totals.inRange === totals.count ? "bg-up" : totals.inRange === 0 ? "bg-dn" : "bg-mute"}`} aria-hidden="true" />
+                <span>
+                  {count > 1 ? `${totals.inRange}/${totals.count} in range` : totals.inRange ? "In range" : "Out of range"}
+                </span>
+              </>
+            )}
           </div>
         </div>
       </div>
 
-      <div className="mt-3 flex items-end justify-between gap-3 text-[13px]">
-        <div>
-          <div className="text-[11px] text-mute">{count > 1 ? `Value across ${fmtPositions(count)}` : "Value"}</div>
-          <div className="num mt-0.5 font-semibold">{fmtUsd(pool.valueUsd ?? 0)}</div>
+      <div className="mt-4 flex items-end gap-4">
+        <div className="flex min-w-0 flex-1 items-end gap-5 sm:gap-10">
+          <Stat label="Value">
+            <span className="text-[16px] font-bold leading-tight">{fmtUsd(pool.valueUsd ?? 0)}</span>
+          </Stat>
+          {totals && (
+            <>
+              <Stat label="Fees">
+                <span className="text-[13px] text-fg-secondary">{fmtUsd(totals.fees)}</span>
+              </Stat>
+              <Stat label="PnL">
+                <PnL usd={totals.pnl} pct={totals.pct} className="text-[13px] font-semibold" />
+              </Stat>
+            </>
+          )}
         </div>
         {expandable && (
           <svg
             aria-hidden="true"
             viewBox="0 0 20 20"
-            className={`mb-0.5 h-4 w-4 shrink-0 text-mute transition-transform ${open ? "rotate-180" : ""}`}
+            className={`mb-1 h-4 w-4 shrink-0 text-mute transition-transform ${open ? "rotate-180" : ""}`}
             fill="none"
             stroke="currentColor"
             strokeWidth="2"
@@ -338,19 +476,34 @@ function PositionCard({ pool }: { pool: OpenPool }) {
         )}
       </div>
 
-      {count === 1 && details.length === 1 && (
-        <div className="mt-2 border-t border-border">
-          <PositionLine d={details[0]} pool={pool} />
+      {count === 1 && details.length === 1 && scale && (
+        <div className="mt-4 border-t border-border pt-3">
+          <RangeBar d={details[0]} scale={scale} unit={unit} />
         </div>
       )}
 
       {expandable && (
         // Above the overlay so clicks inside the list don't collapse it.
-        <div id={panelId} hidden={!open} className="relative z-10 mt-2 border-t border-border" data-testid="open-position-details">
+        <div id={panelId} hidden={!open} className="relative z-10 mt-4 border-t border-border pt-3" data-testid="open-position-details">
+          {price != null && scale && (
+            <div className="num flex items-center gap-1.5 text-[11px] text-mute">
+              <span className="h-2.5 w-0.5 rounded-full bg-fg" aria-hidden="true" />
+              <span>
+                Current price <span className="text-fg-secondary">{fmtPrice(price)}</span> {unit}
+              </span>
+            </div>
+          )}
+          <div className={`mt-3 hidden text-[10px] font-semibold uppercase tracking-wide text-mute ${COLS}`} aria-hidden="true">
+            <span>Range</span>
+            <span className="text-right">Value</span>
+            <span className="text-right">Fees</span>
+            <span className="text-right">PnL</span>
+            <span className="text-right">Age</span>
+          </div>
           <ul className="divide-y divide-border">
             {details.map((d, i) => (
               <li key={i}>
-                <PositionLine d={d} pool={pool} />
+                <PositionRow d={d} scale={scale} unit={unit} />
               </li>
             ))}
           </ul>
@@ -359,7 +512,7 @@ function PositionCard({ pool }: { pool: OpenPool }) {
               Details for {details.length} of {fmtPositions(count)}; the rest appear after the next sync.
             </p>
           )}
-          <Link href={`/pools/${pool.poolAddress}`} className="mt-1 inline-block rounded text-[12px] font-semibold text-mute hover:text-fg">
+          <Link href={`/pools/${pool.poolAddress}`} className="mt-2 inline-block rounded text-[12px] font-semibold text-mute hover:text-fg">
             View pool →
           </Link>
         </div>

@@ -119,6 +119,8 @@ function toDetail(p: Json): OpenPositionDetail {
     // Meteora sends percent units (-0.06 = -0.06%); store a fraction like the rest of the app.
     pnlPct: ((v) => (v == null ? null : v / 100))(finiteOrNull(p.pnlPctChange)),
     openedAt: finiteOrNull(p.createdAt),
+    poolPrice: finiteOrNull(p.poolActivePrice),
+    depositUsd: finiteOrNull(((p.allTimeDeposits as Json | undefined)?.total as Json | undefined)?.usd),
   };
 }
 
