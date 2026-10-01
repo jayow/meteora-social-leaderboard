@@ -1,8 +1,12 @@
+# Config-as-code for the `web` service only (it deploys from this repo).
+# `sync-cron` is an image-based service (node:20-alpine, no repo source), so it never reads this file.
 [build]
 builder = "NIXPACKS"
 buildCommand = "npm run build"
 
 [deploy]
 startCommand = "npm start"
+healthcheckPath = "/api/health"
+healthcheckTimeout = 120
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10

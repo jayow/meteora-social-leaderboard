@@ -2,21 +2,32 @@
  * Global in-process rate limiter for Meteora datapi.
  * Shared across dlmm.datapi.meteora.ag and portfolio.datapi.meteora.ag.
  * Limit: 300 req/min (~5 req/s), but we target 4 req/s to be safe.
+ *
+ * Every HTTP attempt (first try and each retry) goes through the limiter.
+ * Retries: 429 (honouring Retry-After, pausing the whole queue), 5xx, network errors and timeouts.
+ * Never retried: 404 and other 4xx. A 404 means Meteora has no data for that resource:
+ * fetchMeteora throws a MeteoraHttpError with status 404 (check with isMeteoraNotFound),
+ * fetchMeteoraOrNull returns null. 404s are negatively cached for a short time.
  */
 
 interface RateLimitState {
   remaining: number;
   resetAt: number;
   lastRequest: number;
+  pausedUntil: number;
   queue: Array<() => void>;
   processing: boolean;
 }
+
+const RATE_LIMIT_DEFAULT_WAIT_MS = 60_000;
+const RATE_LIMIT_MAX_WAIT_MS = 120_000;
 
 class MeteoraLimiter {
   private state: RateLimitState = {
     remaining: 300,
     resetAt: Date.now() + 60000,
     lastRequest: 0,
+    pausedUntil: 0,
     queue: [],
     processing: false,
   };
@@ -34,32 +45,38 @@ class MeteoraLimiter {
 
   private async processQueue(): Promise<void> {
     if (this.state.processing || this.state.queue.length === 0) return;
-    
+
     this.state.processing = true;
 
-    while (this.state.queue.length > 0) {
-      const now = Date.now();
+    try {
+      while (this.state.queue.length > 0) {
+        // Global pause after a 429
+        const pauseMs = this.state.pausedUntil - Date.now();
+        if (pauseMs > 0) {
+          await this.sleep(pauseMs);
+        }
 
-      // Enforce minimum delay between requests
-      const timeSinceLastRequest = now - this.state.lastRequest;
-      if (timeSinceLastRequest < this.minDelayMs) {
-        await this.sleep(this.minDelayMs - timeSinceLastRequest);
+        // Enforce minimum delay between requests
+        const timeSinceLastRequest = Date.now() - this.state.lastRequest;
+        if (timeSinceLastRequest < this.minDelayMs) {
+          await this.sleep(this.minDelayMs - timeSinceLastRequest);
+        }
+
+        // Check if we're close to rate limit
+        if (this.state.remaining < 10 && Date.now() < this.state.resetAt) {
+          const waitMs = Math.min(this.state.resetAt - Date.now() + 1000, RATE_LIMIT_MAX_WAIT_MS); // +1s buffer
+          console.log(`[meteora-limiter] Low remaining (${this.state.remaining}), waiting ${waitMs}ms until reset`);
+          await this.sleep(waitMs);
+          this.state.remaining = 300; // Reset after waiting
+        }
+
+        this.state.lastRequest = Date.now();
+        const resolve = this.state.queue.shift();
+        if (resolve) resolve();
       }
-
-      // Check if we're close to rate limit
-      if (this.state.remaining < 10 && Date.now() < this.state.resetAt) {
-        const waitMs = this.state.resetAt - Date.now() + 1000; // +1s buffer
-        console.log(`[meteora-limiter] Low remaining (${this.state.remaining}), waiting ${waitMs}ms until reset`);
-        await this.sleep(waitMs);
-        this.state.remaining = 300; // Reset after waiting
-      }
-
-      this.state.lastRequest = Date.now();
-      const resolve = this.state.queue.shift();
-      if (resolve) resolve();
+    } finally {
+      this.state.processing = false;
     }
-
-    this.state.processing = false;
   }
 
   updateFromHeaders(headers: Headers): void {
@@ -67,21 +84,28 @@ class MeteoraLimiter {
     const reset = headers.get("x-ratelimit-reset");
 
     if (remaining) {
-      this.state.remaining = parseInt(remaining, 10);
+      const n = parseInt(remaining, 10);
+      if (Number.isFinite(n)) this.state.remaining = n;
     }
 
     if (reset) {
+      // Epoch seconds
       const resetSeconds = parseInt(reset, 10);
-      this.state.resetAt = resetSeconds * 1000;
+      if (Number.isFinite(resetSeconds)) this.state.resetAt = resetSeconds * 1000;
     }
   }
 
-  async handleRateLimit(retryAfter?: string): Promise<void> {
-    const waitMs = retryAfter ? parseInt(retryAfter, 10) * 1000 : 60000;
-    console.log(`[meteora-limiter] 429 received, waiting ${waitMs}ms`);
-    await this.sleep(waitMs);
+  /** Pause the whole queue after a 429. The caller then re-acquires a slot before retrying. */
+  pauseForRateLimit(retryAfter?: string | null): number {
+    const seconds = retryAfter ? parseInt(retryAfter, 10) : NaN;
+    const waitMs = Number.isFinite(seconds) && seconds >= 0
+      ? Math.min(seconds * 1000, RATE_LIMIT_MAX_WAIT_MS)
+      : RATE_LIMIT_DEFAULT_WAIT_MS;
+    console.log(`[meteora-limiter] 429 received, pausing queue for ${waitMs}ms`);
+    this.state.pausedUntil = Math.max(this.state.pausedUntil, Date.now() + waitMs);
     this.state.remaining = 300;
-    this.state.resetAt = Date.now() + 60000;
+    this.state.resetAt = Date.now() + waitMs + 60000;
+    return waitMs;
   }
 
   private sleep(ms: number): Promise<void> {
@@ -140,51 +164,120 @@ class LRUCache<T> {
 
 export const meteoraCache = new LRUCache<unknown>(1000);
 
-export async function fetchMeteora<T = unknown>(url: string, ttlMs = 120000): Promise<T> {
-  const cached = meteoraCache.get(url);
-  if (cached) {
-    return cached as T;
+/** Non-2xx response from Meteora. `status` is the HTTP status. */
+export class MeteoraHttpError extends Error {
+  readonly status: number;
+  readonly url: string;
+
+  constructor(status: number, url: string) {
+    // Message format kept stable ("Meteora API error: <status>"); callers match on it.
+    super(`Meteora API error: ${status}`);
+    this.name = "MeteoraHttpError";
+    this.status = status;
+    this.url = url;
   }
+}
 
-  await meteoraLimiter.acquire();
+/** True when Meteora answered 404, i.e. it has no data for that wallet/resource. */
+export function isMeteoraNotFound(error: unknown): boolean {
+  return error instanceof MeteoraHttpError && error.status === 404;
+}
 
-  let attempt = 0;
-  const maxRetries = 3;
+const MAX_ATTEMPTS = 3;
+const REQUEST_TIMEOUT_MS = 10_000;
+const NOT_FOUND_TTL_MS = 60_000;
+const NOT_FOUND = Symbol("meteora-not-found");
 
-  while (attempt < maxRetries) {
+const inflight = new Map<string, Promise<unknown>>();
+
+function isRetryableStatus(status: number): boolean {
+  return status === 429 || status >= 500;
+}
+
+function backoffMs(attempt: number): number {
+  return 1000 * Math.pow(2, attempt - 1); // 1s, 2s
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchWithRetry(url: string, ttlMs: number): Promise<unknown> {
+  let lastError: unknown = null;
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    // Every attempt, including retries, takes a slot from the 4 rps limiter.
+    await meteoraLimiter.acquire();
+
+    let res: Response;
     try {
-      const res = await fetch(url, {
+      res = await fetch(url, {
         headers: { Accept: "application/json" },
         cache: "no-store",
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       });
-
-      meteoraLimiter.updateFromHeaders(res.headers);
-
-      if (res.status === 429) {
-        const retryAfter = res.headers.get("retry-after");
-        await meteoraLimiter.handleRateLimit(retryAfter ?? undefined);
-        attempt++;
-        continue;
-      }
-
-      if (!res.ok) {
-        if (res.status >= 500 && attempt < maxRetries - 1) {
-          await meteoraLimiter.handleRateLimit();
-          attempt++;
-          continue;
-        }
-        throw new Error(`Meteora API error: ${res.status}`);
-      }
-
-      const data = await res.json();
-      meteoraCache.set(url, data, ttlMs);
-      return data as T;
     } catch (error) {
-      if (attempt >= maxRetries - 1) throw error;
-      attempt++;
-      await new Promise((resolve) => setTimeout(resolve, 1000 * Math.pow(2, attempt)));
+      // Network error or timeout: retry with backoff
+      lastError = error;
+      if (attempt < MAX_ATTEMPTS) await sleep(backoffMs(attempt));
+      continue;
+    }
+
+    meteoraLimiter.updateFromHeaders(res.headers);
+
+    if (res.ok) {
+      const data: unknown = await res.json();
+      meteoraCache.set(url, data, ttlMs);
+      return data;
+    }
+
+    // Drain the body so the connection can be reused
+    await res.body?.cancel().catch(() => undefined);
+
+    const error = new MeteoraHttpError(res.status, url);
+    if (res.status === 404) {
+      meteoraCache.set(url, NOT_FOUND, Math.min(ttlMs, NOT_FOUND_TTL_MS));
+      throw error;
+    }
+    if (!isRetryableStatus(res.status)) throw error; // other 4xx: fail fast
+
+    lastError = error;
+    if (attempt >= MAX_ATTEMPTS) break;
+
+    if (res.status === 429) {
+      meteoraLimiter.pauseForRateLimit(res.headers.get("retry-after"));
+    } else {
+      await sleep(backoffMs(attempt));
     }
   }
 
-  throw new Error("Max retries exceeded");
+  throw lastError instanceof Error ? lastError : new Error("Meteora: max retries exceeded");
+}
+
+/**
+ * Rate-limited, cached GET against Meteora datapi.
+ * Throws MeteoraHttpError (404 = no data, see isMeteoraNotFound) or a network error.
+ */
+export async function fetchMeteora<T = unknown>(url: string, ttlMs = 120000): Promise<T> {
+  const cached = meteoraCache.get(url);
+  if (cached === NOT_FOUND) throw new MeteoraHttpError(404, url);
+  if (cached) return cached as T;
+
+  // Share one upstream request between concurrent callers of the same URL
+  let pending = inflight.get(url);
+  if (!pending) {
+    pending = fetchWithRetry(url, ttlMs).finally(() => inflight.delete(url));
+    inflight.set(url, pending);
+  }
+  return (await pending) as T;
+}
+
+/** Like fetchMeteora, but resolves to null when Meteora has no data (404). */
+export async function fetchMeteoraOrNull<T = unknown>(url: string, ttlMs = 120000): Promise<T | null> {
+  try {
+    return await fetchMeteora<T>(url, ttlMs);
+  } catch (error) {
+    if (isMeteoraNotFound(error)) return null;
+    throw error;
+  }
 }

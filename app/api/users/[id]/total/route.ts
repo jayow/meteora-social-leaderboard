@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { findUser } from "@/lib/users";
 import { canViewUser } from "@/lib/visibility";
-import { fetchMeteora } from "@/lib/meteora-limiter";
+import { fetchMeteoraOrNull } from "@/lib/meteora-limiter";
 import { hasDb } from "@/lib/db";
 
 const METEORA_API_BASE = "https://dlmm.datapi.meteora.ag";
@@ -20,7 +20,9 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
 
   try {
     const url = `${METEORA_API_BASE}/portfolio/total/${user.wallet}`;
-    const data = await fetchMeteora(url, 300000) as Record<string, unknown>;
+    const data = await fetchMeteoraOrNull<Record<string, unknown>>(url, 300000);
+    // Meteora 404 = no history for this wallet: zeroed totals instead of an error
+    if (!data) return NextResponse.json({ totalPnlUsd: "0", totalPnlSol: "0", totalPnlPctChange: "0", totalPnlSolPctChange: "0", totalClosedPositions: 0, noData: true });
     // Strip wallet/owner fields from response
     const { wallet: _w, owner: _o, ...cleaned } = data;
     return NextResponse.json(cleaned);
