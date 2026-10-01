@@ -1,60 +1,34 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getPool, hasDb } from "@/lib/db";
+import { hasDb } from "@/lib/db";
+import { getSessionUserId } from "@/lib/session";
+import { countTheses, listTheses } from "@/lib/theses";
 
 export const dynamic = "force-dynamic";
 
-interface ThesisRow {
-  id: number;
-  token_mint: string;
-  body: string;
-  created_at: string;
-  token_symbol: string;
-  token_icon: string | null;
-}
-
+/** A member's public theses (newest 10) plus their total, from the same source as Poolside. */
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
   const { id } = await params;
-  
-  // Validate ID is numeric
+
   const userId = Number(id);
-  if (isNaN(userId) || userId <= 0) {
+  if (!Number.isInteger(userId) || userId <= 0) {
     return NextResponse.json({ error: "Invalid user ID" }, { status: 400 });
   }
-  
-  if (!hasDb()) return NextResponse.json({ theses: [] });
 
-  const pool = getPool();
+  if (!hasDb()) return NextResponse.json({ theses: [], total: 0 });
 
-  // Get user's recent token comments with token info
-  const query = `
-    SELECT 
-      tc.id,
-      tc.token_mint,
-      tc.body,
-      tc.created_at,
-      op.token_x AS token_symbol,
-      op.token_x_icon AS token_icon
-    FROM token_comments tc
-    JOIN open_positions op ON op.token_x_mint = tc.token_mint AND op.user_id = tc.user_id
-    WHERE tc.user_id = $1 AND tc.deleted_at IS NULL
-    GROUP BY tc.id, tc.token_mint, tc.body, tc.created_at, op.token_x, op.token_x_icon
-    ORDER BY tc.created_at DESC
-    LIMIT 10
-  `;
+  const viewerId = await getSessionUserId();
+  const [posts, total] = await Promise.all([listTheses({ authorId: userId, viewerId, limit: 10 }), countTheses({ authorId: userId })]);
 
-  const { rows } = await pool.query<ThesisRow>(query, [userId]);
-
-  const theses = rows.map((r) => ({
-    id: r.id,
-    tokenMint: r.token_mint,
-    body: r.body,
-    createdAt: r.created_at,
-    tokenSymbol: r.token_symbol,
-    tokenIcon: r.token_icon,
+  // Legacy fields (tokenMint/tokenSymbol/tokenIcon) kept for older callers.
+  const theses = posts.map((p) => ({
+    ...p,
+    tokenMint: p.token.mint,
+    tokenSymbol: p.token.symbol ?? "?",
+    tokenIcon: p.token.icon,
   }));
 
-  return NextResponse.json({ theses });
+  return NextResponse.json({ theses, total }, { headers: { "Cache-Control": "private, no-store" } });
 }

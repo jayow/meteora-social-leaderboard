@@ -197,12 +197,17 @@ export const tokenComments = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     body: text("body").notNull(),
+    /** The author's pool this thesis is tagged with (one of their open positions in a pool of this token at post time). */
+    poolAddress: varchar("pool_address", { length: 64 }),
+    /** Pool label at post time ("SI-SOL"), so the tag survives the position closing. */
+    poolName: text("pool_name"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
   },
   (t) => [
     index("token_comments_mint_idx").on(t.tokenMint, t.createdAt.desc()),
     index("token_comments_user_idx").on(t.userId, t.createdAt.desc()),
+    index("token_comments_created_idx").on(t.createdAt.desc(), t.id.desc()),
   ]
 );
 
@@ -242,6 +247,25 @@ export const activity = pgTable(
   ]
 );
 
+/** Likes on theses (token_comments). One per member per thesis; no replies. */
+export const thesisLikes = pgTable(
+  "thesis_likes",
+  {
+    id: serial("id").primaryKey(),
+    commentId: integer("comment_id")
+      .notNull()
+      .references(() => tokenComments.id, { onDelete: "cascade" }),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("thesis_likes_comment_user_key").on(t.commentId, t.userId),
+    index("thesis_likes_user_idx").on(t.userId),
+  ]
+);
+
 export type ProfileBannerRow = typeof profileBanners.$inferSelect;
 export type InviteCodeRow = typeof inviteCodes.$inferSelect;
 export type UserRow = typeof users.$inferSelect;
@@ -251,5 +275,6 @@ export type NewSnapshot = typeof pnlSnapshots.$inferInsert;
 export type FollowRow = typeof follows.$inferSelect;
 export type OpenPositionRow = typeof openPositions.$inferSelect;
 export type TokenCommentRow = typeof tokenComments.$inferSelect;
+export type ThesisLikeRow = typeof thesisLikes.$inferSelect;
 export type ActivityRow = typeof activity.$inferSelect;
 export type NewActivity = typeof activity.$inferInsert;

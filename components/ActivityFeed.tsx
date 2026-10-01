@@ -1,184 +1,61 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Avatar } from "@/components/ui";
-import { displayName, fmtUsd, timeAgo } from "@/lib/format";
-import { meteoraPoolUrl } from "@/lib/meteora-links";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ThesisCard } from "@/components/ThesisCard";
+import { Composer } from "@/components/poolside/Composer";
+import { EventRun } from "@/components/poolside/EventRows";
 import { onSessionChanged, requestSignIn } from "@/lib/session-events";
 import type {
   ActivityFallback,
   ActivityItem,
-  ActivityPerson,
-  ActivityPool,
   ActivityResponse,
   ActivityScope,
+  FeedFilter,
+  FeedItem,
 } from "@/lib/activity-types";
+import type { ThesisPost } from "@/lib/thesis-types";
 
 const PAGE_SIZE = 25;
 
-function profileHref(p: ActivityPerson): string {
-  return `/profile/${p.xHandle || p.id}`;
-}
+type Block = { type: "post"; key: string; post: ThesisPost } | { type: "run"; key: string; items: ActivityItem[] };
 
-function PersonLink({ person, className = "" }: { person: ActivityPerson; className?: string }) {
-  return (
-    <Link href={profileHref(person)} className={`font-semibold text-fg hover:underline ${className}`}>
-      {displayName(person)}
-    </Link>
-  );
-}
-
-function TokenDot({ icon, label, className = "" }: { icon: string | null; label: string; className?: string }) {
-  if (icon) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={icon} alt="" className={`h-4 w-4 rounded-full border border-surface bg-surface-raised object-cover ${className}`} loading="lazy" />;
+/** Posts stay full cards; consecutive events collapse into one compact run. */
+function toBlocks(items: FeedItem[]): Block[] {
+  const out: Block[] = [];
+  for (const it of items) {
+    if (it.type === "post") {
+      out.push({ type: "post", key: it.key, post: it.post });
+    } else {
+      const last = out[out.length - 1];
+      if (last && last.type === "run") last.items.push(it.event);
+      else out.push({ type: "run", key: `run:${it.key}`, items: [it.event] });
+    }
   }
-  return (
-    <span className={`flex h-4 w-4 items-center justify-center rounded-full border border-surface bg-border-strong text-[9px] font-bold ${className}`}>
-      {label.slice(0, 1)}
-    </span>
-  );
+  return out;
 }
 
-function PoolLink({ pool }: { pool: ActivityPool }) {
-  const [x = "?", y = "?"] = pool.name.split("-");
+function Tabs<T extends string>({ value, options, onChange, label, size = "md" }: { value: T; options: { value: T; label: string }[]; onChange: (v: T) => void; label: string; size?: "md" | "sm" }) {
   return (
-    <span className="inline-flex items-center gap-1 align-middle">
-      <Link
-        href={`/pools/${pool.address}`}
-        className="inline-flex items-center gap-1 rounded-full border border-border bg-surface-raised py-0.5 pl-1 pr-2 text-[12px] font-semibold text-fg hover:border-border-strong"
-        title={`${pool.name}${pool.binStep ? ` · bin step ${pool.binStep}` : ""}`}
-      >
-        <span className="flex">
-          <TokenDot icon={pool.xIcon} label={x} />
-          <TokenDot icon={pool.yIcon} label={y} className="-ml-1.5" />
-        </span>
-        {pool.name}
-      </Link>
-      <a
-        href={meteoraPoolUrl(pool.address, pool.protocol)}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="text-[11px] text-mute hover:text-fg"
-        title="Open on Meteora"
-        aria-label={`Open ${pool.name} on Meteora`}
-      >
-        ↗
-      </a>
-    </span>
-  );
-}
-
-function Action({ item }: { item: ActivityItem }) {
-  switch (item.kind) {
-    case "joined":
-      return <>joined the beta</>;
-    case "followed":
-      return item.target ? (
-        <>
-          followed <PersonLink person={item.target} />
-        </>
-      ) : (
-        <>followed someone</>
-      );
-    case "thesis":
-      return (
-        <>
-          posted a thesis on{" "}
-          {item.token ? (
-            <Link href={`/pools?token=${encodeURIComponent(item.token.mint)}`} className="font-semibold text-fg hover:underline">
-              {item.token.symbol ? `$${item.token.symbol}` : "a token"}
-            </Link>
-          ) : (
-            "a token"
-          )}
-        </>
-      );
-    case "opened":
-      return item.pool ? (
-        <>
-          opened a position in <PoolLink pool={item.pool} />
-        </>
-      ) : (
-        <>opened a position</>
-      );
-    case "closed":
-      return item.pool ? (
-        <>
-          closed a position in <PoolLink pool={item.pool} />
-        </>
-      ) : (
-        <>closed a position</>
-      );
-    case "big_win":
-      return (
-        <>
-          closed a position in {item.pool ? <PoolLink pool={item.pool} /> : "a pool"}{" "}
-          {item.amountUsd != null && (
-            <span className="num rounded-full bg-up/10 px-1.5 py-0.5 text-[11px] font-semibold text-up" title="Realized PnL in this pool">
-              {fmtUsd(item.amountUsd, { signed: true })}
-            </span>
-          )}
-        </>
-      );
-  }
-}
-
-function Row({ item }: { item: ActivityItem }) {
-  return (
-    <li className="flex gap-3 px-4 py-3" data-testid="activity-row" data-kind={item.kind}>
-      <Link href={profileHref(item.actor)} className="mt-0.5 shrink-0" aria-label={displayName(item.actor)}>
-        <Avatar user={{ id: item.actor.id, xAvatarUrl: item.actor.xAvatarUrl }} size={32} />
-      </Link>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-start gap-3">
-          <p className="min-w-0 flex-1 text-[13.5px] leading-6 text-mute">
-            <PersonLink person={item.actor} /> <Action item={item} />
-          </p>
-          <time dateTime={item.occurredAt} title={new Date(item.occurredAt).toLocaleString()} className="shrink-0 pt-0.5 text-[12px] text-mute">
-            {timeAgo(item.occurredAt)}
-          </time>
-        </div>
-        {item.snippet && <p className="mt-1 line-clamp-2 text-[13px] leading-5 text-mute">{item.snippet}</p>}
-      </div>
-    </li>
-  );
-}
-
-function SkeletonRows({ count = 6 }: { count?: number }) {
-  return (
-    <ul className="divide-y divide-white/[.05]" aria-hidden data-testid="activity-loading">
-      {Array.from({ length: count }, (_, i) => (
-        <li key={i} className="flex items-center gap-3 px-4 py-3">
-          <span className="h-8 w-8 shrink-0 animate-pulse rounded-full bg-surface-raised" />
-          <span className="h-3 flex-1 animate-pulse rounded bg-surface-raised" style={{ maxWidth: `${55 + ((i * 17) % 35)}%` }} />
-          <span className="ml-auto h-3 w-10 animate-pulse rounded bg-surface-raised" />
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function ScopeToggle({ value, onChange }: { value: ActivityScope; onChange: (s: ActivityScope) => void }) {
-  const opts: { value: ActivityScope; label: string }[] = [
-    { value: "following", label: "Following" },
-    { value: "everyone", label: "Everyone" },
-  ];
-  return (
-    <div role="tablist" aria-label="Poolside scope" className="flex items-center gap-0.5 rounded-full border border-border bg-surface-raised p-0.5 text-[13px] font-semibold">
-      {opts.map((o) => (
-        <button
-          key={o.value}
-          type="button"
-          role="tab"
-          aria-selected={value === o.value}
-          onClick={() => onChange(o.value)}
-          className={`rounded-full px-3 py-1 transition ${value === o.value ? "bg-border text-fg" : "text-mute hover:text-fg"}`}
-        >
-          {o.label}
-        </button>
-      ))}
+    <div role="tablist" aria-label={label} className="flex items-center gap-1">
+      {options.map((o) => {
+        const active = value === o.value;
+        return (
+          <button
+            key={o.value}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => onChange(o.value)}
+            className={`relative rounded-full font-semibold transition ${size === "md" ? "h-9 px-3.5 text-[14px]" : "h-7 px-2.5 text-[12.5px]"} ${
+              active ? "bg-surface-raised text-fg" : "text-mute hover:text-fg"
+            }`}
+          >
+            {o.label}
+            {active && size === "md" && <span className="absolute inset-x-3.5 -bottom-[7px] h-0.5 rounded-full bg-accent" aria-hidden />}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -208,9 +85,28 @@ function FallbackNote({ fallback }: { fallback: ActivityFallback }) {
   return null;
 }
 
+function Skeleton() {
+  return (
+    <div aria-hidden data-testid="activity-loading">
+      {Array.from({ length: 3 }, (_, i) => (
+        <div key={i} className="flex gap-3 border-b border-border px-4 py-4 last:border-b-0">
+          <span className="h-10 w-10 shrink-0 animate-pulse rounded-full bg-surface-raised" />
+          <div className="flex-1 space-y-2">
+            <span className="block h-3 w-40 animate-pulse rounded bg-surface-raised" />
+            <span className="block h-5 w-24 animate-pulse rounded-full bg-surface-raised" />
+            <span className="block h-3 w-full animate-pulse rounded bg-surface-raised" />
+            <span className="block h-3 animate-pulse rounded bg-surface-raised" style={{ width: `${60 + i * 12}%` }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function ActivityFeed() {
-  const [scope, setScope] = useState<ActivityScope>("following");
-  const [items, setItems] = useState<ActivityItem[]>([]);
+  const [scope, setScope] = useState<ActivityScope>("everyone");
+  const [filter, setFilter] = useState<FeedFilter>("all");
+  const [items, setItems] = useState<FeedItem[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [shownScope, setShownScope] = useState<ActivityScope | null>(null);
   const [fallback, setFallback] = useState<ActivityFallback>(null);
@@ -219,8 +115,8 @@ export function ActivityFeed() {
   const [error, setError] = useState<string | null>(null);
   const reqId = useRef(0);
 
-  const fetchPage = useCallback(async (s: ActivityScope, cursor: string | null): Promise<ActivityResponse> => {
-    const qs = new URLSearchParams({ scope: s, limit: String(PAGE_SIZE) });
+  const fetchPage = useCallback(async (s: ActivityScope, f: FeedFilter, cursor: string | null): Promise<ActivityResponse> => {
+    const qs = new URLSearchParams({ scope: s, filter: f, limit: String(PAGE_SIZE) });
     if (cursor) qs.set("cursor", cursor);
     const res = await fetch(`/api/activity?${qs.toString()}`, { cache: "no-store" });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -228,12 +124,12 @@ export function ActivityFeed() {
   }, []);
 
   const loadFirst = useCallback(
-    async (s: ActivityScope) => {
+    async (s: ActivityScope, f: FeedFilter) => {
       const id = ++reqId.current;
       setLoading(true);
       setError(null);
       try {
-        const data = await fetchPage(s, null);
+        const data = await fetchPage(s, f, null);
         if (id !== reqId.current) return;
         setItems(data.items);
         setNextCursor(data.nextCursor);
@@ -252,21 +148,21 @@ export function ActivityFeed() {
   );
 
   useEffect(() => {
-    void loadFirst(scope);
-  }, [scope, loadFirst]);
+    void loadFirst(scope, filter);
+  }, [scope, filter, loadFirst]);
 
-  useEffect(() => onSessionChanged(() => void loadFirst(scope)), [scope, loadFirst]);
+  useEffect(() => onSessionChanged(() => void loadFirst(scope, filter)), [scope, filter, loadFirst]);
 
   const loadMore = async () => {
     if (!nextCursor || loadingMore || !shownScope) return;
     const id = reqId.current;
     setLoadingMore(true);
     try {
-      const data = await fetchPage(shownScope, nextCursor);
+      const data = await fetchPage(shownScope, filter, nextCursor);
       if (id !== reqId.current) return;
       setItems((prev) => {
-        const seen = new Set(prev.map((i) => i.id));
-        return [...prev, ...data.items.filter((i) => !seen.has(i.id))];
+        const seen = new Set(prev.map((i) => i.key));
+        return [...prev, ...data.items.filter((i) => !seen.has(i.key))];
       });
       setNextCursor(data.nextCursor);
     } catch {
@@ -276,17 +172,45 @@ export function ActivityFeed() {
     }
   };
 
+  const onPosted = (post: ThesisPost) => {
+    const key = `post:${post.id}`;
+    setItems((prev) => [{ type: "post", key, occurredAt: post.createdAt, post }, ...prev.filter((i) => i.key !== key)]);
+  };
+
+  const blocks = useMemo(() => toBlocks(items), [items]);
+
   return (
-    <section className="mx-auto w-full max-w-[720px] px-4 py-8 lg:px-0">
-      <div className="mb-4 flex items-end justify-between gap-3">
-        <div>
-          <h1 className="text-[22px] font-bold tracking-tight">Poolside</h1>
-          <p className="mt-0.5 text-[13px] text-mute">What everyone at the party is up to.</p>
-        </div>
-        <ScopeToggle value={scope} onChange={setScope} />
+    <section className="mx-auto w-full max-w-[680px] px-4 py-8 md:px-0">
+      <div className="mb-4">
+        <h1 className="text-[22px] font-bold tracking-tight">Poolside</h1>
+        <p className="mt-0.5 text-[13px] text-mute">Theses from LPs on the pools they&apos;re in, plus what members are up to.</p>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-border bg-surface-raised" data-testid="activity-feed">
+      <Composer onPosted={onPosted} />
+
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-2 border-b border-border pb-1.5">
+        <Tabs
+          label="Poolside scope"
+          value={scope}
+          onChange={setScope}
+          options={[
+            { value: "everyone", label: "Everyone" },
+            { value: "following", label: "Following" },
+          ]}
+        />
+        <Tabs
+          label="Show"
+          size="sm"
+          value={filter}
+          onChange={setFilter}
+          options={[
+            { value: "all", label: "All" },
+            { value: "posts", label: "Posts" },
+          ]}
+        />
+      </div>
+
+      <div className="mt-3 overflow-hidden rounded-2xl border border-border bg-surface" data-testid="activity-feed">
         {!loading && scope === "following" && shownScope === "everyone" && (
           <div className="border-b border-border">
             <FallbackNote fallback={fallback} />
@@ -294,49 +218,47 @@ export function ActivityFeed() {
         )}
 
         {loading ? (
-          <SkeletonRows />
+          <Skeleton />
         ) : error && items.length === 0 ? (
-          <div className="px-4 py-10 text-center text-[13px] text-mute">
+          <div className="px-4 py-12 text-center text-[13px] text-mute" data-testid="activity-error">
             {error}{" "}
-            <button type="button" onClick={() => void loadFirst(scope)} className="font-semibold text-fg hover:underline">
+            <button type="button" onClick={() => void loadFirst(scope, filter)} className="font-semibold text-fg hover:underline">
               Try again
             </button>
           </div>
         ) : items.length === 0 ? (
           <div className="px-4 py-12 text-center" data-testid="activity-empty">
-            <p className="text-[14px] font-semibold text-fg">Nothing here yet</p>
-            <p className="mt-1 text-[13px] text-mute">
+            <p className="text-[14px] font-semibold text-fg">{filter === "posts" ? "No theses yet" : "Nothing here yet"}</p>
+            <p className="mx-auto mt-1 max-w-[380px] text-[13px] text-mute">
               {shownScope === "following"
-                ? "People you follow haven't done anything new yet."
-                : "Member activity shows up here as it happens."}
+                ? "People you follow haven't posted or done anything new yet."
+                : filter === "posts"
+                  ? "When LPs share why they're in a pool, it shows up here."
+                  : "Theses and member activity show up here as they happen."}
             </p>
             {shownScope === "following" && (
-              <button
-                type="button"
-                onClick={() => setScope("everyone")}
-                className="mt-3 rounded-full border border-border px-3 py-1 text-[12.5px] font-semibold text-fg-secondary hover:bg-surface-raised"
-              >
+              <button type="button" onClick={() => setScope("everyone")} className="btn-secondary mt-3 h-8 px-3 text-[12.5px]">
                 See everyone
               </button>
             )}
           </div>
         ) : (
-          <ul className="divide-y divide-white/[.05]">
-            {items.map((item) => (
-              <Row key={item.id} item={item} />
-            ))}
-          </ul>
+          <div className="divide-y divide-border">
+            {blocks.map((b) =>
+              b.type === "post" ? (
+                <div key={b.key} className="px-4 py-4">
+                  <ThesisCard post={b.post} />
+                </div>
+              ) : (
+                <EventRun key={b.key} items={b.items} />
+              )
+            )}
+          </div>
         )}
 
         {!loading && nextCursor && (
           <div className="border-t border-border p-2 text-center">
-            <button
-              type="button"
-              onClick={() => void loadMore()}
-              disabled={loadingMore}
-              className="rounded-full px-4 py-1.5 text-[13px] font-semibold text-mute hover:bg-surface-raised hover:text-fg disabled:opacity-60"
-              data-testid="activity-more"
-            >
+            <button type="button" onClick={() => void loadMore()} disabled={loadingMore} className="btn-ghost h-8 px-4 text-[13px]" data-testid="activity-more">
               {loadingMore ? "Loading…" : "Show more"}
             </button>
           </div>

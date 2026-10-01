@@ -2,98 +2,48 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb, getPool, hasDb } from "@/lib/db";
 import { tokenComments } from "@/lib/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
-import { getSessionUser } from "@/lib/session";
+import { getSessionUser, getSessionUserId } from "@/lib/session";
 import { recordThesisActivity } from "@/lib/activity";
+import { checkCanPost, countTheses, listTheses } from "@/lib/theses";
+import { THESIS_MAX_LENGTH, type ThesisPost } from "@/lib/thesis-types";
 
 export const dynamic = "force-dynamic";
 
-interface CommentRow {
-  id: number;
-  token_mint: string;
-  user_id: number;
-  body: string;
-  created_at: string;
-  x_handle: string | null;
-  x_name: string | null;
-  x_avatar_url: string | null;
-  anon_name: string | null;
-  joined: boolean;
-  pool_address: string | null;
-  token_y: string | null;
+/** ThesisPost plus the legacy fields older callers read. */
+type CommentOut = ThesisPost & { tokenMint: string; userId: number; poolAddress: string | null };
+
+function toCommentOut(p: ThesisPost): CommentOut {
+  return { ...p, tokenMint: p.token.mint, userId: p.author.id, poolAddress: p.pool?.address ?? null };
 }
 
+/** Public theses on this token (all of its pools), newest first. Same rows/counts as Poolside and profiles. */
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ mint: string }> }
 ): Promise<NextResponse> {
   const { mint } = await params;
-  
-  if (!hasDb()) return NextResponse.json({ comments: [] });
 
-  const pool = getPool();
+  if (!hasDb()) return NextResponse.json({ comments: [], total: 0 });
 
-  // Get comments with user info and one pool where they have a position
-  const query = `
-    SELECT 
-      tc.id,
-      tc.token_mint,
-      tc.user_id,
-      tc.body,
-      tc.created_at,
-      u.x_handle,
-      u.x_name,
-      u.x_avatar_url,
-      u.anon_name,
-      (u.joined_at IS NOT NULL) AS joined,
-      (
-        SELECT op.pool_address
-        FROM open_positions op
-        WHERE op.user_id = tc.user_id AND op.token_x_mint = tc.token_mint
-        LIMIT 1
-      ) AS pool_address,
-      (
-        SELECT op.token_y
-        FROM open_positions op
-        WHERE op.user_id = tc.user_id AND op.token_x_mint = tc.token_mint
-        LIMIT 1
-      ) AS token_y
-    FROM token_comments tc
-    JOIN users u ON u.id = tc.user_id
-    WHERE tc.token_mint = $1 AND tc.deleted_at IS NULL
-    ORDER BY tc.created_at DESC
-    LIMIT 100
-  `;
+  const viewerId = await getSessionUserId();
+  const [posts, total] = await Promise.all([listTheses({ mint, viewerId, limit: 100 }), countTheses({ mint })]);
 
-  const { rows } = await pool.query<CommentRow>(query, [mint]);
-
-  const comments = rows.map((r) => ({
-    id: r.id,
-    tokenMint: r.token_mint,
-    userId: r.user_id,
-    body: r.body,
-    createdAt: r.created_at,
-    author: {
-      id: r.user_id,
-      xHandle: r.x_handle,
-      xName: r.x_name,
-      xAvatarUrl: r.x_avatar_url,
-      anonName: r.anon_name,
-      // Only joined members have a public profile to link to.
-      hasProfile: Boolean(r.joined),
-    },
-    poolAddress: r.pool_address,
-    tokenY: r.token_y,
-  }));
-
-  return NextResponse.json({ comments });
+  return NextResponse.json(
+    { comments: posts.map(toCommentOut), total },
+    { headers: { "Cache-Control": "private, no-store" } }
+  );
 }
 
+/**
+ * Post a thesis on a pool of this token. Body: { body, poolAddress }. Rule (lib/theses.ts): joined
+ * member with an open position in that exact pool; the thesis is tagged with it.
+ */
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ mint: string }> }
 ): Promise<NextResponse> {
   const { mint } = await params;
-  
+
   if (!hasDb()) {
     return NextResponse.json({ error: "Service unavailable" }, { status: 503 });
   }
@@ -103,38 +53,30 @@ export async function POST(
     return NextResponse.json({ error: "Sign in required" }, { status: 401 });
   }
 
-  const db = getDb();
-  const pool = getPool();
-
-  // Check if user has an open position in any pool with this base token (by mint)
-  const positionCheck = await pool.query<{ has_position: boolean }>(
-    `
-      SELECT EXISTS(
-        SELECT 1 
-        FROM open_positions op
-        WHERE op.user_id = $1 AND op.token_x_mint = $2
-      ) AS has_position
-    `,
-    [user.id, mint]
-  );
-
-  if (!positionCheck.rows[0]?.has_position) {
-    return NextResponse.json(
-      { error: "You must have an open position in a pool with this token to post" },
-      { status: 403 }
-    );
+  let body: { body?: unknown; poolAddress?: unknown };
+  try {
+    body = (await req.json()) as { body?: unknown; poolAddress?: unknown };
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
+  const text = typeof body.body === "string" ? body.body.trim() : "";
+  const poolAddress = typeof body.poolAddress === "string" ? body.poolAddress.trim() : null;
 
-  const body = await req.json();
-  const text = String(body.body || "").trim();
+  const check = await checkCanPost(user, mint, poolAddress);
+  if (!check.ok) {
+    return NextResponse.json({ error: check.error }, { status: check.status });
+  }
 
   if (!text) {
-    return NextResponse.json({ error: "Comment body required" }, { status: 400 });
+    return NextResponse.json({ error: "Write something first" }, { status: 400 });
   }
 
-  if (text.length > 500) {
-    return NextResponse.json({ error: "Comment too long (max 500 characters)" }, { status: 400 });
+  if (text.length > THESIS_MAX_LENGTH) {
+    return NextResponse.json({ error: `Too long (max ${THESIS_MAX_LENGTH} characters)` }, { status: 400 });
   }
+
+  const db = getDb();
+  const pool = getPool();
 
   // Basic rate limit: max 10 comments per user per token in last 24h
   const rateLimitCheck = await pool.query<{ count: string }>(
@@ -162,26 +104,15 @@ export async function POST(
       tokenMint: mint,
       userId: user.id,
       body: text,
+      poolAddress: check.pool.address,
+      poolName: check.pool.name,
     })
     .returning();
   await recordThesisActivity(user.id, comment.id, mint, comment.createdAt);
 
-  return NextResponse.json({ 
-    comment: {
-      id: comment.id,
-      tokenMint: comment.tokenMint,
-      userId: comment.userId,
-      body: comment.body,
-      createdAt: comment.createdAt.toISOString(),
-      author: {
-        id: user.id,
-        xHandle: user.xHandle,
-        xName: user.xName,
-        xAvatarUrl: user.xAvatarUrl,
-        anonName: user.anonName,
-      },
-    }
-  }, { status: 201 });
+  const [post] = await listTheses({ ids: [comment.id], viewerId: user.id, limit: 1 });
+  if (!post) return NextResponse.json({ error: "Posted, but couldn't load it back" }, { status: 500 });
+  return NextResponse.json({ comment: toCommentOut(post) }, { status: 201 });
 }
 
 export async function DELETE(

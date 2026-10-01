@@ -6,9 +6,11 @@ import { useParams } from "next/navigation";
 import { useMe } from "@/components/MeProvider";
 import { Avatar, Flag } from "@/components/ui";
 import { FollowButton } from "@/components/FollowButton";
-import { avatarFor, displayName, fmtUsd, timeAgo } from "@/lib/format";
-import { meteoraPoolUrl, meteoraHomeUrl } from "@/lib/meteora-links";
+import { avatarFor, displayName, fmtUsd } from "@/lib/format";
+import { meteoraPoolUrl } from "@/lib/meteora-links";
 import { applyFollowChange, onFollowChanged } from "@/lib/session-events";
+import { ThesisCard } from "@/components/ThesisCard";
+import type { ComposerResponse, ThesisPost } from "@/lib/thesis-types";
 
 interface PoolData {
   poolAddress: string;
@@ -41,27 +43,10 @@ interface PoolDetailResponse {
   lps: LP[];
 }
 
-interface CommentAuthor {
-  id: number;
-  xHandle: string | null;
-  xName: string | null;
-  xAvatarUrl: string | null;
-  anonName?: string | null;
-  /** True when the author has a public (joined) profile to link to. */
-  hasProfile?: boolean;
-}
-
-interface Comment {
-  id: number;
-  tokenMint: string;
-  userId: number;
-  body: string;
-  createdAt: string;
-  author: CommentAuthor;
-}
-
 interface CommentsResponse {
-  comments: Comment[];
+  /** Public theses on this token (all its pools), each tagged with the pool it was posted on. */
+  comments: ThesisPost[];
+  total?: number;
 }
 
 function TokenDot({ icon, label, className = "" }: { icon: string | null; label: string; className?: string }) {
@@ -148,7 +133,8 @@ export default function PoolDetailPage() {
       const res = await fetch(`/api/tokens/${encodeURIComponent(data.pool.tokenXMint)}/comments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ body: commentText }),
+        // A thesis is posted on this exact pool (the API checks you hold it).
+        body: JSON.stringify({ body: commentText, poolAddress: data.pool.poolAddress }),
       });
 
       if (!res.ok) {
@@ -287,12 +273,14 @@ export default function PoolDetailPage() {
         {pool.tokenXMint && (
           <section className="glass rounded-[28px] p-6">
             <h2 className="mb-4 text-[20px] font-extrabold">
-              {pool.tokenX} Thesis Feed ({comments?.comments.length || 0})
+              {pool.tokenX} Thesis Feed ({comments?.total ?? comments?.comments.length ?? 0})
             </h2>
 
             {user ? (
               <CommentComposer
-                tokenMint={pool.tokenXMint}
+                poolAddress={pool.poolAddress}
+                poolName={`${pool.tokenX}-${pool.tokenY}`}
+                protocol={pool.protocol}
                 tokenSymbol={pool.tokenX}
                 user={user}
                 commentText={commentText}
@@ -314,12 +302,9 @@ export default function PoolDetailPage() {
             ) : (
               <div className="space-y-4">
                 {comments?.comments.map((comment) => (
-                  <CommentCard
-                    key={comment.id}
-                    comment={comment}
-                    canDelete={user?.id === comment.userId}
-                    onDelete={() => deleteComment(comment.id)}
-                  />
+                  <div key={comment.id} className="rounded-2xl border border-border bg-bg p-4">
+                    <ThesisCard post={comment} onDelete={comment.isOwn ? () => deleteComment(comment.id) : undefined} />
+                  </div>
                 ))}
               </div>
             )}
@@ -361,7 +346,9 @@ function LPRow({ lp }: { lp: LP }) {
 }
 
 function CommentComposer({
-  tokenMint,
+  poolAddress,
+  poolName,
+  protocol,
   tokenSymbol,
   user,
   commentText,
@@ -370,7 +357,9 @@ function CommentComposer({
   error,
   onPost,
 }: {
-  tokenMint: string;
+  poolAddress: string;
+  poolName: string;
+  protocol: string | null;
   tokenSymbol: string;
   user: { id: number; xHandle: string | null; xName: string | null; xAvatarUrl: string | null };
   commentText: string;
@@ -379,28 +368,42 @@ function CommentComposer({
   error: string | null;
   onPost: () => void;
 }) {
-  const [hasPosition, setHasPosition] = useState<boolean | null>(null);
+  // Same rule as the comments API: joined member with a position in THIS pool (lib/theses.ts).
+  const [gate, setGate] = useState<"loading" | "ok" | "not_joined" | "no_position">("loading");
 
   useEffect(() => {
-    const checkPosition = async () => {
-      try {
-        const res = await fetch(`/api/users/${user.id}/open-positions`);
-        const posData = await res.json();
-        const pools = posData.positions || [];
-        const hasPos = pools.some((p: { tokenXMint: string }) => p.tokenXMint === tokenMint);
-        setHasPosition(hasPos);
-      } catch {
-        setHasPosition(false);
-      }
+    let alive = true;
+    fetch("/api/poolside/composer", { cache: "no-store" })
+      .then((r) => r.json() as Promise<ComposerResponse>)
+      .then((d) => {
+        if (!alive) return;
+        if (!d.joined) setGate("not_joined");
+        else setGate(d.pools.some((p) => p.address === poolAddress) ? "ok" : "no_position");
+      })
+      .catch(() => alive && setGate("no_position"));
+    return () => {
+      alive = false;
     };
-    checkPosition();
-  }, [user.id, tokenMint]);
+  }, [user.id, poolAddress]);
+  const hasPosition = gate === "loading" ? null : gate === "ok";
 
-  if (hasPosition === false) {
+  if (gate === "not_joined") {
+    return (
+      <div className="mb-6 rounded-2xl border border-border bg-surface-raised px-4 py-3 text-center text-[14px] text-mute">
+        Posting is for beta members.{" "}
+        <Link href="/join" className="font-semibold text-fg hover:underline">
+          Redeem an invite code
+        </Link>{" "}
+        to share a thesis.
+      </div>
+    );
+  }
+
+  if (gate === "no_position") {
     return (
       <div className="mb-6 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 rounded-2xl border border-border bg-surface-raised px-4 py-3 text-[14px] text-mute">
-        <span>Open a position in any {tokenSymbol} pool to share your thesis.</span>
-        <a href={meteoraHomeUrl()} target="_blank" rel="noopener noreferrer" className="whitespace-nowrap text-[12px] font-semibold text-mute transition hover:text-fg">
+        <span>Hold a position in {poolName} to post a thesis on this pool.</span>
+        <a href={meteoraPoolUrl(poolAddress, protocol)} target="_blank" rel="noopener noreferrer" className="whitespace-nowrap text-[12px] font-semibold text-mute transition hover:text-fg">
           Meteora ↗
         </a>
       </div>
@@ -440,59 +443,6 @@ function CommentComposer({
             </button>
           </div>
           {error && <p className="mt-2 text-[12px] text-dn">{error}</p>}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function CommentCard({
-  comment,
-  canDelete,
-  onDelete,
-}: {
-  comment: Comment;
-  canDelete: boolean;
-  onDelete: () => void;
-}) {
-  const authorName = displayName(comment.author);
-  const profileHref = comment.author.hasProfile ? `/profile/${comment.author.xHandle || comment.author.id}` : null;
-  const avatar = (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img src={avatarFor(comment.author)} alt="" className="h-10 w-10 rounded-full border border-surface bg-surface-raised object-cover" />
-  );
-
-  return (
-    <div className="rounded-2xl border border-border bg-bg p-4">
-      <div className="flex gap-3">
-        {profileHref ? (
-          <Link href={profileHref} className="shrink-0" aria-label={`${authorName}'s profile`} tabIndex={-1} data-testid="comment-author-avatar">
-            {avatar}
-          </Link>
-        ) : (
-          <span className="shrink-0">{avatar}</span>
-        )}
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            {profileHref ? (
-              <Link href={profileHref} className="font-semibold hover:underline" data-testid="comment-author">
-                {authorName}
-              </Link>
-            ) : (
-              <span className="font-semibold">{authorName}</span>
-            )}
-            <span className="text-[12px] text-mute">{timeAgo(comment.createdAt)}</span>
-            {canDelete && (
-              <button
-                type="button"
-                onClick={onDelete}
-                className="ml-auto text-[12px] text-dn hover:underline"
-              >
-                Delete
-              </button>
-            )}
-          </div>
-          <p className="mt-2 whitespace-pre-wrap text-[15px] leading-snug">{comment.body}</p>
         </div>
       </div>
     </div>

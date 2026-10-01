@@ -39,7 +39,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const menuRef = useRef<HTMLDivElement>(null);
   const onBoard = pathname === "/";
   const onMe = pathname.startsWith("/profile");
-  const onPools = pathname.startsWith("/pools");
+  const onPools = pathname === "/pools" || pathname.startsWith("/pools/");
   const onFeed = pathname === "/poolside" || pathname.startsWith("/poolside/");
   const onInvites = pathname === "/invites";
   // The session knows the member number even for X-only accounts with no connected wallet.

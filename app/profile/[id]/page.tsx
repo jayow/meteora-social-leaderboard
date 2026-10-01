@@ -6,6 +6,8 @@ import { useParams, useSearchParams } from "next/navigation";
 import { useWallet } from "@solana/wallet-adapter-react";
 import type { ApiSnapshot, ApiUser } from "@/lib/api-types";
 import { useMe } from "@/components/MeProvider";
+import { ThesisCompact } from "@/components/ThesisCard";
+import type { ThesisPost } from "@/lib/thesis-types";
 import { Avatar, Flag, Pills, StatTile, XIcon } from "@/components/ui";
 import { PnLCalendar } from "@/components/PnLCalendar";
 import { CountrySelect } from "@/components/CountrySelect";
@@ -976,17 +978,10 @@ function WalletsSection() {
 }
 
 
-interface Thesis {
-  id: number;
-  tokenMint: string;
-  body: string;
-  createdAt: string;
-  tokenSymbol: string;
-  tokenIcon: string | null;
-}
-
 function RecentTheses({ userId }: { userId: number }) {
-  const [theses, setTheses] = useState<Thesis[]>([]);
+  const [theses, setTheses] = useState<ThesisPost[]>([]);
+  const [total, setTotal] = useState(0);
+  const [showAll, setShowAll] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -994,10 +989,12 @@ function RecentTheses({ userId }: { userId: number }) {
       setLoading(true);
       try {
         const res = await fetch(`/api/users/${userId}/theses`, { cache: "no-store" });
-        const data = await res.json();
+        const data = (await res.json()) as { theses?: ThesisPost[]; total?: number };
         setTheses(data.theses || []);
+        setTotal(data.total ?? data.theses?.length ?? 0);
       } catch {
         setTheses([]);
+        setTotal(0);
       } finally {
         setLoading(false);
       }
@@ -1005,10 +1002,16 @@ function RecentTheses({ userId }: { userId: number }) {
     load();
   }, [userId]);
 
+  const heading = (
+    <div className="text-[11px] font-bold uppercase tracking-wider text-mute">
+      Theses{total > 0 ? ` (${total})` : ""}
+    </div>
+  );
+
   if (loading) {
     return (
       <div className="mt-4 rounded-2xl border border-border bg-surface-raised p-3.5">
-        <div className="text-[11px] font-bold uppercase tracking-wider text-mute">Recent theses</div>
+        {heading}
         <p className="mt-2 text-[13px] text-mute">Loading...</p>
       </div>
     );
@@ -1017,45 +1020,32 @@ function RecentTheses({ userId }: { userId: number }) {
   if (theses.length === 0) {
     return (
       <div className="mt-4 rounded-2xl border border-border bg-surface-raised p-3.5">
-        <div className="text-[11px] font-bold uppercase tracking-wider text-mute">Recent theses</div>
+        {heading}
         <p className="mt-2 text-[13px] text-mute">No theses posted yet</p>
       </div>
     );
   }
 
+  const shown = showAll ? theses : theses.slice(0, 3);
   return (
-    <div className="mt-4 rounded-2xl border border-border bg-surface-raised p-3.5">
-      <div className="text-[11px] font-bold uppercase tracking-wider text-mute">Recent theses</div>
+    <div className="mt-4 rounded-2xl border border-border bg-surface-raised p-3.5" data-testid="profile-theses">
+      {heading}
       <div className="mt-2 space-y-2">
-        {theses.slice(0, 3).map((thesis) => (
-          <Link
-            key={thesis.id}
-            href={`/pools?token=${thesis.tokenMint}`}
-            className="block rounded-xl border border-border bg-bg p-2.5 transition hover:border-border-strong hover:bg-surface-raised"
-          >
-            <div className="flex items-center gap-2">
-              {thesis.tokenIcon ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={thesis.tokenIcon}
-                  alt={thesis.tokenSymbol}
-                  className="h-6 w-6 rounded-full border border-surface bg-surface-raised object-cover"
-                />
-              ) : (
-                <div className="flex h-6 w-6 items-center justify-center rounded-full border border-surface bg-border-strong text-[10px] font-bold">
-                  {thesis.tokenSymbol.slice(0, 1)}
-                </div>
-              )}
-              <span className="text-[13px] font-semibold">{thesis.tokenSymbol}</span>
-              <span className="ml-auto text-[11px] text-mute">{timeAgo(thesis.createdAt)}</span>
-            </div>
-            <p className="mt-1.5 line-clamp-2 text-[13px] leading-snug text-fg-secondary">
-              {thesis.body}
-            </p>
-          </Link>
+        {shown.map((thesis) => (
+          <ThesisCompact key={thesis.id} post={thesis} />
         ))}
-        {theses.length > 3 && (
-          <p className="pt-1 text-[11px] text-mute">+{theses.length - 3} more</p>
+        {!showAll && theses.length > 3 && (
+          <button type="button" onClick={() => setShowAll(true)} className="btn-ghost -ml-2 h-7 px-2 text-[12px]">
+            Show {theses.length - 3} more
+          </button>
+        )}
+        {showAll && total > theses.length && (
+          <p className="pt-1 text-[11px] text-mute">
+            Latest {theses.length} of {total}.{" "}
+            <Link href="/poolside" className="font-semibold text-fg hover:underline">
+              More on Poolside
+            </Link>
+          </p>
         )}
       </div>
     </div>

@@ -1,9 +1,13 @@
 import { getPool } from "@/lib/db";
+import { listTheses } from "@/lib/theses";
 import type {
   ActivityItem,
   ActivityKind,
   ActivityPerson,
   ActivityScope,
+  EventKind,
+  FeedFilter,
+  FeedItem,
 } from "@/lib/activity-types";
 
 /**
@@ -190,11 +194,10 @@ export async function recordSyncActivity(
 /* Read                                                                                              */
 /* ------------------------------------------------------------------------------------------------ */
 
-interface FeedRow {
+interface EventRow {
   id: number;
   kind: string;
   occurred_at: Date;
-  cursor_ts: string;
   pool_address: string | null;
   pool_name: string | null;
   protocol: string | null;
@@ -204,7 +207,6 @@ interface FeedRow {
   token_mint: string | null;
   token_symbol: string | null;
   amount_usd: number | null;
-  snippet: string | null;
   a_id: number;
   a_x_handle: string | null;
   a_x_avatar_url: string | null;
@@ -215,23 +217,36 @@ interface FeedRow {
   t_anon_name: string | null;
 }
 
-const KINDS: readonly ActivityKind[] = ["joined", "followed", "thesis", "opened", "closed", "big_win"];
+const EVENT_KINDS: readonly EventKind[] = ["joined", "followed", "opened", "closed", "big_win"];
 
-function isKind(k: string): k is ActivityKind {
-  return (KINDS as readonly string[]).includes(k);
+function isEventKind(k: string): k is EventKind {
+  return (EVENT_KINDS as readonly string[]).includes(k);
 }
 
-export function encodeCursor(ts: string, id: number): string {
-  return Buffer.from(`${ts}|${id}`, "utf8").toString("base64url");
+/** Stream rank inside one timestamp: posts (2) sort before events (1). Part of the cursor. */
+const RANK_POST = 2;
+const RANK_EVENT = 1;
+
+export interface FeedCursor {
+  ts: string;
+  rank: number;
+  id: number;
 }
 
-export function decodeCursor(cursor: string | null | undefined): { ts: string; id: number } | null {
+export function encodeCursor(c: FeedCursor): string {
+  return Buffer.from(`${c.ts}|${c.rank}|${c.id}`, "utf8").toString("base64url");
+}
+
+export function decodeCursor(cursor: string | null | undefined): FeedCursor | null {
   if (!cursor) return null;
   try {
-    const [ts, idStr] = Buffer.from(cursor, "base64url").toString("utf8").split("|");
+    const [ts, rankStr, idStr] = Buffer.from(cursor, "base64url").toString("utf8").split("|");
+    const rank = Number(rankStr);
     const id = Number(idStr);
-    if (!ts || !Number.isInteger(id) || id <= 0 || Number.isNaN(Date.parse(ts))) return null;
-    return { ts, id };
+    if (!ts || Number.isNaN(Date.parse(ts))) return null;
+    if (rank !== RANK_POST && rank !== RANK_EVENT) return null;
+    if (!Number.isInteger(id) || id <= 0) return null;
+    return { ts, rank, id };
   } catch {
     return null;
   }
@@ -245,56 +260,27 @@ export async function followeeCount(userId: number): Promise<number> {
   return rows[0]?.n ?? 0;
 }
 
-export async function listActivity(opts: {
-  scope: ActivityScope;
-  viewerId: number | null;
-  cursor: { ts: string; id: number } | null;
-  limit: number;
-}): Promise<{ items: ActivityItem[]; nextCursor: string | null }> {
-  const params: (string | number)[] = [];
-  const where: string[] = [
-    // Follow events: target must be joined and the follow must still exist (unfollow hides it).
-    `(a.kind <> 'followed' OR (t.joined_at IS NOT NULL AND EXISTS (
-       SELECT 1 FROM follows f WHERE f.follower_user_id = a.actor_user_id AND f.followee_user_id = a.target_user_id)))`,
-    // Thesis events: the comment must still be up.
-    `(a.kind <> 'thesis' OR (tc.id IS NOT NULL AND tc.deleted_at IS NULL))`,
-  ];
-  if (opts.scope === "following" && opts.viewerId) {
-    params.push(opts.viewerId);
-    where.push(`a.actor_user_id IN (SELECT followee_user_id FROM follows WHERE follower_user_id = $${params.length})`);
-  }
-  if (opts.cursor) {
-    params.push(opts.cursor.ts, opts.cursor.id);
-    where.push(`(a.occurred_at, a.id) < ($${params.length - 1}::timestamptz, $${params.length})`);
-  }
-  params.push(opts.limit + 1);
-
-  const { rows } = await getPool().query<FeedRow>(
-    `SELECT a.id, a.kind, a.occurred_at,
-            to_char(a.occurred_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS cursor_ts,
-            a.pool_address, a.pool_name, a.protocol, a.bin_step, a.token_x_icon, a.token_y_icon,
-            a.token_mint, a.token_symbol, a.amount_usd,
-            left(tc.body, 180) AS snippet,
+/** Hydrate activity events (never thesis rows: theses come from token_comments as posts). */
+async function getEvents(ids: number[]): Promise<Map<number, ActivityItem>> {
+  const out = new Map<number, ActivityItem>();
+  if (ids.length === 0) return out;
+  const { rows } = await getPool().query<EventRow>(
+    `SELECT a.id, a.kind, a.occurred_at, a.pool_address, a.pool_name, a.protocol, a.bin_step, a.token_x_icon,
+            a.token_y_icon, a.token_mint, a.token_symbol, a.amount_usd,
             u.id AS a_id, u.x_handle AS a_x_handle, u.x_avatar_url AS a_x_avatar_url, u.anon_name AS a_anon_name,
             t.id AS t_id, t.x_handle AS t_x_handle, t.x_avatar_url AS t_x_avatar_url, t.anon_name AS t_anon_name
      FROM activity a
-     JOIN users u ON u.id = a.actor_user_id AND u.joined_at IS NOT NULL
+     JOIN users u ON u.id = a.actor_user_id
      LEFT JOIN users t ON t.id = a.target_user_id
-     LEFT JOIN token_comments tc ON tc.id = a.comment_id
-     WHERE ${where.join(" AND ")}
-     ORDER BY a.occurred_at DESC, a.id DESC
-     LIMIT $${params.length}`,
-    params
+     WHERE a.id = ANY($1::int[])`,
+    [ids]
   );
-
-  const page = rows.slice(0, opts.limit);
-  const items: ActivityItem[] = [];
-  for (const r of page) {
-    if (!isKind(r.kind)) continue;
+  for (const r of rows) {
+    if (!isEventKind(r.kind)) continue;
     const actor: ActivityPerson = { id: r.a_id, xHandle: r.a_x_handle, xAvatarUrl: r.a_x_avatar_url, anonName: r.a_anon_name };
     const target: ActivityPerson | null =
       r.t_id != null ? { id: r.t_id, xHandle: r.t_x_handle, xAvatarUrl: r.t_x_avatar_url, anonName: r.t_anon_name } : null;
-    items.push({
+    out.set(r.id, {
       id: r.id,
       kind: r.kind,
       occurredAt: new Date(r.occurred_at).toISOString(),
@@ -302,22 +288,84 @@ export async function listActivity(opts: {
       target,
       pool:
         r.pool_address && r.pool_name
-          ? {
-              address: r.pool_address,
-              name: r.pool_name,
-              protocol: r.protocol,
-              binStep: r.bin_step,
-              xIcon: r.token_x_icon,
-              yIcon: r.token_y_icon,
-            }
+          ? { address: r.pool_address, name: r.pool_name, protocol: r.protocol, binStep: r.bin_step, xIcon: r.token_x_icon, yIcon: r.token_y_icon }
           : null,
       token: r.token_mint ? { mint: r.token_mint, symbol: r.token_symbol } : null,
-      snippet: r.kind === "thesis" ? r.snippet : null,
       amountUsd: r.kind === "closed" || r.kind === "big_win" ? r.amount_usd : null,
     });
   }
+  return out;
+}
+
+/**
+ * Poolside stream: thesis posts (token_comments, public rule from lib/theses.ts) merged with activity
+ * events (filter "all"), newest first. Keyset cursor over (time, rank, id) so the two sources page
+ * together without gaps or repeats. Only joined actors; follow events need a joined target and a
+ * follow that still exists. Deleted theses never appear.
+ */
+export async function listFeed(opts: {
+  scope: ActivityScope;
+  filter: FeedFilter;
+  viewerId: number | null;
+  cursor: FeedCursor | null;
+  limit: number;
+}): Promise<{ items: FeedItem[]; nextCursor: string | null }> {
+  const params: (string | number)[] = [];
+  const add = (v: string | number) => {
+    params.push(v);
+    return `$${params.length}`;
+  };
+  const following = opts.scope === "following" && opts.viewerId ? add(opts.viewerId) : null;
+  const cur = opts.cursor ? { ts: add(opts.cursor.ts), rank: add(opts.cursor.rank), id: add(opts.cursor.id) } : null;
+  const cursorSql = (tsCol: string, rank: number, idCol: string) =>
+    cur ? `AND (${tsCol}, ${rank}, ${idCol}) < (${cur.ts}::timestamptz, ${cur.rank}::int, ${cur.id}::int)` : "";
+  const followSql = (actorCol: string) =>
+    following ? `AND ${actorCol} IN (SELECT followee_user_id FROM follows WHERE follower_user_id = ${following})` : "";
+  const limit = add(opts.limit + 1);
+
+  const posts = `
+    SELECT ${RANK_POST} AS rank, tc.id, tc.created_at AS ts
+    FROM token_comments tc JOIN users u ON u.id = tc.user_id AND u.joined_at IS NOT NULL
+    WHERE tc.deleted_at IS NULL ${followSql("tc.user_id")} ${cursorSql("tc.created_at", RANK_POST, "tc.id")}`;
+  const events = `
+    SELECT ${RANK_EVENT} AS rank, a.id, a.occurred_at AS ts
+    FROM activity a
+    JOIN users u ON u.id = a.actor_user_id AND u.joined_at IS NOT NULL
+    LEFT JOIN users t ON t.id = a.target_user_id
+    WHERE a.kind IN ('joined', 'followed', 'opened', 'closed', 'big_win')
+      AND (a.kind <> 'followed' OR (t.joined_at IS NOT NULL AND EXISTS (
+        SELECT 1 FROM follows f WHERE f.follower_user_id = a.actor_user_id AND f.followee_user_id = a.target_user_id)))
+      ${followSql("a.actor_user_id")} ${cursorSql("a.occurred_at", RANK_EVENT, "a.id")}`;
+
+  const { rows } = await getPool().query<{ rank: number; id: number; ts_text: string }>(
+    `SELECT rank, id, to_char(ts AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS ts_text
+     FROM (${posts}${opts.filter === "all" ? ` UNION ALL ${events}` : ""}) s
+     ORDER BY ts DESC, rank DESC, id DESC
+     LIMIT ${limit}`,
+    params
+  );
+
+  const page = rows.slice(0, opts.limit);
+  const postIds = page.filter((r) => r.rank === RANK_POST).map((r) => r.id);
+  const eventIds = page.filter((r) => r.rank === RANK_EVENT).map((r) => r.id);
+  const [postList, eventsById] = await Promise.all([
+    listTheses({ ids: postIds, viewerId: opts.viewerId, limit: Math.max(postIds.length, 1) }),
+    getEvents(eventIds),
+  ]);
+  const postsById = new Map(postList.map((p) => [p.id, p]));
+
+  const items: FeedItem[] = [];
+  for (const r of page) {
+    if (r.rank === RANK_POST) {
+      const post = postsById.get(r.id);
+      if (post) items.push({ type: "post", key: `post:${post.id}`, occurredAt: post.createdAt, post });
+    } else {
+      const event = eventsById.get(r.id);
+      if (event) items.push({ type: "event", key: `event:${event.id}`, occurredAt: event.occurredAt, event });
+    }
+  }
   const last = page[page.length - 1];
-  const nextCursor = rows.length > opts.limit && last ? encodeCursor(last.cursor_ts, last.id) : null;
+  const nextCursor = rows.length > opts.limit && last ? encodeCursor({ ts: last.ts_text, rank: last.rank, id: last.id }) : null;
   return { items, nextCursor };
 }
 
