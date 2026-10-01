@@ -56,6 +56,8 @@ export function FollowButton({
         method: next ? "POST" : "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ targetId }),
+        // Finish even if the user navigates away right after clicking.
+        keepalive: true,
       });
       if (res.ok) {
         const data = (await res.json().catch(() => ({}))) as {
