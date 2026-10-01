@@ -81,11 +81,11 @@ export function SignInModal({ open, onClose, onSuccess }: SignInModalProps) {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div ref={ref} className="w-full max-w-md rounded-3xl border border-white/10 bg-[#1A1623]/95 p-6 shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80">
+      <div ref={ref} className="w-full max-w-md rounded-3xl border border-white/10 bg-[#1A1623] p-6 shadow-2xl">
         <div className="mb-6 text-center">
-          <h2 className="text-2xl font-bold">Sign in</h2>
-          <p className="mt-2 text-sm text-mute">Choose your sign in method</p>
+          <h2 className="text-2xl font-bold text-white">Sign in</h2>
+          <p className="mt-2 text-sm text-white/60">Choose your sign in method</p>
         </div>
 
         <div className="space-y-3">
@@ -93,7 +93,7 @@ export function SignInModal({ open, onClose, onSuccess }: SignInModalProps) {
             type="button"
             onClick={handleWalletConnect}
             disabled={signingWallet}
-            className="flex h-14 w-full items-center justify-center gap-3 rounded-2xl border border-white/10 bg-white/[.04] text-base font-semibold transition hover:bg-white/[.08] disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex h-14 w-full items-center justify-center gap-3 rounded-2xl border border-orange/30 bg-orange text-base font-semibold text-white shadow-lg shadow-orange/25 transition hover:bg-orange-soft disabled:cursor-not-allowed disabled:opacity-60"
           >
             <span className="text-xl">👛</span>
             {signingWallet ? "Signing..." : "Connect wallet"}
@@ -102,7 +102,7 @@ export function SignInModal({ open, onClose, onSuccess }: SignInModalProps) {
           <button
             type="button"
             onClick={handleXConnect}
-            className="flex h-14 w-full items-center justify-center gap-3 rounded-2xl border border-white/10 bg-white/[.04] text-base font-semibold transition hover:bg-white/[.08]"
+            className="flex h-14 w-full items-center justify-center gap-3 rounded-2xl border border-white/20 bg-white/[.12] text-base font-semibold text-white transition hover:bg-white/[.18]"
           >
             <XIcon className="h-4 w-4" />
             Continue with X
@@ -112,7 +112,7 @@ export function SignInModal({ open, onClose, onSuccess }: SignInModalProps) {
         <button
           type="button"
           onClick={onClose}
-          className="mt-6 w-full text-sm text-mute hover:text-white"
+          className="mt-6 w-full text-sm text-white/60 hover:text-white"
         >
           Cancel
         </button>

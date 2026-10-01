@@ -121,7 +121,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </button>
 
                 {menuOpen && (
-                  <div className="absolute right-0 z-50 mt-2 w-48 overflow-hidden rounded-2xl border border-white/10 bg-[#1A1623]/95 p-1 text-[14px] shadow-xl backdrop-blur-sm">
+                  <div className="absolute right-0 z-50 mt-2 w-48 overflow-hidden rounded-2xl border border-white/10 bg-[#1A1623] p-1 text-[14px] shadow-xl">
                     <Link
                       href="/profile/me"
                       onClick={() => setMenuOpen(false)}
