@@ -59,18 +59,9 @@ function Action({ item }: { item: ActivityItem }) {
       ) : (
         <>closed a position</>
       );
-    case "badge": {
-      if (!item.badge) return <>earned a badge</>;
-      const tier = tierLabel(item.badge.id, item.badge.tier);
-      return (
-        <>
-          earned{" "}
-          <BadgeGlyph id={item.badge.id} size={11} className={`inline -mt-0.5 ${badgeTone(item.badge.id, item.badge.tier)}`} />{" "}
-          <span className="font-semibold text-fg-secondary">{BADGES[item.badge.id].name}</span>
-          {tier && <> · {tier.split(" · ")[0]}</>}
-        </>
-      );
-    }
+    case "badge":
+      // Rendered by BadgeLine (its own flex layout so the tier never gets cut off).
+      return <>earned a badge</>;
     case "big_win":
       return (
         <>
@@ -88,15 +79,48 @@ function Action({ item }: { item: ActivityItem }) {
   }
 }
 
+/**
+ * "<actor> earned <glyph> <Badge> · <Tier>". From 375px up it's one line where the actor name truncates
+ * first and the badge name next, while "earned" and the tier always stay visible. On narrower phones the
+ * badge part wraps to a second line as one unit instead of being cut off.
+ */
+function BadgeLine({ item, badge }: { item: ActivityItem; badge: NonNullable<ActivityItem["badge"]> }) {
+  const tier = tierLabel(badge.id, badge.tier)?.split(" · ")[0] ?? null;
+  return (
+    <p
+      className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1 whitespace-nowrap text-[12.5px] text-mute min-[375px]:flex-nowrap"
+      data-testid="badge-line"
+    >
+      <span className="min-w-0 max-w-full truncate min-[375px]:min-w-[2.5rem]">
+        <PersonLink person={item.actor} />
+      </span>
+      <span className="shrink-0">earned</span>
+      <span className="flex min-w-0 items-center gap-1 min-[375px]:shrink-[0.3]">
+        <BadgeGlyph id={badge.id} size={11} className={`shrink-0 ${badgeTone(badge.id, badge.tier)}`} />
+        <span className="min-w-0 truncate font-semibold text-fg-secondary min-[375px]:min-w-[2rem]">{BADGES[badge.id].name}</span>
+        {tier && (
+          <span className="shrink-0" data-testid="badge-line-tier">
+            · {tier}
+          </span>
+        )}
+      </span>
+    </p>
+  );
+}
+
 export function EventRow({ item }: { item: ActivityItem }) {
   return (
     <li className="flex items-center gap-2.5 py-1.5" data-testid="activity-row" data-kind={item.kind}>
       <Link href={profileHref(item.actor)} className="shrink-0" tabIndex={-1} aria-hidden>
         <Avatar user={{ id: item.actor.id, xAvatarUrl: item.actor.xAvatarUrl }} size={20} />
       </Link>
-      <p className="min-w-0 flex-1 truncate text-[12.5px] text-mute">
-        <PersonLink person={item.actor} /> <Action item={item} />
-      </p>
+      {item.kind === "badge" && item.badge ? (
+        <BadgeLine item={item} badge={item.badge} />
+      ) : (
+        <p className="min-w-0 flex-1 truncate text-[12.5px] text-mute">
+          <PersonLink person={item.actor} /> <Action item={item} />
+        </p>
+      )}
       <time dateTime={item.occurredAt} title={new Date(item.occurredAt).toLocaleString()} className="shrink-0 text-[11.5px] text-mute">
         {timeAgo(item.occurredAt)}
       </time>

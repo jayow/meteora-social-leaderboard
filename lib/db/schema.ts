@@ -223,7 +223,7 @@ export const activity = pgTable(
     actorUserId: integer("actor_user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    /** joined | followed | thesis | opened | closed | big_win */
+    /** joined | followed | thesis | opened | closed | big_win | badge (badge + tier in dedupe_key, see lib/badges/config.ts) */
     kind: varchar("kind", { length: 24 }).notNull(),
     targetUserId: integer("target_user_id").references(() => users.id, { onDelete: "cascade" }),
     poolAddress: varchar("pool_address", { length: 64 }),

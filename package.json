@@ -10,6 +10,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node scripts/migrate.mjs",
     "backfill:mints": "node scripts/backfill-mints.mjs",
+    "backfill:badges": "tsx scripts/backfill-badges.ts",
     "postinstall": "npm run backfill:mints || echo 'Backfill optional'"
   },
   "dependencies": {
@@ -36,6 +37,7 @@
     "eslint": "^9",
     "eslint-config-next": "15.5.3",
     "tailwindcss": "^4",
+    "tsx": "^4.23.15",
     "typescript": "^5"
   }
 }
