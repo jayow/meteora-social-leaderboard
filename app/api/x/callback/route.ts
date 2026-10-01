@@ -11,6 +11,7 @@ import {
 import { getDb, hasDb } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { setSessionUserId, getSessionUserId } from "@/lib/session";
+import { TERMS_VERSION } from "@/lib/legal";
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const { searchParams } = new URL(req.url);
@@ -40,7 +41,13 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const { verifier, returnTo } = validated;
+  const { verifier, returnTo, termsVersion } = validated;
+  if (termsVersion !== TERMS_VERSION) {
+    const consentUrl = new URL("/terms", baseUrl);
+    consentUrl.searchParams.set("consent", "1");
+    consentUrl.searchParams.set("returnTo", returnTo);
+    return NextResponse.redirect(consentUrl);
+  }
 
   const tokenResult = await exchangeCodeForToken(code, verifier, callbackUrl);
   if (!tokenResult) {
@@ -95,6 +102,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
               xHandle,
               xName: profile.name,
               xAvatarUrl: profile.avatarUrl ? profile.avatarUrl.replace("_normal.", "_400x400.") : null,
+            termsVersionAccepted: TERMS_VERSION,
+            termsAcceptedAt: new Date(),
             })
             .where(eq(users.id, currentUserId));
           // Keep the current session (don't switch users)
@@ -120,6 +129,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
               xHandle,
               xName: profile.name,
               xAvatarUrl: profile.avatarUrl ? profile.avatarUrl.replace("_normal.", "_400x400.") : null,
+            termsVersionAccepted: TERMS_VERSION,
+            termsAcceptedAt: new Date(),
             })
             .where(eq(users.id, user.id))
             .returning();
@@ -134,6 +145,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
               xHandle,
               xName: profile.name,
               xAvatarUrl: profile.avatarUrl ? profile.avatarUrl.replace("_normal.", "_400x400.") : null,
+            termsVersionAccepted: TERMS_VERSION,
+            termsAcceptedAt: new Date(),
             })
             .returning();
         }
@@ -145,6 +158,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
             xHandle,
             xName: profile.name,
             xAvatarUrl: profile.avatarUrl ? profile.avatarUrl.replace("_normal.", "_400x400.") : null,
+            termsVersionAccepted: TERMS_VERSION,
+            termsAcceptedAt: new Date(),
           })
           .where(eq(users.id, user.id))
           .returning();

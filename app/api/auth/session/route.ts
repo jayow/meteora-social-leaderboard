@@ -32,6 +32,8 @@ export async function GET(): Promise<NextResponse> {
         xAvatarUrl: user.xAvatarUrl,
         anonName: user.anonName,
         memberNumber: user.memberNumber,
+        termsVersionAccepted: user.termsVersionAccepted,
+        termsAcceptedAt: user.termsAcceptedAt?.toISOString() ?? null,
         // Full primary wallet, for the signed-in owner's own header menu only (never in public APIs).
         wallet: walletList[0] ?? null,
         wallets: walletList.map(shortAddr),

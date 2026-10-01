@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { CountrySelect } from "@/components/CountrySelect";
 import { notifySessionChanged, requestSignIn } from "@/lib/session-events";
+import { TermsCheckbox } from "@/components/TermsCheckbox";
+import { TERMS_VERSION } from "@/lib/legal";
 
 type Step = "code" | "wallet" | "x" | "country" | "thesis" | "complete" | "member";
 
@@ -38,6 +40,7 @@ function JoinFlow() {
   const [code, setCode] = useState(searchParams.get("code") || "");
   const [country, setCountry] = useState("");
   const [thesis, setThesis] = useState("");
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [memberNumber, setMemberNumber] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -147,7 +150,7 @@ function JoinFlow() {
       const res = await fetch("/api/join/redeem", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: code.trim(), country: country || null, thesis: thesis.trim() || null }),
+        body: JSON.stringify({ code: code.trim(), country: country || null, thesis: thesis.trim() || null, termsVersion: termsAccepted ? TERMS_VERSION : null }),
       });
       const data = await res.json() as { ok?: boolean; user?: { memberNumber: number }; error?: string };
       if (!data.ok) {
@@ -207,7 +210,7 @@ function JoinFlow() {
         {step === "x" && (
           <div>
             <p className="mb-4 text-center">Connect your X account (optional)</p>
-            <a href={`/api/x/login?returnTo=${encodeURIComponent(`/join?code=${code.trim()}`)}`} className="btn-primary mb-4 flex w-full py-3">
+            <a href={`/api/x/login?termsVersion=${encodeURIComponent(TERMS_VERSION)}&returnTo=${encodeURIComponent(`/join?code=${code.trim()}`)}`} className="btn-primary mb-4 flex w-full py-3">
               Connect X
             </a>
             <button onClick={skipX} className="w-full text-sm text-mute hover:text-fg">
@@ -238,8 +241,11 @@ function JoinFlow() {
               className="mb-4 w-full rounded-xl border border-border bg-surface-raised px-4 py-3"
               maxLength={200}
             />
+            <div className="mb-4 rounded-2xl border border-border bg-surface-raised p-3">
+              <TermsCheckbox checked={termsAccepted} onChange={setTermsAccepted} id="join-terms-consent" />
+            </div>
             {error && <p className="mb-4 text-sm text-dn">{error}</p>}
-            <button onClick={finishJoin} disabled={loading} className="btn-primary w-full py-3">
+            <button onClick={finishJoin} disabled={loading || !termsAccepted} className="btn-primary w-full py-3">
               {loading ? "Joining..." : "Join Pool Party"}
             </button>
           </div>

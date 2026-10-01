@@ -7,6 +7,8 @@ import { Modal } from "@/components/Modal";
 import { XIcon } from "@/components/ui";
 import { WalletPicker } from "@/components/WalletPicker";
 import { loginMessage } from "@/lib/login-message";
+import { TermsCheckbox } from "@/components/TermsCheckbox";
+import { TERMS_VERSION } from "@/lib/legal";
 
 function toBase64(bytes: Uint8Array): string {
   let s = "";
@@ -34,6 +36,7 @@ export function SignInModal({ open, onClose, onSuccess, initialStep = "methods" 
   const [step, setStep] = useState<SignInStep>(initialStep);
   const [pending, setPending] = useState<WalletName | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const signingRef = useRef(false);
   const matchedRef = useRef(false);
 
@@ -42,9 +45,14 @@ export function SignInModal({ open, onClose, onSuccess, initialStep = "methods" 
     setStep(initialStep);
     setPending(null);
     setError(null);
+    setTermsAccepted(false);
   }, [open, initialStep]);
 
   const signIn = useCallback(async (): Promise<void> => {
+    if (!termsAccepted) {
+      setError("Please accept the Terms and Privacy Policy to continue.");
+      return;
+    }
     if (!publicKey) return;
     if (!signMessage) {
       setError("This wallet can't sign messages. Pick another wallet.");
@@ -56,7 +64,7 @@ export function SignInModal({ open, onClose, onSuccess, initialStep = "methods" 
     const res = await fetch("/api/auth/wallet", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ wallet: wallet58, issuedAt, signature: toBase64(sig) }),
+      body: JSON.stringify({ wallet: wallet58, issuedAt, signature: toBase64(sig), termsVersion: TERMS_VERSION }),
     });
     if (!res.ok) {
       const data = (await res.json().catch(() => ({}))) as { error?: string };
@@ -65,7 +73,7 @@ export function SignInModal({ open, onClose, onSuccess, initialStep = "methods" 
     onSuccess?.();
     onClose();
     window.location.reload();
-  }, [publicKey, signMessage, onSuccess, onClose]);
+  }, [publicKey, signMessage, onSuccess, onClose, termsAccepted]);
 
   // Drive the explicitly picked wallet: select -> connect -> sign. Nothing happens until the user picks.
   useEffect(() => {
@@ -110,8 +118,12 @@ export function SignInModal({ open, onClose, onSuccess, initialStep = "methods" 
   };
 
   const handleXConnect = () => {
+    if (!termsAccepted) {
+      setError("Please accept the Terms and Privacy Policy to continue.");
+      return;
+    }
     const returnTo = window.location.pathname + window.location.search;
-    window.location.href = `/api/x/login?returnTo=${encodeURIComponent(returnTo)}`;
+    window.location.href = `/api/x/login?termsVersion=${encodeURIComponent(TERMS_VERSION)}&returnTo=${encodeURIComponent(returnTo)}`;
   };
 
   if (!open) return null;
@@ -123,6 +135,10 @@ export function SignInModal({ open, onClose, onSuccess, initialStep = "methods" 
           <div className="mb-6 text-center">
             <h2 id="signin-title" className="text-2xl font-bold text-fg">Sign in</h2>
             <p className="mt-2 text-sm text-mute">Choose your sign in method</p>
+          </div>
+
+          <div className="mb-5 rounded-2xl border border-border bg-surface-raised p-3">
+            <TermsCheckbox checked={termsAccepted} onChange={setTermsAccepted} id="signin-terms-consent" />
           </div>
 
           <div className="space-y-3">
@@ -171,6 +187,9 @@ export function SignInModal({ open, onClose, onSuccess, initialStep = "methods" 
               </h2>
               <p className="mt-0.5 text-[13px] text-mute">Pick a wallet, then sign a free message to verify.</p>
             </div>
+          </div>
+          <div className="mb-4 rounded-2xl border border-border bg-surface-raised p-3">
+            <TermsCheckbox checked={termsAccepted} onChange={setTermsAccepted} id="signin-terms-consent-wallets" />
           </div>
           <WalletPicker busyName={pending} onPick={handlePick} />
         </>

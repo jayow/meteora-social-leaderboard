@@ -62,6 +62,8 @@ export const users = pgTable(
      * user has no X handle. Filled by the DB default `pp_random_anon_name()` (see drizzle/0012).
      */
     anonName: varchar("anon_name", { length: 64 }).default(sql`pp_random_anon_name()`),
+    termsVersionAccepted: varchar("terms_version_accepted", { length: 32 }),
+    termsAcceptedAt: timestamp("terms_accepted_at", { withTimezone: true }),
     bannerUpdatedAt: timestamp("banner_updated_at", { withTimezone: true }),
     lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
     lastAttemptedAt: timestamp("last_attempted_at", { withTimezone: true }),

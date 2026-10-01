@@ -1,6 +1,7 @@
 import { and, eq, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { inviteCodes, users, type InviteCodeRow, type UserRow } from "@/lib/db/schema";
+import { TERMS_VERSION } from "@/lib/legal";
 
 const CODE_CHARSET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
@@ -65,13 +66,16 @@ export async function validateCode(code: string): Promise<{ valid: boolean; reas
  * number to that user. Never creates a user. Serialized with an advisory lock so concurrent joins
  * can't hand out the same member number or overshoot the beta cap / code uses.
  */
-export async function redeemCode(userId: number, code: string, country?: string | null, thesis?: string | null): Promise<{ ok: boolean; user?: UserRow; error?: string }> {
+export async function redeemCode(userId: number, code: string, country?: string | null, thesis?: string | null, termsVersion?: string | null): Promise<{ ok: boolean; user?: UserRow; error?: string }> {
   const db = getDb();
   try {
     return await db.transaction(async (tx) => {
       await tx.execute(sql`select pg_advisory_xact_lock(7426001)`);
       const [existing] = await tx.select().from(users).where(eq(users.id, userId)).limit(1);
       if (!existing) return { ok: false, error: "Account not found, sign in again" };
+      if (termsVersion !== TERMS_VERSION && existing.termsVersionAccepted !== TERMS_VERSION) {
+        return { ok: false, error: "Please accept the current Terms and Privacy Policy before joining" };
+      }
       if (existing.joinedAt) return { ok: false, error: "You have already joined" };
       const [invite] = await tx.select().from(inviteCodes).where(eq(inviteCodes.code, code.toUpperCase())).limit(1);
       if (!invite) return { ok: false, error: "Invalid code" };
@@ -98,6 +102,8 @@ export async function redeemCode(userId: number, code: string, country?: string 
           memberNumber: nextMemberNumber,
           country: country ?? sql`${users.country}`,
           thesis: thesis ?? sql`${users.thesis}`,
+          termsVersionAccepted: TERMS_VERSION,
+          termsAcceptedAt: sql`coalesce(${users.termsAcceptedAt}, now())`,
           updatedAt: sql`now()`,
         })
         .where(eq(users.id, userId))

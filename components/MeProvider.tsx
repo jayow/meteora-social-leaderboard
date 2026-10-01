@@ -3,9 +3,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import type { ApiSnapshot, ApiUser } from "@/lib/api-types";
-import { loginMessage } from "@/lib/login-message";
 import { getCachedProfile, patchCachedProfile, type CachedProfile } from "@/lib/storage";
-import { onSessionChanged } from "@/lib/session-events";
+import { onSessionChanged, requestSignIn } from "@/lib/session-events";
 
 interface MeState {
   wallet: string | null;
@@ -25,12 +24,6 @@ interface MeState {
 }
 
 const Ctx = createContext<MeState | null>(null);
-
-function toBase64(bytes: Uint8Array): string {
-  let s = "";
-  for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
-  return btoa(s);
-}
 
 export function MeProvider({ children }: { children: React.ReactNode }) {
   const { publicKey, connected, signMessage } = useWallet();
@@ -126,28 +119,10 @@ export function MeProvider({ children }: { children: React.ReactNode }) {
 
   const ensureSession = useCallback(async (): Promise<boolean> => {
     if (sessionUserId) return true;
-    if (!wallet || !signMessage) {
-      return false;
-    }
-    try {
-      const issuedAt = new Date().toISOString();
-      const sig = await signMessage(new TextEncoder().encode(loginMessage(wallet, issuedAt)));
-      const res = await fetch("/api/auth/wallet", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ wallet, issuedAt, signature: toBase64(sig) }),
-      });
-      if (!res.ok) return false;
-      const data = (await res.json()) as { user?: { id: number } };
-      if (data.user?.id) {
-        setSessionUserId(data.user.id);
-        return true;
-      }
-      return false;
-    } catch {
-      return false;
-    }
-  }, [wallet, sessionUserId, signMessage]);
+    // Sign-in always goes through the consent checkbox in SignInModal; do not silently sign.
+    requestSignIn();
+    return false;
+  }, [sessionUserId]);
 
   const verify = useCallback(async (): Promise<boolean> => {
     if (!wallet || !signMessage) {
