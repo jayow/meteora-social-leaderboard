@@ -137,10 +137,6 @@ export function SignInModal({ open, onClose, onSuccess, initialStep = "methods" 
             <p className="mt-2 text-sm text-mute">Choose your sign in method</p>
           </div>
 
-          <div className="mb-5 rounded-2xl border border-border bg-surface-raised p-3">
-            <TermsCheckbox checked={termsAccepted} onChange={setTermsAccepted} id="signin-terms-consent" />
-          </div>
-
           <div className="space-y-3">
             <button
               type="button"
@@ -162,6 +158,10 @@ export function SignInModal({ open, onClose, onSuccess, initialStep = "methods" 
               <XIcon className="h-4 w-4" />
               Continue with X
             </button>
+          </div>
+
+          <div className="mt-5 rounded-2xl border border-border bg-surface-raised p-3">
+            <TermsCheckbox checked={termsAccepted} onChange={setTermsAccepted} id="signin-terms-consent" />
           </div>
         </>
       ) : (
@@ -188,10 +188,10 @@ export function SignInModal({ open, onClose, onSuccess, initialStep = "methods" 
               <p className="mt-0.5 text-[13px] text-mute">Pick a wallet, then sign a free message to verify.</p>
             </div>
           </div>
-          <div className="mb-4 rounded-2xl border border-border bg-surface-raised p-3">
+          <WalletPicker busyName={pending} onPick={handlePick} />
+          <div className="mt-4 rounded-2xl border border-border bg-surface-raised p-3">
             <TermsCheckbox checked={termsAccepted} onChange={setTermsAccepted} id="signin-terms-consent-wallets" />
           </div>
-          <WalletPicker busyName={pending} onPick={handlePick} />
         </>
       )}
 
