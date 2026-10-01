@@ -6,6 +6,8 @@
 
 export const METEORA_DLMM_API = "https://dlmm.datapi.meteora.ag";
 export const METEORA_PORTFOLIO_API = "https://portfolio.datapi.meteora.ag";
+/** Pool discovery API: what app.meteora.ag uses for pool lists/search (smaller records, token icons). */
+export const METEORA_POOL_DISCOVERY_API = "https://pool-discovery-api.datapi.meteora.ag";
 
 export type MeteoraTimeRange = "7d" | "30d" | "all";
 
@@ -41,4 +43,17 @@ export const meteoraUrls = {
   poolsByBaseToken: (mint: string, page: number, pageSize: number): string =>
     `${METEORA_DLMM_API}/pools?filter_by=${enc(`token_x=${mint} && is_blacklisted=false`)}` +
     `&sort_by=${enc("tvl:desc")}&page=${page}&page_size=${pageSize}`,
+  /**
+   * Pool discovery search: non-blacklisted DLMM pools with base token (token_x) `mint`, TVL desc.
+   * Cursor-paginated: pass the previous response's `after_key`. `pageSize` max 1000.
+   * (Multi-value filters use commas inside [...]; the documented `|` separator returns nothing.)
+   */
+  poolSearchByBaseToken: (mint: string, pageSize: number, afterKey?: string | null): string =>
+    `${METEORA_POOL_DISCOVERY_API}/search?filter_by=${enc(`is_blacklisted=false && pool_type=dlmm && token_x=[${mint}]`)}` +
+    `&sort_by=${enc("tvl:desc")}&page_size=${pageSize}` +
+    (afterKey ? `&after_key=${enc(afterKey)}` : ""),
+  /** Pool discovery search for specific pools (any type, incl. blacklisted). Keep to <= 100 addresses. */
+  poolSearchByAddresses: (addresses: readonly string[]): string =>
+    `${METEORA_POOL_DISCOVERY_API}/search?filter_by=${enc(`pool_address=[${addresses.join(",")}]`)}` +
+    `&page_size=${Math.max(addresses.length, 1)}`,
 } as const;

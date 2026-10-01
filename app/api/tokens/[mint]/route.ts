@@ -1,157 +1,146 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPool, hasDb } from "@/lib/db";
+import { jsonMaybeGzip } from "@/lib/json-gzip";
 import { fetchMeteoraPoolsForToken } from "@/lib/meteora-pools";
+import { comparePoolRows, isPoolSort, matchesPoolQuery, type PoolListRow, type TokenPoolsResponse, type TokenSummary } from "@/lib/pool-list";
 
 export const dynamic = "force-dynamic";
 
-interface MemberDataRow {
+const DEFAULT_LIMIT = 50;
+const MAX_LIMIT = 100;
+
+interface MemberStatsRow {
   pool_address: string;
   lp_count: string;
   member_liquidity: number | null;
 }
 
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: Promise<{ mint: string }> }
-): Promise<NextResponse> {
+interface MemberPoolRow extends MemberStatsRow {
+  token_x: string;
+  token_y: string;
+  token_x_mint: string | null;
+  token_y_mint: string | null;
+  token_x_icon: string | null;
+  token_y_icon: string | null;
+  bin_step: number | null;
+  protocol: string | null;
+}
+
+function intParam(v: string | null, def: number, min: number, max: number): number {
+  const n = v == null ? NaN : Number.parseInt(v, 10);
+  return Number.isFinite(n) ? Math.min(Math.max(n, min), max) : def;
+}
+
+/**
+ * GET /api/tokens/:mint?offset=0&limit=50&sort=members|tvl|volume|liquidity&q=usdc
+ * All DLMM pools with :mint as base token, sorted and filtered server-side over the full set,
+ * returned a page at a time with only the fields a pool row renders.
+ */
+export async function GET(req: NextRequest, { params }: { params: Promise<{ mint: string }> }): Promise<NextResponse> {
   const { mint } = await params;
-  
-  if (!hasDb()) {
-    return NextResponse.json({ 
-      token: null, 
-      pools: [] 
-    });
-  }
+  const sp = req.nextUrl.searchParams;
+  const offset = intParam(sp.get("offset"), 0, 0, 1_000_000);
+  const limit = intParam(sp.get("limit"), DEFAULT_LIMIT, 1, MAX_LIMIT);
+  const sortParam = sp.get("sort");
+  const sort = isPoolSort(sortParam) ? sortParam : "members";
+  const q = (sp.get("q") || "").slice(0, 64);
 
-  const pool = getPool();
+  const empty: TokenPoolsResponse = { token: null, pools: [], total: 0, offset, limit, hasMore: false, source: "members" };
+  if (!hasDb()) return NextResponse.json(empty);
 
-  // First, try to fetch ALL pools from Meteora API
-  let meteoraPools: Awaited<ReturnType<typeof fetchMeteoraPoolsForToken>> = [];
-  try {
-    meteoraPools = await fetchMeteoraPoolsForToken(mint);
-  } catch (error) {
-    console.error("Error fetching from Meteora API:", error);
-  }
+  const db = getPool();
+  const meteoraPools = await fetchMeteoraPoolsForToken(mint);
 
-  // Get member data for pools
-  const poolAddresses = meteoraPools.map(p => p.poolAddress);
-  
-  if (poolAddresses.length > 0) {
-    const memberQuery = `
-      SELECT 
-        op.pool_address,
-        COUNT(DISTINCT op.user_id)::text AS lp_count,
-        SUM(op.value_usd) AS member_liquidity
-      FROM open_positions op
-      JOIN users u ON u.id = op.user_id
-      WHERE op.pool_address = ANY($1) AND u.joined_at IS NOT NULL
-      GROUP BY op.pool_address
-    `;
+  let rows: PoolListRow[];
+  let source: TokenPoolsResponse["source"];
 
-    const { rows: memberRows } = await pool.query<MemberDataRow>(memberQuery, [poolAddresses]);
-    
-    const memberDataMap = new Map<string, { lpCount: number; memberLiquidity: number }>();
-    for (const row of memberRows) {
-      memberDataMap.set(row.pool_address, {
-        lpCount: Number(row.lp_count),
-        memberLiquidity: row.member_liquidity || 0,
-      });
-    }
-
-    // Enrich pools with member data
-    const enrichedPools = meteoraPools.map((p) => {
-      const memberData = memberDataMap.get(p.poolAddress);
+  if (meteoraPools.length > 0) {
+    source = "meteora";
+    const { rows: memberRows } = await db.query<MemberStatsRow>(
+      `SELECT op.pool_address, COUNT(DISTINCT op.user_id)::text AS lp_count, SUM(op.value_usd) AS member_liquidity
+       FROM open_positions op
+       JOIN users u ON u.id = op.user_id
+       WHERE op.pool_address = ANY($1) AND u.joined_at IS NOT NULL
+       GROUP BY op.pool_address`,
+      [meteoraPools.map((p) => p.poolAddress)]
+    );
+    const members = new Map(memberRows.map((r) => [r.pool_address, r]));
+    rows = meteoraPools.map((p) => {
+      const m = members.get(p.poolAddress);
       return {
-        ...p,
-        memberCount: memberData?.lpCount || 0,
-        memberLiquidity: memberData?.memberLiquidity || 0,
+        poolAddress: p.poolAddress,
+        tokenX: p.tokenX,
+        tokenY: p.tokenY,
+        tokenXMint: p.tokenXMint || null,
+        tokenYMint: p.tokenYMint || null,
+        tokenXIcon: p.tokenXIcon,
+        tokenYIcon: p.tokenYIcon,
+        binStep: p.binStep,
+        protocol: p.protocol,
+        lpCount: m ? Number(m.lp_count) : 0,
+        memberLiquidity: m ? m.member_liquidity : null,
+        tvl: p.tvl,
+        volume24h: p.volume24h,
       };
     });
-
-    // Sort by member count, then TVL
-    enrichedPools.sort((a, b) => {
-      if (b.memberCount !== a.memberCount) return b.memberCount - a.memberCount;
-      return (b.tvl || 0) - (a.tvl || 0);
-    });
-
-    const firstPool = enrichedPools[0];
-    const token = {
-      mint,
-      symbol: firstPool.tokenX,
-      icon: firstPool.tokenXIcon,
-      poolCount: enrichedPools.length,
-      totalTvl: enrichedPools.reduce((sum, p) => sum + (p.tvl || 0), 0),
-      memberLiquidity: enrichedPools.reduce((sum, p) => sum + (p.memberLiquidity || 0), 0),
-      lpCount: enrichedPools.reduce((sum, p) => sum + p.memberCount, 0),
-    };
-
-    return NextResponse.json({ token, pools: enrichedPools });
-  }
-
-  // Fallback: Use member-held pools from DB if Meteora API failed
-  const memberPoolsQuery = `
-    SELECT 
-      op.pool_address,
-      MAX(op.token_x) AS token_symbol,
-      op.token_y,
-      MAX(op.token_x_icon) AS token_x_icon,
-      MAX(op.token_y_icon) AS token_y_icon,
-      MAX(op.bin_step) AS bin_step,
-      MAX(op.protocol) AS protocol,
-      COUNT(DISTINCT op.user_id)::text AS lp_count,
-      SUM(op.value_usd) AS member_liquidity
-    FROM open_positions op
-    JOIN users u ON u.id = op.user_id
-    WHERE op.token_x_mint = $1 AND u.joined_at IS NOT NULL
-    GROUP BY op.pool_address, op.token_y
-  `;
-
-  const { rows: memberPoolRows } = await pool.query<{
-    pool_address: string;
-    token_symbol: string;
-    token_y: string;
-    token_x_icon: string | null;
-    token_y_icon: string | null;
-    bin_step: number | null;
-    protocol: string | null;
-    lp_count: string;
-    member_liquidity: number | null;
-  }>(memberPoolsQuery, [mint]);
-
-  if (memberPoolRows.length > 0) {
-    const pools = memberPoolRows.map((r) => ({
+  } else {
+    // Fallback: Meteora unavailable, use member-held pools from the DB
+    source = "members";
+    const { rows: memberPools } = await db.query<MemberPoolRow>(
+      `SELECT op.pool_address,
+              MAX(op.token_x) AS token_x, MAX(op.token_y) AS token_y,
+              MAX(op.token_x_mint) AS token_x_mint, MAX(op.token_y_mint) AS token_y_mint,
+              MAX(op.token_x_icon) AS token_x_icon, MAX(op.token_y_icon) AS token_y_icon,
+              MAX(op.bin_step) AS bin_step, MAX(op.protocol) AS protocol,
+              COUNT(DISTINCT op.user_id)::text AS lp_count, SUM(op.value_usd) AS member_liquidity
+       FROM open_positions op
+       JOIN users u ON u.id = op.user_id
+       WHERE op.token_x_mint = $1 AND u.joined_at IS NOT NULL
+       GROUP BY op.pool_address`,
+      [mint]
+    );
+    rows = memberPools.map((r) => ({
       poolAddress: r.pool_address,
-      tokenX: r.token_symbol,
+      tokenX: r.token_x,
       tokenY: r.token_y,
-      tokenXMint: mint,
-      tokenYMint: "",
+      tokenXMint: r.token_x_mint,
+      tokenYMint: r.token_y_mint,
       tokenXIcon: r.token_x_icon,
       tokenYIcon: r.token_y_icon,
       binStep: r.bin_step,
       protocol: r.protocol || "dlmm",
-      tvl: r.member_liquidity,
+      lpCount: Number(r.lp_count),
+      memberLiquidity: r.member_liquidity,
+      tvl: null,
       volume24h: null,
-      fees24h: null,
-      apr: null,
-      memberCount: Number(r.lp_count),
-      memberLiquidity: r.member_liquidity || 0,
     }));
-
-    const token = {
-      mint,
-      symbol: memberPoolRows[0].token_symbol,
-      icon: memberPoolRows[0].token_x_icon,
-      poolCount: pools.length,
-      totalTvl: pools.reduce((sum, p) => sum + (p.tvl || 0), 0),
-      memberLiquidity: pools.reduce((sum, p) => sum + (p.memberLiquidity || 0), 0),
-      lpCount: pools.reduce((sum, p) => sum + p.memberCount, 0),
-    };
-
-    return NextResponse.json({ token, pools });
   }
 
-  return NextResponse.json({ 
-    token: null, 
-    pools: [] 
-  }, { status: 404 });
+  if (rows.length === 0) return NextResponse.json(empty, { status: 404 });
+
+  const first = rows[0];
+  const token: TokenSummary = {
+    mint,
+    symbol: first.tokenX,
+    icon: rows.find((r) => r.tokenXIcon)?.tokenXIcon ?? null,
+    poolCount: rows.length,
+    totalTvl: rows.reduce((sum, r) => sum + (r.tvl ?? 0), 0),
+    memberLiquidity: rows.reduce((sum, r) => sum + (r.memberLiquidity ?? 0), 0),
+    lpCount: rows.reduce((sum, r) => sum + r.lpCount, 0),
+  };
+
+  const filtered = q ? rows.filter((r) => matchesPoolQuery(r, q)) : rows;
+  filtered.sort(comparePoolRows(sort));
+  const page = filtered.slice(offset, offset + limit);
+
+  const body: TokenPoolsResponse = {
+    token,
+    pools: page,
+    total: filtered.length,
+    offset,
+    limit,
+    hasMore: offset + page.length < filtered.length,
+    source,
+  };
+  return jsonMaybeGzip(req, body, { headers: { "Cache-Control": "private, max-age=15" } });
 }
