@@ -10,8 +10,8 @@ export const maxDuration = 300;
 
 const CONCURRENCY = 4;
 const BATCH_DELAY_MS = 500;
-// Just under the cron's hourly cadence, so every run re-syncs each member.
-const STALE_MINUTES = 50;
+// Just under the cron's 15-minute cadence, so every run re-syncs each member.
+const STALE_MINUTES = 12;
 const MAX_USERS_PER_RUN = 50;
 const MAX_RETRIES = 3;
 // The run happens inside the request so the caller (Railway sync-cron) sees the outcome.

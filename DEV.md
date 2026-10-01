@@ -32,7 +32,7 @@ Push to `main` → Railway builds and deploys the `web` service. Migrations in `
 ## Production
 
 - Site: https://lppool.party (the old `web-production-c8f29.up.railway.app` 308-redirects pages and `/api/x/*` there).
-- Railway services: `web` (this repo), `Postgres` (internal only), `sync-cron` (calls `/api/cron/sync-all` hourly with `Authorization: Bearer $CRON_SECRET`).
+- Railway services: `web` (this repo), `Postgres` (internal only, nightly backup to R2 via `Backup CRON`), `sync-cron` (calls `/api/cron/sync-all` every 15 min with `Authorization: Bearer $CRON_SECRET`).
 - `web` env: `DATABASE_URL`, `APP_SECRET`, `CRON_SECRET`, `X_CLIENT_ID`, `X_CLIENT_SECRET`, `X_CALLBACK_URL`, `APP_URL`, `ADMIN_WALLETS`, `BETA_CAP`, `INVITES_PER_USER`.
 - X app callbacks: `https://lppool.party/api/x/callback` and `https://lppool.party/api/x/link-callback`.
 - Health: `/api/health` (checks the DB).
