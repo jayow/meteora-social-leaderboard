@@ -35,20 +35,21 @@ export async function GET(
   const poolSql = `
     SELECT 
       pool_address,
-      token_x,
-      token_y,
-      token_x_mint,
-      token_y_mint,
-      token_x_icon,
-      token_y_icon,
-      bin_step,
-      protocol,
+      MAX(token_x) AS token_x,
+      MAX(token_y) AS token_y,
+      MAX(token_x_mint) AS token_x_mint,
+      MAX(token_y_mint) AS token_y_mint,
+      MAX(token_x_icon) AS token_x_icon,
+      MAX(token_y_icon) AS token_y_icon,
+      MAX(bin_step) AS bin_step,
+      MAX(protocol) AS protocol,
       COUNT(DISTINCT user_id)::text AS lp_count,
       SUM(value_usd) AS total_value_usd
     FROM open_positions op
     JOIN users u ON u.id = op.user_id
     WHERE op.pool_address = $1 AND u.joined_at IS NOT NULL
-    GROUP BY pool_address, token_x, token_y, token_x_mint, token_y_mint, token_x_icon, token_y_icon, bin_step, protocol
+    -- One row per pool even when positions disagree on metadata (icons etc.).
+    GROUP BY pool_address
   `;
 
   const poolRes = await pool.query(poolSql, [address]);
@@ -152,5 +153,6 @@ export async function GET(
     isFollowing: r.is_following,
   }));
 
-  return NextResponse.json({ pool: poolData, lps });
+  // One source of truth: the LP count is the members list shown on the page.
+  return NextResponse.json({ pool: { ...poolData, lpCount: lps.length }, lps });
 }

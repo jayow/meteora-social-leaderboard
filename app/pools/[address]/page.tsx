@@ -48,6 +48,8 @@ interface CommentAuthor {
   xName: string | null;
   xAvatarUrl: string | null;
   anonName?: string | null;
+  /** True when the author has a public (joined) profile to link to. */
+  hasProfile?: boolean;
 }
 
 interface Comment {
@@ -223,53 +225,57 @@ export default function PoolDetailPage() {
 
   return (
     <main className="mx-auto max-w-[900px] px-4 pb-10 pt-6 lg:px-6">
-      <div className="glass rounded-[28px] p-6">
-        <div className="flex items-center gap-4">
-          <div className="flex">
-            <TokenDot icon={pool.tokenXIcon} label={x} />
-            <TokenDot icon={pool.tokenYIcon} label={y} className="-ml-3" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 text-[24px] font-extrabold">
-              <span className="truncate">
-                {pool.tokenXMint ? (
-                  <Link href={`/pools?token=${pool.tokenXMint}`} className="hover:text-orange">{x}</Link>
-                ) : (
-                  <span>{x}</span>
-                )}
-                <span>-</span>
-                {pool.tokenYMint ? (
-                  <Link href={`/pools?token=${pool.tokenYMint}`} className="hover:text-orange">{y}</Link>
-                ) : (
-                  <span>{y}</span>
-                )}
-              </span>
-              <span className="shrink-0 rounded bg-orange/15 px-2 py-0.5 text-[11px] font-bold uppercase text-orange">
-                DLMM
-              </span>
+      <div className="glass rounded-[28px] p-5 sm:p-6">
+        {/* Mobile: pair + badges on one line, full-width Dip button below. sm+: button on the right. */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+          <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
+            <div className="flex shrink-0">
+              <TokenDot icon={pool.tokenXIcon} label={x} />
+              <TokenDot icon={pool.tokenYIcon} label={y} className="-ml-3" />
             </div>
-            {pool.binStep != null && (
-              <div className="mt-1 text-[13px] text-mute">Bin step {pool.binStep}</div>
-            )}
+            <div className="min-w-0 flex-1">
+              <div className="flex min-w-0 items-center gap-2 text-[20px] font-extrabold sm:text-[24px]">
+                <span className="min-w-0 truncate" data-testid="pool-pair">
+                  {pool.tokenXMint ? (
+                    <Link href={`/pools?token=${pool.tokenXMint}`} className="hover:text-orange">{x}</Link>
+                  ) : (
+                    <span>{x}</span>
+                  )}
+                  <span>-</span>
+                  {pool.tokenYMint ? (
+                    <Link href={`/pools?token=${pool.tokenYMint}`} className="hover:text-orange">{y}</Link>
+                  ) : (
+                    <span>{y}</span>
+                  )}
+                </span>
+                <span className="shrink-0 rounded bg-orange/15 px-2 py-0.5 text-[11px] font-bold uppercase text-orange">
+                  DLMM
+                </span>
+              </div>
+              {pool.binStep != null && (
+                <div className="mt-1 whitespace-nowrap text-[13px] text-mute">Bin step {pool.binStep}</div>
+              )}
+            </div>
           </div>
-          <div className="flex flex-col items-end gap-1.5">
+          <div className="flex flex-col items-stretch gap-1.5 sm:items-end">
             <a
               href={meteoraPoolUrl(pool.poolAddress, pool.protocol || undefined)}
               target="_blank"
               rel="noopener noreferrer"
-              className="group flex items-center gap-2 rounded-full bg-gradient-to-r from-[#FF5C1A] to-[#FF3D7F] px-5 py-2.5 text-[15px] font-bold text-white shadow-lg shadow-orange/30 transition hover:shadow-xl hover:shadow-orange/40"
+              className="group flex items-center justify-center gap-2 whitespace-nowrap rounded-full bg-gradient-to-r from-[#FF5C1A] to-[#FF3D7F] px-5 py-2.5 text-[15px] font-bold text-white shadow-lg shadow-orange/30 transition hover:shadow-xl hover:shadow-orange/40"
             >
               <span className="transition group-hover:scale-110">🏖️</span>
               <span>Dip into this pool</span>
             </a>
-            <span className="text-[10px] text-mute">Opens Meteora</span>
+            <span className="text-center text-[10px] text-mute sm:text-right">Opens Meteora</span>
           </div>
         </div>
 
         <div className="mt-4 grid grid-cols-2 gap-4 rounded-2xl border border-white/[.07] bg-white/[.03] p-4 sm:grid-cols-3">
           <div>
             <div className="text-[11px] font-medium text-mute">Pool Party LPs</div>
-            <div className="num mt-0.5 text-[20px] font-bold">{pool.lpCount}</div>
+            {/* Same source as the "LPs in this pool" list below. */}
+            <div className="num mt-0.5 text-[20px] font-bold">{lps.length}</div>
           </div>
           <div>
             <div className="text-[11px] font-medium text-mute">Total value</div>
@@ -372,10 +378,9 @@ function LPRow({ lp }: { lp: LP }) {
   const pnlTone = (lp.totalPnl ?? 0) >= 0 ? "text-up" : "text-dn";
 
   return (
-    <Link
-      href={`/profile/${lp.xHandle || lp.id}`}
-      className="glass flex items-center gap-3 rounded-[20px] px-3 py-2.5 transition hover:bg-white/[.06] sm:px-4"
-    >
+    <div className="glass relative flex items-center gap-3 rounded-[20px] px-3 py-2.5 transition hover:bg-white/[.06] sm:px-4">
+      {/* Row link as an overlay so the Follow button isn't nested inside an anchor. */}
+      <Link href={`/profile/${lp.xHandle || lp.id}`} aria-label={`${displayName(lp)}'s profile`} className="absolute inset-0 rounded-[20px]" />
       <Avatar user={lp} size={42} />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5 text-[15px] font-bold">
@@ -392,10 +397,10 @@ function LPRow({ lp }: { lp: LP }) {
           )}
         </div>
       </div>
-      <div onClick={(e) => e.stopPropagation()}>
+      <div className="relative z-10">
         <FollowButton targetUser={lp} size="sm" />
       </div>
-    </Link>
+    </div>
   );
 }
 
@@ -502,19 +507,31 @@ function CommentCard({
   onDelete: () => void;
 }) {
   const authorName = displayName(comment.author);
+  const profileHref = comment.author.hasProfile ? `/profile/${comment.author.xHandle || comment.author.id}` : null;
+  const avatar = (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={avatarFor(comment.author)} alt="" className="h-10 w-10 rounded-full border border-base bg-[#222] object-cover" />
+  );
 
   return (
     <div className="rounded-2xl border border-white/[.08] bg-black/20 p-4">
       <div className="flex gap-3">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={avatarFor(comment.author)}
-          alt=""
-          className="h-10 w-10 rounded-full border border-base bg-[#222] object-cover"
-        />
+        {profileHref ? (
+          <Link href={profileHref} className="shrink-0" aria-label={`${authorName}'s profile`} tabIndex={-1} data-testid="comment-author-avatar">
+            {avatar}
+          </Link>
+        ) : (
+          <span className="shrink-0">{avatar}</span>
+        )}
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="font-semibold">{authorName}</span>
+            {profileHref ? (
+              <Link href={profileHref} className="font-semibold hover:text-orange" data-testid="comment-author">
+                {authorName}
+              </Link>
+            ) : (
+              <span className="font-semibold">{authorName}</span>
+            )}
             {comment.poolAddress && comment.tokenY && (
               <Link
                 href={`/pools/${comment.poolAddress}`}

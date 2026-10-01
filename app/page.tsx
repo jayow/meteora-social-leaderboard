@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import type { LeaderboardEntry, LeaderboardResponse } from "@/lib/api-types";
@@ -10,7 +11,7 @@ import { CountrySelect } from "@/components/CountrySelect";
 import { FollowButton } from "@/components/FollowButton";
 import { useMe } from "@/components/MeProvider";
 import { displayName, fmtPct, fmtUsd } from "@/lib/format";
-import { applyFollowChange, onFollowChanged } from "@/lib/session-events";
+import { applyFollowChange, onFollowChanged, requestSignIn } from "@/lib/session-events";
 
 type Range = "7d" | "30d" | "all";
 type Sort = "pnl" | "volume" | "winrate" | "fees";
@@ -35,8 +36,9 @@ export default function LeaderboardPage() {
   const [data, setData] = useState<LeaderboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  // "Following" narrows the board to people you follow (signed-in only; isFollowing comes from the API).
+  // "Following" narrows the whole board server-side (scope=following) to people you follow; signed-in only.
   const [who, setWho] = useState<"all" | "following">("all");
+  const followingOnly = verified && who === "following";
 
   const myId = sessionUserId ?? myUser?.id;
 
@@ -45,10 +47,13 @@ export default function LeaderboardPage() {
     try {
       const qs = new URLSearchParams({ range, sort: sort === "fees" ? "pnl" : sort });
       if (country) qs.set("country", country);
+      if (followingOnly) qs.set("scope", "following");
       const res = await fetch(`/api/leaderboard?${qs.toString()}`, { cache: "no-store" });
       const result = (await res.json()) as LeaderboardResponse;
+      if (!res.ok || !Array.isArray(result.entries)) throw new Error(result.error || "load failed");
       if (sort === "fees") {
-        result.entries = [...result.entries].sort((a, b) => (b.fees ?? 0) - (a.fees ?? 0));
+        // Members without data (rank null) stay last.
+        result.entries = [...result.entries].sort((a, b) => Number(a.rank === null) - Number(b.rank === null) || (b.fees ?? 0) - (a.fees ?? 0));
       }
       setData(result);
     } catch {
@@ -56,33 +61,47 @@ export default function LeaderboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [range, sort, country]);
+  }, [range, sort, country, followingOnly]);
 
   useEffect(() => {
     if (view === "leaderboard") load();
   }, [load, view]);
 
-  // Reload once registration finishes so a freshly connected wallet appears.
+  // Reload once the connected wallet's stats refresh finishes so a just-synced member appears.
   useEffect(() => {
     if (wallet && !meLoading) load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wallet, meLoading]);
 
-  // Follow/unfollow anywhere on the page updates isFollowing + follower counts (podium, rows, card).
+  // Follow/unfollow anywhere on the page updates isFollowing + follower counts (podium, rows, card),
+  // and your own following count.
   useEffect(
     () =>
       onFollowChanged((change) =>
-        setData((d) => (d ? { ...d, entries: d.entries.map((e) => applyFollowChange(e, change)) } : d))
+        setData((d) =>
+          d
+            ? {
+                ...d,
+                entries: d.entries.map((e) => {
+                  const next = applyFollowChange(e, change);
+                  if (e.id !== sessionUserId || change.viewerFollowingCount === undefined) return next;
+                  return { ...next, followingCount: change.viewerFollowingCount };
+                }),
+              }
+            : d
+        )
       ),
-    []
+    [sessionUserId]
   );
 
   const allEntries = useMemo(() => data?.entries ?? [], [data]);
-  const followingOnly = verified && who === "following";
-  const entries = useMemo(() => (followingOnly ? allEntries.filter((e) => e.isFollowing) : allEntries), [allEntries, followingOnly]);
-  const podium = entries.slice(0, 3);
-  const rest = entries.slice(3);
-  const mine = wallet ? entries.find((e) => e.id === myId) : undefined;
+  // The API already scopes to Following; this only drops someone you just unfollowed without a refetch.
+  const entries = useMemo(() => (followingOnly ? allEntries.filter((e) => e.isFollowing !== false) : allEntries), [allEntries, followingOnly]);
+  // Only ranked members (with Meteora activity) can take podium spots; unranked ones list last.
+  const podium = entries.filter((e) => e.rank !== null).slice(0, 3);
+  const rest = entries.filter((e) => !podium.includes(e));
+  const mine = myId ? entries.find((e) => e.id === myId) : undefined;
+  const isMember = Boolean(verified && myUser?.memberNumber);
   const selected = entries.find((e) => e.id === selectedId) || mine || entries[0];
 
   const onRow = (e: LeaderboardEntry) => {
@@ -158,16 +177,34 @@ export default function LeaderboardPage() {
             )}
           </div>
 
-          {/* Claim CTA */}
-          {!loading && !mine && (
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-orange/25 bg-gradient-to-r from-orange/15 via-pink/10 to-purp/15 px-4 py-3">
+          {/* Claim CTA: connect → sign in → join → first sync. Connecting alone never creates an account. */}
+          {!loading && !mine && !followingOnly && (
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-orange/25 bg-gradient-to-r from-orange/15 via-pink/10 to-purp/15 px-4 py-3" data-testid="claim-cta">
               <div className="text-[14px]">
-                <span className="font-bold">{wallet ? "Syncing your Meteora stats…" : "LP on Meteora?"}</span>{" "}
-                <span className="text-white/70">{wallet ? "Your rank shows up after the first sync." : "Connect your wallet to claim your rank. Read-only, no transactions."}</span>
+                <span className="font-bold">
+                  {isMember ? "Syncing your Meteora stats…" : verified ? "Join to claim your rank" : wallet ? "Sign in to claim your rank" : "LP on Meteora?"}
+                </span>{" "}
+                <span className="text-white/70">
+                  {isMember
+                    ? "Your rank shows up after the first sync."
+                    : verified
+                      ? "Join the beta to put your Meteora PnL on the board."
+                      : wallet
+                        ? "Sign a message to prove it's your wallet. Read-only, no transactions."
+                        : "Connect your wallet to claim your rank. Read-only, no transactions."}
+                </span>
               </div>
-              {wallet ? (
+              {isMember ? (
                 <button type="button" onClick={load} className="h-9 rounded-full bg-white/[.1] px-4 text-[13px] font-semibold hover:bg-white/[.16]">
                   Refresh
+                </button>
+              ) : verified ? (
+                <Link href="/join" className="flex h-9 items-center rounded-full bg-orange px-4 text-[13px] font-bold shadow-lg shadow-orange/25 hover:bg-orange-soft">
+                  Join the beta →
+                </Link>
+              ) : wallet ? (
+                <button type="button" onClick={() => requestSignIn()} className="h-9 rounded-full bg-orange px-4 text-[13px] font-bold shadow-lg shadow-orange/25 hover:bg-orange-soft">
+                  Sign in →
                 </button>
               ) : (
                 <button type="button" onClick={() => setVisible(true)} className="h-9 rounded-full bg-orange px-4 text-[13px] font-bold shadow-lg shadow-orange/25 hover:bg-orange-soft">
@@ -231,7 +268,7 @@ export default function LeaderboardPage() {
             {selected ? (
               <ProfileCard
                 user={selected}
-                rank={selected.rank}
+                rank={selected.rank ?? undefined}
                 isMe={selected.id === myId}
                 stats={{
                   portfolioValue: selected.portfolioValue,
@@ -311,7 +348,7 @@ function Row({ e, isMe, metric, tone, onClick, range, active }: { e: Leaderboard
       }}
       className={`flex cursor-pointer items-center gap-3 rounded-[20px] px-3 py-2.5 transition sm:px-4 ${isMe ? "you-row" : active ? "glass border-orange/30" : "glass hover:bg-white/[.06]"}`}
     >
-      <span className="num w-6 text-center text-[14px] font-bold text-mute">{e.rank}</span>
+      <span className="num w-6 text-center text-[14px] font-bold text-mute" title={e.rank === null ? "No Meteora activity yet" : undefined}>{e.rank ?? "–"}</span>
       <Avatar user={e} size={42} />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5 text-[15px] font-bold">
@@ -334,7 +371,7 @@ function Row({ e, isMe, metric, tone, onClick, range, active }: { e: Leaderboard
       </div>
       <div className={`num text-right text-[18px] font-extrabold sm:text-[22px] ${tone}`}>{metric}</div>
       <div className="hidden sm:block" onClick={(ev) => ev.stopPropagation()}>
-        {isMe ? (
+        {isMe && e.rank === null ? null : isMe ? (
           <a href={share} target="_blank" rel="noreferrer" className="h-8 rounded-full bg-white/[.1] px-3.5 text-[13px] font-semibold leading-8 hover:bg-white/[.16]">
             Share
           </a>

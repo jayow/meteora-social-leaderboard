@@ -9,6 +9,24 @@ export interface XFields {
   xAvatarUrl?: string | null;
 }
 
+/**
+ * Existing account that owns `wallet`, as its primary wallet or a linked one. Never creates a row:
+ * accounts are created only by a real sign-in (wallet signature or X OAuth) or by the operator.
+ */
+export async function findUserByWallet(wallet: string): Promise<UserRow | null> {
+  const db = getDb();
+  const [primary] = await db.select().from(users).where(eq(users.wallet, wallet)).limit(1);
+  if (primary) return primary;
+  const [linked] = await db
+    .select({ user: users })
+    .from(userWallets)
+    .innerJoin(users, eq(users.id, userWallets.userId))
+    .where(eq(userWallets.address, wallet))
+    .limit(1);
+  return linked?.user ?? null;
+}
+
+/** Create-or-update by wallet. Only call from sign-in (verified signature) or operator paths. */
 export async function upsertUser(wallet: string, x?: XFields): Promise<UserRow> {
   const db = getDb();
   const xSet: Partial<UserRow> = {};
@@ -26,15 +44,18 @@ export async function upsertUser(wallet: string, x?: XFields): Promise<UserRow> 
   return rows[0];
 }
 
-export async function findUser(idOrWalletOrHandle: string): Promise<UserRow | null> {
+/**
+ * Public lookup by user id or X handle only. Wallet addresses are deliberately NOT resolved here,
+ * so URLs like /profile/<wallet> or /api/users/<wallet> can't map a wallet to an account.
+ * (Server-side flows that start from a verified wallet use findUserByWallet.)
+ */
+export async function findUser(idOrHandle: string): Promise<UserRow | null> {
   const db = getDb();
-  const key = idOrWalletOrHandle.trim().replace(/^@/, "");
+  const key = idOrHandle.trim().replace(/^@/, "");
   if (/^\d+$/.test(key)) {
     const r = await db.select().from(users).where(eq(users.id, Number(key))).limit(1);
     if (r[0]) return r[0];
   }
-  const byWallet = await db.select().from(users).where(eq(users.wallet, key)).limit(1);
-  if (byWallet[0]) return byWallet[0];
   if (/^[A-Za-z0-9_]{1,30}$/.test(key)) {
     const byHandle = await db.select().from(users).where(ilike(users.xHandle, key)).orderBy(desc(users.updatedAt)).limit(1);
     if (byHandle[0]) return byHandle[0];

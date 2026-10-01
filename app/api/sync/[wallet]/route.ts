@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { hasDb } from "@/lib/db";
 import { isValidWallet } from "@/lib/wallet";
-import { findUser, toPublicSnapshot, upsertUser } from "@/lib/users";
+import { findUserByWallet, toPublicSnapshot, upsertUser } from "@/lib/users";
 import { getSnapshot, syncUser, todayUtc } from "@/lib/sync";
+import { getSessionUserId } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -12,10 +13,15 @@ async function handle(req: NextRequest, wallet: string): Promise<NextResponse> {
   if (!hasDb()) return NextResponse.json({ error: "Database not configured" }, { status: 503 });
   if (!isValidWallet(wallet)) return NextResponse.json({ error: "Invalid wallet" }, { status: 400 });
 
-  const existing = await findUser(wallet);
-  const user = existing && existing.wallet === wallet ? existing : await upsertUser(wallet);
-
   const force = req.headers.get("authorization") === `Bearer ${process.env.CRON_SECRET}` && Boolean(process.env.CRON_SECRET);
+  // Sync existing accounts only (primary or linked wallet), and only the signed-in owner's: unknown
+  // wallets are never turned into accounts here (only sign-in/join or the operator create users),
+  // and unknown vs someone else's wallet get the same answer so wallets can't be mapped to accounts.
+  const user = (await findUserByWallet(wallet)) ?? (force ? await upsertUser(wallet) : null);
+  const sessionUserId = force ? null : await getSessionUserId();
+  if (!user || (!force && user.id !== sessionUserId)) {
+    return NextResponse.json({ ok: false, error: "Sign in with this wallet to sync it" }, { status: 404 });
+  }
   if (!force && user.lastSyncedAt && Date.now() - user.lastSyncedAt.getTime() < MIN_INTERVAL_MS) {
     const snap = await getSnapshot(user.id, todayUtc());
     if (snap) return NextResponse.json({ ok: true, cached: true, snapshot: toPublicSnapshot(snap) });

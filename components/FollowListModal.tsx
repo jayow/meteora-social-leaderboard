@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { ApiUser } from "@/lib/api-types";
 import { Avatar } from "@/components/ui";
 import { FollowButton } from "@/components/FollowButton";
@@ -94,7 +95,10 @@ export function FollowListModal({
 
   const title = kind === "followers" ? "Followers" : "Following";
 
-  return (
+  // Portal to <body>: callers can sit inside `.glass` cards whose backdrop-filter would otherwise
+  // trap this fixed overlay inside the card.
+  if (typeof document === "undefined") return null;
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4" onMouseDown={onClose}>
       <div
         ref={dialogRef}
@@ -136,6 +140,7 @@ export function FollowListModal({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

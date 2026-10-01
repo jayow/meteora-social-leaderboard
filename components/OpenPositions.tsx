@@ -132,10 +132,8 @@ function PositionCard({ pool }: { pool: MeteoraOpenPool }) {
 
   return (
     <div className="relative rounded-2xl border border-white/[.08] bg-gradient-to-br from-white/[.04] to-transparent p-4 transition hover:border-orange/40 hover:bg-white/[.06]">
-      <a
-        href={`/pools/${pool.poolAddress}`}
-        className="block"
-      >
+      {/* Whole-card link as an overlay (not a wrapper) so the token links aren't nested anchors. */}
+      <Link href={`/pools/${pool.poolAddress}`} aria-label={`${pool.tokenX}/${pool.tokenY} pool`} className="absolute inset-0 rounded-2xl" />
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2.5">
           <div className="flex items-center">
@@ -156,13 +154,13 @@ function PositionCard({ pool }: { pool: MeteoraOpenPool }) {
             <div className="flex items-center gap-2">
               <span className="text-[15px] font-bold">
                 {pool.tokenXMint ? (
-                  <Link href={`/pools?token=${pool.tokenXMint}`} onClick={(e) => e.stopPropagation()} className="hover:text-orange">{pool.tokenX}</Link>
+                  <Link href={`/pools?token=${pool.tokenXMint}`} className="relative z-10 hover:text-orange">{pool.tokenX}</Link>
                 ) : (
                   <span>{pool.tokenX}</span>
                 )}
                 <span>/</span>
                 {pool.tokenYMint ? (
-                  <Link href={`/pools?token=${pool.tokenYMint}`} onClick={(e) => e.stopPropagation()} className="hover:text-orange">{pool.tokenY}</Link>
+                  <Link href={`/pools?token=${pool.tokenYMint}`} className="relative z-10 hover:text-orange">{pool.tokenY}</Link>
                 ) : (
                   <span>{pool.tokenY}</span>
                 )}
@@ -186,14 +184,13 @@ function PositionCard({ pool }: { pool: MeteoraOpenPool }) {
           <div className="num mt-0.5 font-semibold">{fmtUsd(value)}</div>
         </div>
       </div>
-      </a>
-      
+
       <a
         href={meteoraPoolUrl(pool.poolAddress, pool.protocol || undefined)}
         target="_blank"
         rel="noopener noreferrer"
         onClick={(e) => e.stopPropagation()}
-        className="group absolute right-3 top-3 flex items-center gap-1 rounded-full bg-gradient-to-r from-[#FF5C1A] to-[#FF3D7F] px-2.5 py-1 text-[11px] font-bold text-white shadow-md transition hover:shadow-lg hover:shadow-orange/30"
+        className="group absolute right-3 top-3 z-10 flex items-center gap-1 rounded-full bg-gradient-to-r from-[#FF5C1A] to-[#FF3D7F] px-2.5 py-1 text-[11px] font-bold text-white shadow-md transition hover:shadow-lg hover:shadow-orange/30"
       >
         <span className="transition group-hover:scale-110">🏖️</span>
         <span>Dip in</span>
@@ -207,10 +204,8 @@ function PositionCardCompact({ pool }: { pool: MeteoraOpenPool }) {
 
   return (
     <div className="relative flex items-center justify-between rounded-xl border border-white/[.08] bg-black/20 p-3 transition hover:border-orange/40">
-      <a
-        href={`/pools/${pool.poolAddress}`}
-        className="flex flex-1 items-center gap-2"
-      >
+      <Link href={`/pools/${pool.poolAddress}`} aria-label={`${pool.tokenX}/${pool.tokenY} pool`} className="absolute inset-0 rounded-xl" />
+      <div className="flex flex-1 items-center gap-2">
         <div className="flex items-center">
           {pool.tokenXIcon ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -228,20 +223,20 @@ function PositionCardCompact({ pool }: { pool: MeteoraOpenPool }) {
         <div className="ml-2">
           <div className="text-[13px] font-semibold">
             {pool.tokenXMint ? (
-              <Link href={`/pools?token=${pool.tokenXMint}`} onClick={(e) => e.stopPropagation()} className="hover:text-orange">{pool.tokenX}</Link>
+              <Link href={`/pools?token=${pool.tokenXMint}`} className="relative z-10 hover:text-orange">{pool.tokenX}</Link>
             ) : (
               <span>{pool.tokenX}</span>
             )}
             <span>/</span>
             {pool.tokenYMint ? (
-              <Link href={`/pools?token=${pool.tokenYMint}`} onClick={(e) => e.stopPropagation()} className="hover:text-orange">{pool.tokenY}</Link>
+              <Link href={`/pools?token=${pool.tokenYMint}`} className="relative z-10 hover:text-orange">{pool.tokenY}</Link>
             ) : (
               <span>{pool.tokenY}</span>
             )}
           </div>
           <div className="num text-[11px] text-mute">{fmtUsd(value)}</div>
         </div>
-      </a>
+      </div>
       <div className="num mr-2 text-[14px] font-semibold text-white">
         {pool.positionCount || 0}
       </div>
@@ -251,7 +246,7 @@ function PositionCardCompact({ pool }: { pool: MeteoraOpenPool }) {
         target="_blank"
         rel="noopener noreferrer"
         onClick={(e) => e.stopPropagation()}
-        className="group flex items-center gap-0.5 rounded-full bg-gradient-to-r from-[#FF5C1A] to-[#FF3D7F] px-2 py-0.5 text-[10px] font-bold text-white shadow-sm transition hover:shadow-lg hover:shadow-orange/25"
+        className="group relative z-10 flex items-center gap-0.5 rounded-full bg-gradient-to-r from-[#FF5C1A] to-[#FF3D7F] px-2 py-0.5 text-[10px] font-bold text-white shadow-sm transition hover:shadow-lg hover:shadow-orange/25"
       >
         <span className="transition group-hover:scale-110">🏖️</span>
       </a>

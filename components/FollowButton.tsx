@@ -86,11 +86,8 @@ export function FollowButton({
   };
 
   const sizeClasses = size === "sm" ? "h-8 px-3.5 text-[13px]" : "h-9 px-4 text-[13px]";
-  const tone = !verified
-    ? "bg-orange shadow-lg shadow-orange/25 hover:bg-orange-soft"
-    : isFollowing
-      ? "bg-white/[.08] hover:bg-white/[.14]"
-      : "bg-white text-black hover:bg-white/90";
+  // Same look signed in or out: "Follow" is the brand orange, "Following" is muted.
+  const tone = verified && isFollowing ? "bg-white/[.08] text-white hover:bg-white/[.14]" : "bg-orange text-white hover:bg-orange-soft";
 
   return (
     <button

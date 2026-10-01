@@ -17,6 +17,7 @@ interface CommentRow {
   x_name: string | null;
   x_avatar_url: string | null;
   anon_name: string | null;
+  joined: boolean;
   pool_address: string | null;
   token_y: string | null;
 }
@@ -43,6 +44,7 @@ export async function GET(
       u.x_name,
       u.x_avatar_url,
       u.anon_name,
+      (u.joined_at IS NOT NULL) AS joined,
       (
         SELECT op.pool_address
         FROM open_positions op
@@ -76,6 +78,8 @@ export async function GET(
       xName: r.x_name,
       xAvatarUrl: r.x_avatar_url,
       anonName: r.anon_name,
+      // Only joined members have a public profile to link to.
+      hasProfile: Boolean(r.joined),
     },
     poolAddress: r.pool_address,
     tokenY: r.token_y,
