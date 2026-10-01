@@ -40,7 +40,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const onBoard = pathname === "/";
   const onMe = pathname.startsWith("/profile");
   const onPools = pathname.startsWith("/pools");
-  const onFeed = pathname === "/feed";
+  const onFeed = pathname === "/feed" || pathname.startsWith("/feed/");
   const onInvites = pathname === "/invites";
   // The session knows the member number even for X-only accounts with no connected wallet.
   const isMember = Boolean(session?.memberNumber || user?.memberNumber);
@@ -127,7 +127,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Link href="/pools" className={`rounded-full px-4 py-1.5 ${onPools ? "bg-white/[.1] text-white" : "text-mute hover:text-white"}`}>
                 Pools
               </Link>
-              <Link href="/feed" className={`rounded-full px-4 py-1.5 ${onFeed ? "bg-white/[.1] text-white" : "text-mute hover:text-white"}`}>
+              <Link href="/feed" aria-current={onFeed ? "page" : undefined} className={`rounded-full px-4 py-1.5 ${onFeed ? "bg-white/[.1] text-white" : "text-mute hover:text-white"}`}>
                 Activity
               </Link>
               <Link href="/profile/me" className={`rounded-full px-4 py-1.5 ${onMe ? "bg-white/[.1] text-white" : "text-mute hover:text-white"}`}>
@@ -244,13 +244,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {isMember && (
         <nav className="fixed inset-x-3 bottom-3 z-40 lg:hidden">
           <div className="flex items-center justify-around rounded-[26px] border border-white/[.08] bg-[#15131f] px-2 py-2 shadow-2xl shadow-black/60">
-            <Link href="/" className={`flex w-14 flex-col items-center gap-0.5 text-[11px] font-semibold ${onBoard ? "text-orange" : "text-mute"}`}>
+            <Link href="/" className={`flex min-w-0 flex-1 flex-col items-center gap-0.5 text-[11px] font-semibold ${onBoard ? "text-orange" : "text-mute"}`}>
               <span className="text-[20px]">🏆</span>Ranks
             </Link>
-            <Link href="/pools" className={`flex w-14 flex-col items-center gap-0.5 text-[11px] font-semibold ${onPools ? "text-orange" : "text-mute"}`}>
+            <Link href="/pools" className={`flex min-w-0 flex-1 flex-col items-center gap-0.5 text-[11px] font-semibold ${onPools ? "text-orange" : "text-mute"}`}>
               <span className="text-[20px]">🏊</span>Pools
             </Link>
-            <Link href="/invites" className={`flex w-14 flex-col items-center gap-0.5 text-[11px] font-semibold ${onInvites ? "text-orange" : "text-mute"}`}>
+            <Link href="/invites" className={`flex min-w-0 flex-1 flex-col items-center gap-0.5 text-[11px] font-semibold ${onInvites ? "text-orange" : "text-mute"}`}>
               <span className="text-[20px]">🎟️</span>Invites
             </Link>
             {isSignedIn ? (
@@ -262,7 +262,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 +
               </button>
             )}
-            <Link href="/profile/me" className={`flex w-14 flex-col items-center gap-0.5 text-[11px] font-semibold ${onMe ? "text-orange" : "text-mute"}`}>
+            <Link href="/feed" aria-current={onFeed ? "page" : undefined} className={`flex min-w-0 flex-1 flex-col items-center gap-0.5 text-[11px] font-semibold ${onFeed ? "text-orange" : "text-mute"}`}>
+              <span className="text-[20px]">🌊</span>Activity
+            </Link>
+            <Link href="/profile/me" className={`flex min-w-0 flex-1 flex-col items-center gap-0.5 text-[11px] font-semibold ${onMe ? "text-orange" : "text-mute"}`}>
               <span className="text-[20px]">👤</span>Me
             </Link>
           </div>
