@@ -42,3 +42,35 @@ export function RankMedal({ rank, size = 28, className = "" }: { rank: MedalRank
 export function MedalRing({ rank, children, className = "" }: { rank: MedalRank; children: React.ReactNode; className?: string }) {
   return <span className={`inline-flex shrink-0 rounded-full border-2 p-[3px] ${MEDAL[rank].ring} ${className}`}>{children}</span>;
 }
+
+/** Podium layout shared by the members and countries boards: phones stack 1-2-3, `sm`+ uses DOM order (2-1-3). */
+export const PODIUM_STACK_ORDER: Record<MedalRank, string> = { 1: "order-1 sm:order-none", 2: "order-2 sm:order-none", 3: "order-3 sm:order-none" };
+export const PODIUM_GRID: Record<number, string> = { 1: "sm:max-w-[340px]", 2: "sm:max-w-[660px] sm:grid-cols-2", 3: "sm:max-w-[980px] sm:grid-cols-3" };
+
+/** Loading state matching the podium + two-column rows. */
+export function PodiumSkeleton({
+  testId = "board-skeleton",
+  heights = { first: "h-[92px] sm:h-[328px]", other: "h-[78px] sm:h-[280px]" },
+}: {
+  testId?: string;
+  /** Card heights (phone + `sm`) so the skeleton matches the real podium. */
+  heights?: { first: string; other: string };
+}) {
+  return (
+    <div aria-hidden data-testid={testId}>
+      <div className={`mx-auto mt-6 grid gap-2.5 sm:items-end sm:gap-4 ${PODIUM_GRID[3]}`}>
+        {([2, 1, 3] as const).map((r) => (
+          <div
+            key={r}
+            className={`animate-pulse rounded-2xl border ${MEDAL[r].card} ${PODIUM_STACK_ORDER[r]} ${r === 1 ? heights.first : heights.other}`}
+          />
+        ))}
+      </div>
+      <div className="mt-6 grid gap-2 lg:grid-cols-2 lg:gap-x-4">
+        {Array.from({ length: 8 }, (_, i) => (
+          <div key={i} className="h-[58px] animate-pulse rounded-xl border border-border bg-surface" />
+        ))}
+      </div>
+    </div>
+  );
+}

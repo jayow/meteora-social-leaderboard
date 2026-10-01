@@ -53,6 +53,31 @@ export interface LeaderboardResponse {
   error?: string;
 }
 
+/** One country on the Countries board (/api/leaderboard/countries). */
+export interface CountryLeaderboardEntry {
+  /** Rank for the active metric; null when nobody in the country has a value for it (e.g. no closed positions for win rate). */
+  rank: number | null;
+  /** ISO 3166-1 alpha-2 code. */
+  country: string;
+  /** Total PnL / fees / volume, or the average win rate (0-1), for the active metric and range. */
+  value: number | null;
+  /** Joined members with Meteora activity in this country. */
+  members: number;
+  /** Members counted in the win-rate average (those with closed positions). */
+  winRateMembers: number;
+  /** The country's best member for the active metric. */
+  topLp: { id: number; xHandle: string | null; xName: string | null; xAvatarUrl: string | null; anonName: string | null; value: number | null } | null;
+}
+
+export interface CountryLeaderboardResponse {
+  range: "7d" | "30d" | "all";
+  sort: "pnl" | "fees" | "volume" | "winrate";
+  entries: CountryLeaderboardEntry[];
+  /** Active members without a country (not on the Countries board). */
+  noCountryMembers: number;
+  error?: string;
+}
+
 export interface ApiUser {
   id: number;
   wallet?: string;

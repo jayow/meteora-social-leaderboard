@@ -9,7 +9,8 @@ import { CountrySelect } from "@/components/CountrySelect";
 import { FollowButton } from "@/components/FollowButton";
 import { FollowListModal, type FollowListKind } from "@/components/FollowListModal";
 import { LeaderboardHoverCard } from "@/components/LeaderboardHoverCard";
-import { MEDAL, MedalRing, RankMedal, isMedalRank, type MedalRank } from "@/components/RankMedal";
+import { CountryBoard } from "@/components/CountryBoard";
+import { MEDAL, MedalRing, PODIUM_GRID, PODIUM_STACK_ORDER, PodiumSkeleton, RankMedal, isMedalRank, type MedalRank } from "@/components/RankMedal";
 import { useMe } from "@/components/MeProvider";
 import { displayName, fmtPct, fmtUsd } from "@/lib/format";
 import { applyFollowChange, onFollowChanged } from "@/lib/session-events";
@@ -50,9 +51,7 @@ function metricTone(e: LeaderboardEntry, m: Metric): string {
 
 const profileHref = (e: LeaderboardEntry) => `/profile/${e.xHandle || e.id}`;
 
-/** Phones stack the podium 1-2-3; from `sm` the DOM order (2-1-3) takes over. Static for Tailwind. */
-const STACK_ORDER: Record<MedalRank, string> = { 1: "order-1 sm:order-none", 2: "order-2 sm:order-none", 3: "order-3 sm:order-none" };
-const PODIUM_GRID: Record<number, string> = { 1: "sm:max-w-[340px]", 2: "sm:max-w-[660px] sm:grid-cols-2", 3: "sm:max-w-[980px] sm:grid-cols-3" };
+const STACK_ORDER = PODIUM_STACK_ORDER;
 
 interface HoverHandlers {
   /** Show the preview for this entry next to `el` (immediately for keyboard focus). */
@@ -70,6 +69,9 @@ export default function LeaderboardPage() {
   const [loading, setLoading] = useState(true);
   // "Following" narrows the whole board server-side (scope=following) to people you follow; signed-in only.
   const [who, setWho] = useState<"all" | "following">("all");
+  // Members (people) or Countries (aggregated per country). Following and the country filter only
+  // apply to Members, so their controls hide in the Countries view.
+  const [view, setView] = useState<"members" | "countries">("members");
   const followingOnly = verified && who === "following";
   const [hover, setHover] = useState<{ id: number; rect: DOMRect } | null>(null);
   const [followList, setFollowList] = useState<{
@@ -179,7 +181,7 @@ export default function LeaderboardPage() {
   }, [hover]);
   useEffect(() => () => clearTimers(), []);
   // A different board means different anchors.
-  useEffect(() => setHover(null), [range, metric, country, followingOnly]);
+  useEffect(() => setHover(null), [range, metric, country, followingOnly, view]);
 
   const allEntries = useMemo(() => data?.entries ?? [], [data]);
   // The API already scopes to Following; this only drops someone you just unfollowed without a refetch.
@@ -219,11 +221,24 @@ export default function LeaderboardPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
           <h1 className="text-[28px] font-extrabold leading-tight tracking-tight sm:text-[34px]" data-testid="board-heading">
-            Top LPs by {metricInfo.heading}
+            Top {view === "countries" ? "countries" : "LPs"} by {metricInfo.heading}
           </h1>
           <p className="mt-1 text-[13px] text-mute">{RANGE_TEXT[range]} · live data from Meteora</p>
         </div>
         <div className="flex flex-wrap items-center gap-2" data-testid="board-filters">
+          <div className="flex items-center gap-0.5 rounded-full border border-border bg-surface p-1" role="group" aria-label="Rank" data-testid="view-toggle">
+            {(["members", "countries"] as const).map((v) => (
+              <button
+                key={v}
+                type="button"
+                aria-pressed={view === v}
+                onClick={() => setView(v)}
+                className={`h-8 rounded-full px-3.5 text-[13px] font-semibold transition ${view === v ? "bg-surface-raised text-fg" : "text-mute hover:text-fg"}`}
+              >
+                {v === "members" ? "Members" : "Countries"}
+              </button>
+            ))}
+          </div>
           <Pills
             value={range}
             onChange={setRange}
@@ -233,7 +248,7 @@ export default function LeaderboardPage() {
               { value: "all", label: "All" },
             ]}
           />
-          <CountrySelect value={country} onChange={onCountryChange} allLabel="Global" membersOnly />
+          {view === "members" && <CountrySelect value={country} onChange={onCountryChange} allLabel="Global" membersOnly />}
         </div>
       </div>
 
@@ -253,7 +268,7 @@ export default function LeaderboardPage() {
             </button>
           ))}
         </div>
-        {verified && (
+        {verified && view === "members" && (
           <button
             type="button"
             aria-pressed={who === "following"}
@@ -267,7 +282,7 @@ export default function LeaderboardPage() {
       </div>
 
       {/* Members who aren't on the board yet (first sync pending). Sign in / join live in the header. */}
-      {!loading && isMember && !mine && !followingOnly && (
+      {view === "members" && !loading && isMember && !mine && !followingOnly && (
         <p className="mt-4 text-[13px] text-mute" data-testid="sync-note">
           Your rank shows up after your first sync.{" "}
           <button type="button" onClick={load} className="font-semibold text-fg-secondary hover:text-fg">
@@ -276,22 +291,20 @@ export default function LeaderboardPage() {
         </p>
       )}
 
-      {loading && !data ? (
-        <div aria-hidden data-testid="board-skeleton">
-          <div className={`mx-auto mt-6 grid gap-2.5 sm:items-end sm:gap-4 ${PODIUM_GRID[3]}`}>
-            {([2, 1, 3] as const).map((r) => (
-              <div
-                key={r}
-                className={`animate-pulse rounded-2xl border ${MEDAL[r].card} ${STACK_ORDER[r]} ${r === 1 ? "h-[92px] sm:h-[328px]" : "h-[78px] sm:h-[280px]"}`}
-              />
-            ))}
-          </div>
-          <div className="mt-6 grid gap-2 lg:grid-cols-2 lg:gap-x-4">
-            {Array.from({ length: 8 }, (_, i) => (
-              <div key={i} className="h-[58px] animate-pulse rounded-xl border border-border bg-surface" />
-            ))}
-          </div>
-        </div>
+      {view === "countries" ? (
+        <CountryBoard
+          range={range}
+          metric={metric}
+          metricLabel={metricInfo.label}
+          rangeShort={RANGE_SHORT[range]}
+          onPick={(code) => {
+            onCountryChange(code);
+            setView("members");
+            window.scrollTo({ top: 0 });
+          }}
+        />
+      ) : loading && !data ? (
+        <PodiumSkeleton />
       ) : followingOnly && entries.length === 0 ? (
         <div className="mt-6 rounded-2xl border border-dashed border-border px-6 py-10 text-center text-[13px] text-mute" data-testid="following-empty">
           You&apos;re not following anyone on this board yet. Hit Follow on an LP to see them here.
@@ -331,7 +344,7 @@ export default function LeaderboardPage() {
           )}
         </>
       )}
-      {data?.error && <p className="mt-4 text-[13px] text-dn">{data.error}</p>}
+      {view === "members" && data?.error && <p className="mt-4 text-[13px] text-dn">{data.error}</p>}
 
       {hover && hovered && (
         <LeaderboardHoverCard
