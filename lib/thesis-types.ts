@@ -33,6 +33,8 @@ export interface ThesisPost {
   pool: ThesisPool | null;
   /** Author still has an open position in that pool (from the last sync). */
   authorInPool: boolean;
+  /** PnL of the author's open position(s) in that pool (last sync); null when exited or not fully known. */
+  authorPoolPnl: { usd: number; pct: number | null } | null;
   likeCount: number;
   likedByViewer: boolean;
   /** Viewer wrote it (own posts can't be liked). */

@@ -1,5 +1,5 @@
 import { getPool } from "@/lib/db";
-import type { UserRow } from "@/lib/db/schema";
+import type { OpenPositionDetail, UserRow } from "@/lib/db/schema";
 import type { ComposerPool, ThesisPost } from "@/lib/thesis-types";
 
 /**
@@ -87,6 +87,8 @@ interface ThesisRow {
   t_symbol: string | null;
   t_icon: string | null;
   in_pool: boolean;
+  ap_positions: OpenPositionDetail[] | null;
+  ap_count: number | null;
   like_count: number;
   liked: boolean;
 }
@@ -126,6 +128,7 @@ export async function listTheses(f: ThesisFilter & { viewerId: number | null; li
             p.token_x_icon AS p_token_x_icon, p.token_y_icon AS p_token_y_icon, p.bin_step AS p_bin_step, p.protocol AS p_protocol,
             t.token_x AS t_symbol, t.token_x_icon AS t_icon,
             EXISTS (SELECT 1 FROM open_positions o WHERE o.user_id = tc.user_id AND o.pool_address = tc.pool_address) AS in_pool,
+            ap.positions AS ap_positions, ap.position_count AS ap_count,
             (SELECT count(*)::int FROM thesis_likes l WHERE l.comment_id = tc.id) AS like_count,
             EXISTS (SELECT 1 FROM thesis_likes l WHERE l.comment_id = tc.id AND l.user_id = $1) AS liked
      FROM token_comments tc
@@ -138,6 +141,10 @@ export async function listTheses(f: ThesisFilter & { viewerId: number | null; li
        SELECT o.token_x, o.token_x_icon FROM open_positions o
        WHERE o.token_x_mint = tc.token_mint ORDER BY (o.user_id = tc.user_id) DESC, o.id LIMIT 1
      ) t ON true
+     LEFT JOIN LATERAL (
+       SELECT o.positions, o.position_count FROM open_positions o
+       WHERE o.user_id = tc.user_id AND o.pool_address = tc.pool_address LIMIT 1
+     ) ap ON true
      WHERE ${where}
      ORDER BY tc.created_at DESC, tc.id DESC
      LIMIT $${params.length}`,
@@ -154,6 +161,16 @@ export async function countTheses(f: ThesisFilter): Promise<number> {
     params
   );
   return rows[0]?.n ?? 0;
+}
+
+/** Summed PnL of the author's open positions in the pool, only when every position's numbers are in. */
+function authorPoolPnl(r: ThesisRow): ThesisPost["authorPoolPnl"] {
+  const details = r.ap_positions ?? [];
+  if (details.length === 0 || details.length !== (r.ap_count || 1)) return null;
+  if (!details.every((d) => d.pnlUsd != null)) return null;
+  const usd = details.reduce((s, d) => s + (d.pnlUsd ?? 0), 0);
+  const deposit = details.every((d) => d.depositUsd != null && d.depositUsd > 0) ? details.reduce((s, d) => s + (d.depositUsd ?? 0), 0) : null;
+  return { usd, pct: deposit ? usd / deposit : details.length === 1 ? details[0].pnlPct : null };
 }
 
 function toThesisPost(r: ThesisRow, viewerId: number | null): ThesisPost {
@@ -183,6 +200,7 @@ function toThesisPost(r: ThesisRow, viewerId: number | null): ThesisPost {
           }
         : null,
     authorInPool: Boolean(r.in_pool),
+    authorPoolPnl: r.in_pool ? authorPoolPnl(r) : null,
     likeCount: r.like_count,
     likedByViewer: Boolean(r.liked),
     isOwn: viewerId != null && viewerId === r.user_id,

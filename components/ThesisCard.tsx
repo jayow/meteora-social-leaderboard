@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { Avatar } from "@/components/ui";
 import { ThesisLikeButton } from "@/components/ThesisLikeButton";
-import { timeAgo } from "@/lib/format";
+import { fmtPct, fmtUsd, pnlClass, timeAgo } from "@/lib/format";
 import type { ThesisAuthor, ThesisPool, ThesisPost } from "@/lib/thesis-types";
 
 /** Longer than this (or more than 5 lines) starts clamped with "Show more". */
@@ -89,6 +89,22 @@ export function ThesisBody({ body, size = "md" }: { body: string; size?: "md" | 
   );
 }
 
+/** PnL of the author's open position in the thesis's pool, from their last sync. */
+function AuthorPoolPnl({ pnl }: { pnl: ThesisPost["authorPoolPnl"] }) {
+  if (!pnl) return null;
+  return (
+    <span className={`num shrink-0 text-[12px] font-semibold ${pnlClass(pnl.usd)}`} title="Author's PnL in this pool (last sync)" data-testid="thesis-pool-pnl">
+      {fmtUsd(pnl.usd, { signed: true })}
+      {pnl.pct != null && (
+        <span className="ml-1 opacity-60">
+          {pnl.pct >= 0 ? "+" : "−"}
+          {fmtPct(Math.abs(pnl.pct), 1)}
+        </span>
+      )}
+    </span>
+  );
+}
+
 /**
  * One thesis as a post: avatar, name/@handle, pool tag, time, full text (clamped), like.
  * Used on Poolside, the pool page and profiles so they all look and count the same.
@@ -123,6 +139,7 @@ export function ThesisCard({ post, onDelete, size = "md" }: { post: ThesisPost; 
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
           <ThesisPoolTag pool={post.pool} token={post.token} />
+          <AuthorPoolPnl pnl={post.authorPoolPnl} />
           {post.pool && (
             <span className="text-[12px] text-mute" title="From the author's last sync">
               {post.authorInPool ? "In this pool" : "Exited this pool"}
@@ -146,6 +163,7 @@ export function ThesisCompact({ post }: { post: ThesisPost }) {
     <article className="rounded-xl border border-border bg-bg p-3" data-testid="thesis-card" data-thesis-id={post.id}>
       <div className="flex items-center gap-2">
         <ThesisPoolTag pool={post.pool} token={post.token} />
+        <AuthorPoolPnl pnl={post.authorPoolPnl} />
         <time dateTime={post.createdAt} title={new Date(post.createdAt).toLocaleString()} className="ml-auto shrink-0 text-[11px] text-mute">
           {timeAgo(post.createdAt)}
         </time>
