@@ -83,15 +83,17 @@ body {
 
 /* Wallet adapter modal: match the Meteora palette */
 .wallet-adapter-modal-wrapper {
-  background: #15131f !important;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 20px !important;
+  /* Same opaque panel as components/Modal.tsx */
+  background: #1a1623 !important;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 24px !important;
 }
 .wallet-adapter-modal-list .wallet-adapter-button:hover {
   background: rgba(255, 92, 26, 0.12) !important;
 }
 .wallet-adapter-modal-overlay {
-  background: rgba(0, 0, 0, 0.8) !important;
+  /* Fully opaque backdrop, same as components/Modal.tsx */
+  background: #0c0a10 !important;
 }
 .wallet-adapter-modal-title,
 .wallet-adapter-modal-list .wallet-adapter-button {

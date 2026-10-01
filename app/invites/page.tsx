@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useMe } from "@/components/MeProvider";
 import { useRouter } from "next/navigation";
 
@@ -13,27 +14,42 @@ interface InviteCode {
 }
 
 export default function InvitesPage() {
-  const { loading, user } = useMe();
+  // Decide from the session (not the profile, which loads later): on a direct load or refresh the session
+  // hasn't answered yet on the first render, and treating that as "signed out" bounced members away.
+  const { sessionChecked, userId } = useMe();
   const router = useRouter();
   const [codes, setCodes] = useState<InviteCode[]>([]);
-  const [loadingCodes, setLoadingCodes] = useState(true);
+  const [status, setStatus] = useState<"loading" | "ready" | "not-member" | "error">("loading");
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!loading && !user) {
-      router.push("/");
+    if (!sessionChecked) return;
+    if (!userId) {
+      router.replace("/");
       return;
     }
-    if (loading || !user) return;
-    
-    fetch("/api/invites")
-      .then((res) => res.json())
-      .then((data: { codes: InviteCode[] }) => {
+    let cancelled = false;
+    setStatus("loading");
+    fetch("/api/invites", { cache: "no-store" })
+      .then(async (res) => {
+        if (cancelled) return;
+        if (res.status === 401) {
+          setStatus("not-member");
+          return;
+        }
+        if (!res.ok) throw new Error(`invites ${res.status}`);
+        const data = (await res.json()) as { codes: InviteCode[] };
+        if (cancelled) return;
         setCodes(data.codes);
-        setLoadingCodes(false);
+        setStatus("ready");
       })
-      .catch(() => setLoadingCodes(false));
-  }, [loading, user, router]);
+      .catch(() => {
+        if (!cancelled) setStatus("error");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionChecked, userId, router]);
 
   const copyLink = (code: string) => {
     const link = `${window.location.origin}/join?code=${code}`;
@@ -42,10 +58,28 @@ export default function InvitesPage() {
     setTimeout(() => setCopiedCode(null), 2000);
   };
 
-  if (loading || loadingCodes) {
+  if (!sessionChecked || !userId || status === "loading") {
     return (
       <main className="mx-auto max-w-[800px] px-4 py-20">
-        <p className="text-center text-mute">Loading...</p>
+        <p className="text-center text-mute">Loading…</p>
+      </main>
+    );
+  }
+
+  if (status !== "ready") {
+    return (
+      <main className="mx-auto max-w-[800px] px-4 py-20 text-center">
+        <h1 className="mb-3 text-3xl font-bold">Your Invites</h1>
+        {status === "not-member" ? (
+          <p className="text-mute">
+            Invites are for beta members.{" "}
+            <Link href="/join" className="font-semibold text-orange hover:text-orange-soft">
+              Join the beta →
+            </Link>
+          </p>
+        ) : (
+          <p className="text-mute">Couldn&apos;t load your invites. Try refreshing.</p>
+        )}
       </main>
     );
   }

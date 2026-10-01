@@ -23,7 +23,7 @@ export function CountrySelect({ value, onChange, allLabel = "All countries", dis
   const options = membersOnly ? (apiOptions ?? []) : allOptions;
 
   return (
-    <label className="relative flex h-10 shrink-0 items-center gap-2 rounded-full border border-white/[.08] bg-[#12121C] pl-3 pr-8 text-[13px] font-semibold shadow-lg" style={{ zIndex: 50 }}>
+    <label className="relative flex h-10 shrink-0 items-center gap-2 rounded-full border border-white/[.08] bg-[#12121C] pl-3 pr-8 text-[13px] font-semibold shadow-lg">
       {value ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={flagUrl(value, 40)} alt="" className="h-[12px] w-[17px] rounded-[2px] object-cover" />

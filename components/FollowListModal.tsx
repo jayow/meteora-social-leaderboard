@@ -99,7 +99,7 @@ export function FollowListModal({
   // trap this fixed overlay inside the card.
   if (typeof document === "undefined") return null;
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4" onMouseDown={onClose}>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#0C0A10] px-4" onMouseDown={onClose}>
       <div
         ref={dialogRef}
         role="dialog"

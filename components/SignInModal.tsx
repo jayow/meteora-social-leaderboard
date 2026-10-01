@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { WalletName } from "@solana/wallet-adapter-base";
 import { useWallet } from "@solana/wallet-adapter-react";
+import { Modal } from "@/components/Modal";
 import { XIcon } from "@/components/ui";
 import { WalletPicker } from "@/components/WalletPicker";
 import { loginMessage } from "@/lib/login-message";
@@ -30,7 +31,6 @@ interface SignInModalProps {
 
 export function SignInModal({ open, onClose, onSuccess, initialStep = "methods" }: SignInModalProps) {
   const { wallet, select, connect, connected, connecting, publicKey, signMessage } = useWallet();
-  const ref = useRef<HTMLDivElement>(null);
   const [step, setStep] = useState<SignInStep>(initialStep);
   const [pending, setPending] = useState<WalletName | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -43,22 +43,6 @@ export function SignInModal({ open, onClose, onSuccess, initialStep = "methods" 
     setPending(null);
     setError(null);
   }, [open, initialStep]);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
-    };
-    const onEsc = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("mousedown", onDoc);
-    document.addEventListener("keydown", onEsc);
-    return () => {
-      document.removeEventListener("mousedown", onDoc);
-      document.removeEventListener("keydown", onEsc);
-    };
-  }, [open, onClose]);
 
   const signIn = useCallback(async (): Promise<void> => {
     if (!publicKey) return;
@@ -133,82 +117,74 @@ export function SignInModal({ open, onClose, onSuccess, initialStep = "methods" 
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4">
-      <div
-        ref={ref}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="signin-title"
-        className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl border border-white/10 bg-[#1A1623] p-6 shadow-2xl"
-      >
-        {step === "methods" ? (
-          <>
-            <div className="mb-6 text-center">
-              <h2 id="signin-title" className="text-2xl font-bold text-white">Sign in</h2>
-              <p className="mt-2 text-sm text-white/60">Choose your sign in method</p>
-            </div>
+    <Modal onClose={onClose} labelledBy="signin-title" className="max-w-md p-6">
+      {step === "methods" ? (
+        <>
+          <div className="mb-6 text-center">
+            <h2 id="signin-title" className="text-2xl font-bold text-white">Sign in</h2>
+            <p className="mt-2 text-sm text-white/60">Choose your sign in method</p>
+          </div>
 
-            <div className="space-y-3">
+          <div className="space-y-3">
+            <button
+              type="button"
+              onClick={() => {
+                setError(null);
+                setStep("wallets");
+              }}
+              className="flex h-14 w-full items-center justify-center gap-3 rounded-2xl border border-orange/30 bg-orange text-base font-semibold text-white shadow-lg shadow-orange/25 transition hover:bg-orange-soft"
+            >
+              <span className="text-xl">👛</span>
+              Connect wallet
+            </button>
+
+            <button
+              type="button"
+              onClick={handleXConnect}
+              className="flex h-14 w-full items-center justify-center gap-3 rounded-2xl border border-white/20 bg-white/[.12] text-base font-semibold text-white transition hover:bg-white/[.18]"
+            >
+              <XIcon className="h-4 w-4" />
+              Continue with X
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="mb-5 flex items-center gap-3">
+            {initialStep === "methods" && (
               <button
                 type="button"
                 onClick={() => {
+                  setPending(null);
                   setError(null);
-                  setStep("wallets");
+                  setStep("methods");
                 }}
-                className="flex h-14 w-full items-center justify-center gap-3 rounded-2xl border border-orange/30 bg-orange text-base font-semibold text-white shadow-lg shadow-orange/25 transition hover:bg-orange-soft"
+                className="flex h-9 w-9 items-center justify-center rounded-full text-white/70 transition hover:bg-white/[.08] hover:text-white"
+                aria-label="Back"
               >
-                <span className="text-xl">👛</span>
-                Connect wallet
+                ←
               </button>
-
-              <button
-                type="button"
-                onClick={handleXConnect}
-                className="flex h-14 w-full items-center justify-center gap-3 rounded-2xl border border-white/20 bg-white/[.12] text-base font-semibold text-white transition hover:bg-white/[.18]"
-              >
-                <XIcon className="h-4 w-4" />
-                Continue with X
-              </button>
+            )}
+            <div>
+              <h2 id="signin-title" className="text-xl font-bold text-white">
+                {initialStep === "wallets" ? "Change wallet" : "Connect a wallet"}
+              </h2>
+              <p className="mt-0.5 text-[13px] text-white/60">Pick a wallet, then sign a free message to verify.</p>
             </div>
-          </>
-        ) : (
-          <>
-            <div className="mb-5 flex items-center gap-3">
-              {initialStep === "methods" && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPending(null);
-                    setError(null);
-                    setStep("methods");
-                  }}
-                  className="flex h-9 w-9 items-center justify-center rounded-full text-white/70 transition hover:bg-white/[.08] hover:text-white"
-                  aria-label="Back"
-                >
-                  ←
-                </button>
-              )}
-              <div>
-                <h2 id="signin-title" className="text-xl font-bold text-white">
-                  {initialStep === "wallets" ? "Change wallet" : "Connect a wallet"}
-                </h2>
-                <p className="mt-0.5 text-[13px] text-white/60">Pick a wallet, then sign a free message to verify.</p>
-              </div>
-            </div>
-            <WalletPicker busyName={pending} onPick={handlePick} />
-          </>
-        )}
+          </div>
+          <WalletPicker busyName={pending} onPick={handlePick} />
+        </>
+      )}
 
-        {error && (
-          <p role="alert" className="mt-4 rounded-xl border border-dn/30 bg-dn/10 px-3 py-2 text-[13px] text-white">
-            {error}
-          </p>
-        )}
+      {error && (
+        <p role="alert" className="mt-4 rounded-xl border border-dn/30 bg-dn/10 px-3 py-2 text-[13px] text-white">
+          {error}
+        </p>
+      )}
 
-        <button type="button" onClick={onClose} className="mt-6 w-full text-sm text-white/60 hover:text-white">
-          Cancel
-        </button>
-      </div>
-    </div>
+      <button type="button" onClick={onClose} className="mt-6 w-full text-sm text-white/60 hover:text-white">
+        Cancel
+      </button>
+    </Modal>
   );
 }

@@ -485,7 +485,7 @@ function CommentComposer({
               type="button"
               onClick={onPost}
               disabled={!commentText.trim() || posting || hasPosition === null}
-              className="h-9 rounded-full bg-orange px-5 text-[13px] font-bold disabled:opacity-60"
+              className="h-9 rounded-full bg-orange px-5 text-[13px] font-bold hover:bg-orange-soft disabled:cursor-not-allowed disabled:bg-white/[.08] disabled:text-white/40 disabled:hover:bg-white/[.08]"
             >
               {posting ? "Posting..." : "Post"}
             </button>

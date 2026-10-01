@@ -9,6 +9,7 @@ import { useMe } from "@/components/MeProvider";
 import { Avatar, Flag, Pills, PoolChip, StatTile, XIcon } from "@/components/ui";
 import { PnLCalendar } from "@/components/PnLCalendar";
 import { CountrySelect } from "@/components/CountrySelect";
+import { Modal } from "@/components/Modal";
 import { OpenPositions } from "@/components/OpenPositions";
 import { FollowButton } from "@/components/FollowButton";
 import { FollowListModal, type FollowListKind } from "@/components/FollowListModal";
@@ -296,7 +297,7 @@ function Profile() {
                   <button
                     type="button"
                     onClick={() => setShareModalOpen(true)}
-                    className={`h-9 rounded-full px-4 text-[13px] font-bold ${mine ? "bg-orange text-white shadow-lg shadow-orange/30 hover:bg-orange-soft" : "bg-white/[.1] hover:bg-white/[.16]"}`}
+                    className={`h-9 shrink-0 whitespace-nowrap rounded-full px-3.5 text-[13px] font-bold sm:px-4 ${mine ? "bg-orange text-white shadow-lg shadow-orange/30 hover:bg-orange-soft" : "bg-white/[.1] hover:bg-white/[.16]"}`}
                   >
                     Share PnL
                   </button>
@@ -713,9 +714,19 @@ function ProfileBanner({ user, mine, onUpdated }: { user: ApiUser; mine: boolean
       </div>
 
       {editing && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
-          <div className="w-full max-w-lg rounded-2xl border border-white/10 bg-[#12121C] p-6 shadow-2xl">
-            <h3 className="text-[18px] font-bold">Profile banner</h3>
+        // Portaled, opaque modal: it used to be trapped inside the glass identity card.
+        <Modal
+          onClose={() => {
+            if (uploading) return;
+            setEditing(false);
+            setPreview(null);
+            setFileName(null);
+            setError(null);
+          }}
+          labelledBy="banner-modal-title"
+          className="max-w-lg p-6"
+        >
+            <h3 id="banner-modal-title" className="text-[18px] font-bold">Profile banner</h3>
             <p className="mt-1 text-[13px] text-mute">Upload a JPG, PNG, or WebP up to 5MB. It will be cropped to 3:1 aspect ratio.</p>
 
             <div className="mt-4">
@@ -816,14 +827,13 @@ function ProfileBanner({ user, mine, onUpdated }: { user: ApiUser; mine: boolean
                   type="button"
                   onClick={upload}
                   disabled={!preview || uploading}
-                  className="h-9 rounded-full bg-orange px-4 text-[13px] font-bold disabled:opacity-60"
+                  className="h-9 rounded-full bg-orange px-4 text-[13px] font-bold hover:bg-orange-soft disabled:cursor-not-allowed disabled:bg-white/[.08] disabled:text-white/40 disabled:hover:bg-white/[.08]"
                 >
                   {uploading ? "Uploading…" : "Save"}
                 </button>
               </div>
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
     </>
   );

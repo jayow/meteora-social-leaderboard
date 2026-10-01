@@ -6,14 +6,28 @@ import { displayName, fmtUsd, fmtPct } from "@/lib/format";
 export const dynamic = "force-dynamic";
 export const revalidate = 600;
 
-const APP_URL = "https://web-production-c8f29.up.railway.app";
+/**
+ * Origin this request came in on (honours the proxy's forwarded host/proto), so the card's own assets and
+ * rank lookup hit the same deployment that renders it: prod on Railway, the tunnel/localhost in dev.
+ * APP_URL overrides it when set.
+ */
+function requestOrigin(req: NextRequest): string {
+  const override = process.env.APP_URL?.trim();
+  if (override) return override.replace(/\/+$/, "");
+  const host = req.headers.get("x-forwarded-host")?.split(",")[0]?.trim();
+  if (host) {
+    const proto = req.headers.get("x-forwarded-proto")?.split(",")[0]?.trim() || "https";
+    return `${proto}://${host}`;
+  }
+  return req.nextUrl.origin;
+}
 
-async function getUserRank(userId: number, range: string): Promise<number | null> {
+async function getUserRank(origin: string, userId: number, range: string): Promise<number | null> {
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 3000); // 3s timeout
     
-    const res = await fetch(`${APP_URL}/api/leaderboard?range=${range}&sort=pnl`, {
+    const res = await fetch(`${origin}/api/leaderboard?range=${range}&sort=pnl`, {
       next: { revalidate: 600 },
       signal: controller.signal,
     });
@@ -52,16 +66,11 @@ export async function GET(
 
     const snap = toPublicSnapshot(snapRow);
 
-    // Get PnL, fees, win rate, and top pool based on range
+    // Same values and formatting as the profile page's Meteora stats card, so the two always agree.
     const pnlMap: Record<string, number | null> = {
       "7d": snap.pnl7d,
       "30d": snap.pnl30d,
       all: snap.totalPnlUsd,
-    };
-    const feesMap: Record<string, number | null> = {
-      "7d": null, // Not tracked
-      "30d": snap.fees30dUsd,
-      all: snap.feesUsd,
     };
     const winRateMap: Record<string, number | null> = {
       "7d": snap.winRate7d,
@@ -70,11 +79,14 @@ export async function GET(
     };
 
     const pnl = pnlMap[range] ?? 0;
-    const fees = feesMap[range] ?? snap.fees30dUsd ?? 0;
+    // The profile shows lifetime fees on "All" and 30D fees otherwise (7D fees aren't tracked per snapshot).
+    const fees = range === "all" ? snap.feesUsd : snap.fees30dUsd;
+    const feesLabel = range === "all" ? "Fees Earned" : "Fees Earned (30D)";
     const winRate = winRateMap[range];
     const topPool = snap.topPool?.name || null;
 
-    const rank = await getUserRank(user.id, range);
+    const origin = requestOrigin(req);
+    const rank = await getUserRank(origin, user.id, range);
 
     const rangeLabel = range === "7d" ? "7D" : range === "30d" ? "30D" : "All-time";
     const handle = displayName(user);
@@ -82,8 +94,10 @@ export async function GET(
       ? user.xAvatarUrl.replace("_normal", "_400x400")
       : `https://api.dicebear.com/9.x/notionists/svg?seed=${user.id}`;
 
-    const pnlColor = pnl >= 0 ? "#00FF94" : "#FF3D7F";
-    const pnlSign = pnl > 0 ? "+" : pnl < 0 ? "" : "";
+    // Theme up/down colours (text-up / text-dn on the profile).
+    const pnlColor = pnl >= 0 ? "#22C98A" : "#F2546B";
+    const pnlText = fmtUsd(pnl, { signed: true, compact: false });
+    const pnlFontSize = pnlText.length > 12 ? 88 : pnlText.length > 10 ? 104 : 120;
 
     return new ImageResponse(
       (
@@ -113,7 +127,7 @@ export async function GET(
             {/* Logo */}
             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
               <img
-                src={`${APP_URL}/logo-mark.svg`}
+                src={`${origin}/logo-mark.svg`}
                 width="38"
                 height="33"
                 alt="Pool Party"
@@ -215,7 +229,7 @@ export async function GET(
             </div>
             <div
               style={{
-                fontSize: "120px",
+                fontSize: `${pnlFontSize}px`,
                 fontWeight: 900,
                 color: pnlColor,
                 lineHeight: 1,
@@ -223,7 +237,7 @@ export async function GET(
                 textShadow: `0 0 80px ${pnlColor}80`,
               }}
             >
-              {`${pnlSign}${fmtUsd(Math.abs(pnl), { compact: true })}`}
+              {pnlText}
             </div>
           </div>
 
@@ -251,7 +265,7 @@ export async function GET(
                 Win Rate
               </div>
               <div style={{ fontSize: "36px", fontWeight: 800, color: "#FFF4EA" }}>
-                {winRate != null ? fmtPct(winRate * 100, 1) : "—"}
+                {fmtPct(winRate, 1)}
               </div>
             </div>
             <div
@@ -266,7 +280,7 @@ export async function GET(
               }}
             >
               <div style={{ fontSize: "16px", color: "#999", marginBottom: "8px" }}>
-                Fees Earned
+                {feesLabel}
               </div>
               <div
                 style={{ fontSize: "36px", fontWeight: 800, color: "#FF5C1A" }}
@@ -309,7 +323,7 @@ export async function GET(
                 }}
               >
                 <div style={{ fontSize: "16px", color: "#999", marginBottom: "8px" }}>
-                  Top Pool
+                  Top Pool (30D)
                 </div>
                 <div
                   style={{
