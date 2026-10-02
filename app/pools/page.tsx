@@ -52,14 +52,14 @@ function TokenDot({ icon, label, className = "" }: { icon: string | null; label:
       <img
         src={icon}
         alt={label}
-        className={`h-8 w-8 rounded-full border-2 border-surface bg-surface-raised object-cover ${className}`}
+        className={`h-8 w-8 rounded-full border-2 border-surface transition group-hover:border-surface-raised bg-surface-raised object-cover ${className}`}
         loading="lazy"
         onError={() => setFailedIcon(icon)}
       />
     );
   }
   return (
-    <span className={`flex h-8 w-8 items-center justify-center rounded-full border-2 border-surface bg-border-strong text-sm font-bold ${className}`}>
+    <span className={`flex h-8 w-8 items-center justify-center rounded-full border-2 border-surface transition group-hover:border-surface-raised bg-border-strong text-sm font-bold ${className}`}>
       {label.slice(0, 1)}
     </span>
   );
@@ -410,7 +410,7 @@ function PoolRow({
   const [x = "?", y = "?"] = [pool.tokenX, pool.tokenY];
 
   return (
-    <div className="relative flex flex-wrap items-center gap-x-3 gap-y-2 rounded-tile border border-border bg-surface px-3 py-2.5 transition hover:border-border-strong sm:flex-nowrap sm:px-4" data-testid="pool-row">
+    <div className="group relative flex flex-wrap items-center gap-x-3 gap-y-2 rounded-tile border border-border bg-surface px-3 py-2.5 transition hover:border-border-strong hover:bg-surface-raised sm:flex-nowrap sm:px-4" data-testid="pool-row">
       <Link href={`/pools/${pool.poolAddress}`} prefetch={false} className="absolute inset-0 rounded-tile" aria-label={`${x}-${y} pool`} />
 
       <div className="flex w-14 shrink-0">

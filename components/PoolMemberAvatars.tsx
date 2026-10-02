@@ -62,7 +62,7 @@ export function PoolMemberAvatars({ poolAddress, members, isSignedIn }: PoolMemb
               <img
                 src={avatar}
                 alt={title}
-                className="h-6 w-6 rounded-full border-2 border-surface bg-surface-raised object-cover"
+                className="h-6 w-6 rounded-full border-2 border-surface bg-surface-raised transition group-hover:border-surface-raised object-cover"
                 loading="lazy"
               />
             </Link>
@@ -70,7 +70,7 @@ export function PoolMemberAvatars({ poolAddress, members, isSignedIn }: PoolMemb
         })}
         {remainingCount > 0 && (
           <div
-            className="num flex h-6 min-w-6 items-center justify-center rounded-full border-2 border-surface bg-surface-raised px-1 text-xs font-semibold text-fg-secondary"
+            className="num flex h-6 min-w-6 items-center justify-center rounded-full border-2 border-surface bg-surface-raised transition group-hover:border-surface-raised px-1 text-xs font-semibold text-fg-secondary"
             title={`+${remainingCount} more`}
           >
             +{remainingCount}

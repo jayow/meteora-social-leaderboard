@@ -179,10 +179,7 @@ export function ActivityFeed() {
   return (
     <section className="mx-auto w-full max-w-[680px] px-4 pb-10 pt-6 md:px-0">
       <div className="mb-5">
-        <PageHeader
-          title="Poolside"
-          description="Theses from LPs on the pools they're in, plus what members are up to."
-        />
+        <PageHeader title="Poolside" />
       </div>
 
       <Composer onPosted={onPosted} />

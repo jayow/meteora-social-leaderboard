@@ -9,7 +9,7 @@ import { BadgeRow } from "@/components/Badges";
 import { useMe } from "@/components/MeProvider";
 import { ThesisCompact } from "@/components/ThesisCard";
 import type { ThesisPost } from "@/lib/thesis-types";
-import { Avatar, Flag, Pills, StatTile, XIcon } from "@/components/ui";
+import { Avatar, Flag, Pills, XIcon } from "@/components/ui";
 import { PnLCalendar } from "@/components/PnLCalendar";
 import { CountrySelect } from "@/components/CountrySelect";
 import { Modal, ModalClose } from "@/components/Modal";
@@ -77,6 +77,7 @@ function Profile() {
   // Owner settings (X, country, Poolside sharing) live in a modal so the public card stays a profile.
   const [editOpen, setEditOpen] = useState(() => search.get("connect") === "x");
   const [followList, setFollowList] = useState<FollowListKind | null>(null);
+  const desktop = useIsDesktop();
   const closeFollowList = useCallback(() => setFollowList(null), []);
 
   const load = useCallback(async (id: string) => {
@@ -311,8 +312,9 @@ function Profile() {
       )}
 
       <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[380px_minmax(0,1fr)]">
-        {/* Identity card */}
-        <section className="card h-fit">
+        {/* Identity card, with the calendar under it on desktop so it reads at a glance. */}
+        <div className="h-fit min-w-0 space-y-5">
+        <section className="card">
           <ProfileBanner user={user} mine={mine} onUpdated={() => load(target!)} />
           <div className="relative px-5 pb-5">
             <div className="relative -mt-12 flex items-end justify-between">
@@ -364,6 +366,8 @@ function Profile() {
             {/* {mine && <WalletsSection />} */}
           </div>
         </section>
+        {desktop && <CalendarCard userId={user.id} />}
+        </div>
 
         {/* Stats + calendar */}
         <section className="min-w-0 space-y-5">
@@ -388,12 +392,12 @@ function Profile() {
                   )}
                 </div>
                 {/* Open / closed counts live with Open positions below; the range label sits on the toggle. */}
-                <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  <StatTile label="Total value" value={fmtUsd(snap.portfolioValueUsd)} sub="open positions" />
-                  <StatTile label="Win rate" value={fmtPct(winBy[range], 1)} />
-                  <StatTile label="Volume" value={fmtUsd(volBy[range])} sub="deposited" />
-                  <StatTile label="Fees earned" value={fmtUsd(range === "all" ? snap.feesUsd : snap.fees30dUsd)} sub={range === "7d" ? "last 30 days" : undefined} tone="up" />
-                </div>
+                <StatStrip>
+                  <StatFigure label="Total value" value={fmtUsd(snap.portfolioValueUsd)} sub="in open positions" />
+                  <StatFigure label="Win rate" value={fmtPct(winBy[range], 1)} />
+                  <StatFigure label="Volume" value={fmtUsd(volBy[range])} sub="deposited" />
+                  <StatFigure label="Fees earned" value={fmtUsd(range === "all" ? snap.feesUsd : snap.fees30dUsd)} sub={range === "7d" ? "last 30 days" : undefined} tone="up" />
+                </StatStrip>
                 {user.walletCount !== undefined && user.walletCount > 1 && (
                   <div className="mt-3 text-sm text-mute">Combined across {user.walletCount} wallets</div>
                 )}
@@ -403,12 +407,9 @@ function Profile() {
             )}
           </div>
 
-          <div className="card p-5">
-            <h2 className="mb-4 text-lg font-semibold" title="Daily closed-position PnL, live from Meteora's portfolio calendar">PnL calendar</h2>
-            <PnLCalendar userId={user.id} />
-          </div>
-
           <OpenPositions userId={user.id} mine={mine} refreshKey={snap?.updatedAt ?? null} />
+
+          {!desktop && <CalendarCard userId={user.id} />}
 
           <RecentTheses userId={user.id} />
         </section>
@@ -437,17 +438,57 @@ function Profile() {
   );
 }
 
+/** Desktop (lg+) layout flag; the calendar mounts in exactly one column so it fetches once. */
+function useIsDesktop(): boolean {
+  const [desktop, setDesktop] = useState(false);
+  useEffect(() => {
+    const m = window.matchMedia("(min-width: 1024px)");
+    const update = () => setDesktop(m.matches);
+    update();
+    m.addEventListener("change", update);
+    return () => m.removeEventListener("change", update);
+  }, []);
+  return desktop;
+}
+
+/** Compact month calendar: a glance at daily closed PnL. */
+function CalendarCard({ userId }: { userId: number }) {
+  return (
+    <section className="card p-5">
+      <h2 className="mb-3 text-md font-semibold" title="Daily closed-position PnL, live from Meteora's portfolio calendar">
+        PnL calendar
+      </h2>
+      <PnLCalendar userId={userId} compact />
+    </section>
+  );
+}
+
+/** Open row of figures under the hero PnL: a hairline above, thin rules between, no boxes. */
+function StatStrip({ children }: { children: React.ReactNode }) {
+  return <dl className="mt-5 grid grid-cols-2 gap-y-4 border-t border-border pt-4 sm:grid-cols-4">{children}</dl>;
+}
+
+function StatFigure({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: "up" }) {
+  return (
+    <div className="min-w-0 border-border even:border-l even:pl-4 sm:border-l sm:pl-5 sm:first:border-l-0 sm:first:pl-0">
+      <dt className="truncate text-sm text-mute">{label}</dt>
+      <dd className={`num mt-0.5 text-lg font-semibold ${tone === "up" ? "text-up" : "text-fg"}`}>{value}</dd>
+      {sub && <dd className="truncate text-xs text-mute">{sub}</dd>}
+    </div>
+  );
+}
+
 /** Zeroed stats + a gentle nudge to Meteora for accounts with no LP history yet. */
 function NoActivityStats({ mine }: { mine: boolean }) {
   return (
     <div data-testid="no-activity">
       <div className="text-sm text-mute">PnL</div>
       <div className="num mt-1 text-3xl font-bold tracking-tight text-fg-secondary">{fmtUsd(0, { compact: false })}</div>
-      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <StatTile label="Total value" value={fmtUsd(0)} sub="open positions" />
-        <StatTile label="Volume" value={fmtUsd(0)} sub="deposited" />
-        <StatTile label="Fees earned" value={fmtUsd(0)} tone="up" />
-      </div>
+      <StatStrip>
+        <StatFigure label="Total value" value={fmtUsd(0)} sub="in open positions" />
+        <StatFigure label="Volume" value={fmtUsd(0)} sub="deposited" />
+        <StatFigure label="Fees earned" value={fmtUsd(0)} tone="up" />
+      </StatStrip>
       <p className="mt-4 text-base text-mute">
         No Meteora LP activity yet.{" "}
         {mine && (
@@ -1130,15 +1171,15 @@ function ProfileSkeleton({ note = null }: { note?: string | null }) {
               <div className="skeleton h-9 w-36 rounded-full" />
             </div>
             <div className="skeleton mt-5 h-10 w-56" />
-            <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div className="mt-5 grid grid-cols-2 gap-4 border-t border-border pt-4 sm:grid-cols-4">
               {Array.from({ length: 4 }, (_, i) => (
-                <div key={i} className="skeleton h-[76px] rounded-tile" />
+                <div key={i} className="skeleton h-[52px] rounded-tile" />
               ))}
             </div>
           </div>
           <div className="card p-5">
             <div className="skeleton h-5 w-28" />
-            <div className="skeleton mt-5 h-[420px] rounded-tile sm:h-[500px] md:h-[580px]" />
+            <div className="skeleton mt-5 h-[240px] rounded-tile" />
           </div>
         </section>
       </div>

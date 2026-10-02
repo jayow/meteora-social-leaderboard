@@ -40,7 +40,7 @@ export function ThesisPoolTag({ pool, token }: { pool: ThesisPool | null; token:
           <TokenDot icon={pool.yIcon} label={y} className="-ml-1.5" />
         </span>
         <span className="truncate">{pool.name}</span>
-        {pool.binStep != null && <span className="shrink-0 font-medium text-mute">{binLabel(pool.binStep)}</span>}
+        {pool.binStep != null && <span className="hidden shrink-0 font-medium text-mute sm:inline">{binLabel(pool.binStep)}</span>}
       </Link>
     );
   }
@@ -106,7 +106,7 @@ function AuthorPoolPnl({ pnl }: { pnl: ThesisPost["authorPoolPnl"] }) {
 }
 
 /**
- * One thesis as a post: avatar, name/@handle, pool tag, time, full text (clamped), like.
+ * One thesis as a post: avatar, name/@handle and time, the text (clamped), then pool tag, PnL and like.
  * Used on Poolside, the pool page and profiles so they all look and count the same.
  */
 export function ThesisCard({ post, onDelete, size = "md" }: { post: ThesisPost; onDelete?: () => void; size?: "md" | "sm" }) {
@@ -132,7 +132,11 @@ export function ThesisCard({ post, onDelete, size = "md" }: { post: ThesisPost; 
             {timeAgo(post.createdAt)}
           </time>
         </div>
-        <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+        <div className="mt-1">
+          <ThesisBody body={post.body} size={size} />
+        </div>
+        {/* Context after the text: pool and the author's PnL in it on the left, actions on the right. */}
+        <div className="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-1.5">
           <ThesisPoolTag pool={post.pool} token={post.token} />
           <AuthorPoolPnl pnl={post.authorPoolPnl} />
           {/* "In this pool" is the default (the PnL beside it says so); only an exit is worth a word. */}
@@ -141,18 +145,14 @@ export function ThesisCard({ post, onDelete, size = "md" }: { post: ThesisPost; 
               Exited this pool
             </span>
           )}
-        </div>
-        <div className="mt-2">
-          <ThesisBody body={post.body} size={size} />
-        </div>
-        {/* Delete sits on the like row so your own posts' bodies line up with everyone else's. */}
-        <div className="-ml-2 mt-1 flex items-center justify-between">
-          <ThesisLikeButton thesisId={post.id} likeCount={post.likeCount} liked={post.likedByViewer} isOwn={post.isOwn} />
-          {onDelete && (
-            <button type="button" onClick={onDelete} className="btn-ghost h-8 shrink-0 px-3 text-dn hover:text-dn">
-              Delete
-            </button>
-          )}
+          <span className="-mr-2 ml-auto flex items-center">
+            <ThesisLikeButton thesisId={post.id} likeCount={post.likeCount} liked={post.likedByViewer} isOwn={post.isOwn} />
+            {onDelete && (
+              <button type="button" onClick={onDelete} className="btn-ghost h-8 shrink-0 px-3 text-dn hover:text-dn">
+                Delete
+              </button>
+            )}
+          </span>
         </div>
       </div>
     </article>

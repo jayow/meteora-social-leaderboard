@@ -6,7 +6,6 @@ import { useParams } from "next/navigation";
 import { useMe } from "@/components/MeProvider";
 import { Avatar, Flag, Tag, binLabel } from "@/components/ui";
 import { EmptyState } from "@/components/EmptyState";
-import { FollowButton } from "@/components/FollowButton";
 import { avatarFor, displayName, fmtPositions, fmtUsd } from "@/lib/format";
 import { meteoraPoolUrl } from "@/lib/meteora-links";
 import { applyFollowChange, onFollowChanged } from "@/lib/session-events";
@@ -177,7 +176,7 @@ export default function PoolDetailPage() {
 
   if (loading && !data) {
     return (
-      <main className="mx-auto max-w-[900px] px-4 pb-10 pt-6 lg:px-6">
+      <main className="mx-auto max-w-[1120px] px-4 pb-10 pt-6 lg:px-6">
         <div className="card flex items-center gap-4 p-5 sm:p-6" aria-busy="true" aria-label="Loading pool">
           <div className="flex shrink-0">
             <span className="skeleton h-12 w-12 rounded-full" />
@@ -207,7 +206,7 @@ export default function PoolDetailPage() {
 
   if (!pool) {
     return (
-      <main className="mx-auto max-w-[900px] px-4 pb-10 pt-6 lg:px-6">
+      <main className="mx-auto max-w-[1120px] px-4 pb-10 pt-6 lg:px-6">
         <EmptyState
           title="Pool not found"
           action={
@@ -225,7 +224,7 @@ export default function PoolDetailPage() {
   const [x = "?", y = "?"] = [pool.tokenX, pool.tokenY];
 
   return (
-    <main className="mx-auto max-w-[900px] px-4 pb-10 pt-6 lg:px-6">
+    <main className="mx-auto max-w-[1120px] px-4 pb-10 pt-6 lg:px-6">
       <div className="card p-5 sm:p-6">
         {/* Mobile: pair + badges on one line, Dip button below. sm+: button on the right. */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
@@ -273,26 +272,10 @@ export default function PoolDetailPage() {
         </div>
       </div>
 
-      <div className="mt-8 space-y-8">
-        <section>
-          <h2 className="text-lg font-semibold">
-            LPs in this pool <span className="num font-medium text-mute">{lps.length}</span>
-          </h2>
-          {lps.length === 0 ? (
-            <EmptyState className="mt-3" title="No LPs yet">
-              No LPs synced for this pool yet.
-            </EmptyState>
-          ) : (
-            <div className="mt-3 space-y-2">
-              {lps.map((lp) => (
-                <LPRow key={lp.id} lp={lp} />
-              ))}
-            </div>
-          )}
-        </section>
-
+      {/* Theses lead; LPs are a compact side list (under the theses on phones). */}
+      <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
         {pool.tokenXMint && (
-          <section>
+          <section className="min-w-0">
             <h2 className="mb-3 text-lg font-semibold">
               {pool.tokenX} theses <span className="num font-medium text-mute">{comments?.total ?? comments?.comments.length ?? 0}</span>
             </h2>
@@ -328,38 +311,62 @@ export default function PoolDetailPage() {
             )}
           </section>
         )}
+
+        <LpList lps={lps} />
       </div>
     </main>
   );
 }
 
+const LP_PREVIEW = 8;
+
+/** Compact LP list: who's in and how big, one short row each. Follow lives on profiles and hover cards. */
+function LpList({ lps }: { lps: LP[] }) {
+  const [showAll, setShowAll] = useState(false);
+  const shown = showAll ? lps : lps.slice(0, LP_PREVIEW);
+  return (
+    <aside className="card p-4 lg:sticky lg:top-[84px]">
+      <h2 className="px-1 text-md font-semibold">
+        LPs in this pool <span className="num font-medium text-mute">{lps.length}</span>
+      </h2>
+      {lps.length === 0 ? (
+        <p className="mt-2 px-1 text-base text-mute">No LPs synced for this pool yet.</p>
+      ) : (
+        <ul className="mt-2">
+          {shown.map((lp) => (
+            <li key={lp.id}>
+              <LPRow lp={lp} />
+            </li>
+          ))}
+        </ul>
+      )}
+      {lps.length > LP_PREVIEW && (
+        <button type="button" onClick={() => setShowAll((v) => !v)} className="btn-ghost mt-1 h-8 w-full px-3">
+          {showAll ? "Show fewer" : `Show all ${lps.length}`}
+        </button>
+      )}
+    </aside>
+  );
+}
+
 function LPRow({ lp }: { lp: LP }) {
   const pnlTone = (lp.totalPnl ?? 0) >= 0 ? "text-up" : "text-dn";
-
   return (
-    <div className="relative flex items-center gap-3 rounded-tile border border-border bg-surface px-3 py-2.5 transition hover:border-border-strong sm:px-4">
-      {/* Row link as an overlay so the Follow button isn't nested inside an anchor. */}
-      <Link href={`/profile/${lp.xHandle || lp.id}`} aria-label={`${displayName(lp)}'s profile`} className="absolute inset-0 rounded-tile" />
-      <Avatar user={lp} size={40} />
-      <div className="min-w-0 flex-1">
-        <div className="flex min-w-0 items-center gap-1.5 text-md font-semibold">
-          <span className="truncate">{displayName(lp)}</span>
-          <Flag code={lp.country} />
-        </div>
-        {(lp.positionCount ?? 1) > 1 && (
-          <div className="num mt-0.5 text-sm text-mute" data-testid="lp-position-count">
-            {fmtPositions(lp.positionCount ?? 1)}
-          </div>
-        )}
-      </div>
-      <div className="shrink-0 text-right">
-        <div className="num text-md font-semibold text-fg">{fmtUsd(lp.valueUsd)}</div>
-        {lp.totalPnl != null && <div className={`num text-sm ${pnlTone}`}>{fmtUsd(lp.totalPnl, { signed: true })} PnL</div>}
-      </div>
-      <div className="relative z-10">
-        <FollowButton targetUser={lp} size="sm" />
-      </div>
-    </div>
+    <Link
+      href={`/profile/${lp.xHandle || lp.id}`}
+      className="flex items-center gap-2.5 rounded-tile px-1 py-2 transition hover:bg-surface-raised"
+      title={(lp.positionCount ?? 1) > 1 ? fmtPositions(lp.positionCount ?? 1) : undefined}
+    >
+      <Avatar user={lp} size={28} />
+      <span className="flex min-w-0 flex-1 items-center gap-1.5 text-base font-medium text-fg">
+        <span className="truncate">{displayName(lp)}</span>
+        <Flag code={lp.country} className="shrink-0" />
+      </span>
+      <span className="shrink-0 text-right">
+        <span className="num block text-base font-semibold text-fg">{fmtUsd(lp.valueUsd)}</span>
+        {lp.totalPnl != null && <span className={`num block text-xs ${pnlTone}`}>{fmtUsd(lp.totalPnl, { signed: true })}</span>}
+      </span>
+    </Link>
   );
 }
 

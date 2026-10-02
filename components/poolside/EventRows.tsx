@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Avatar, PoolChip } from "@/components/ui";
 import { displayName, fmtUsd, timeAgo } from "@/lib/format";
 import type { ActivityItem, ActivityPerson } from "@/lib/activity-types";
 import { BadgeGlyph, badgeTone } from "@/components/Badges";
@@ -53,103 +52,84 @@ function Action({ item }: { item: ActivityItem }) {
   }
 }
 
-/**
- * "<actor> earned <glyph> <Badge> · <Tier>". From 375px up it's one line where the actor name truncates
- * first and the badge name next, while "earned" and the tier always stay visible. On narrower phones the
- * badge part wraps to a second line as one unit instead of being cut off.
- */
-function BadgeLine({ item, badge }: { item: ActivityItem; badge: NonNullable<ActivityItem["badge"]> }) {
-  const tier = tierLabel(badge.id, badge.tier)?.split(" · ")[0] ?? null;
+/** One small glyph per event kind, so a run of events scans by type before anyone reads it. */
+function KindIcon({ item }: { item: ActivityItem }) {
+  if (item.kind === "badge" && item.badge) {
+    return (
+      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-border bg-surface-raised" aria-hidden="true">
+        <BadgeGlyph id={item.badge.id} size={12} className={badgeTone(item.badge.id, item.badge.tier)} />
+      </span>
+    );
+  }
+  const paths: Record<Exclude<ActivityItem["kind"], "badge">, string> = {
+    opened: "M8 3.5v9M3.5 8h9",
+    closed: "M3.5 8.5l3 3 6-6.5",
+    big_win: "M4.5 11.5l7-7M6 4.5h5.5V10",
+    joined: "M2 9.5c1.5-1.5 3-1.5 4 0s2.5 1.5 4 0 2.5-1.5 4 0M2 6.5c1.5-1.5 3-1.5 4 0s2.5 1.5 4 0 2.5-1.5 4 0",
+    followed: "M6 7.25a2.25 2.25 0 1 0 0-4.5 2.25 2.25 0 0 0 0 4.5zM2 13.5c0-2.2 1.8-3.75 4-3.75s4 1.55 4 3.75M12.5 5v5M10 7.5h5",
+  };
   return (
-    <p
-      className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1 whitespace-nowrap text-base text-mute min-[375px]:flex-nowrap"
-      data-testid="badge-line"
-    >
-      <span className="min-w-0 max-w-full truncate min-[375px]:min-w-[2.5rem]">
-        <PersonLink person={item.actor} />
-      </span>
-      <span className="shrink-0">earned</span>
-      <span className="flex min-w-0 items-center gap-1 min-[375px]:shrink-[0.3]">
-        <BadgeGlyph id={badge.id} size={11} className={`shrink-0 ${badgeTone(badge.id, badge.tier)}`} />
-        <span className="min-w-0 truncate font-semibold text-fg-secondary min-[375px]:min-w-[2rem]">{BADGES[badge.id].name}</span>
-        {tier && (
-          <span className="shrink-0" data-testid="badge-line-tier">
-            · {tier}
-          </span>
-        )}
-      </span>
-    </p>
+    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-border bg-surface-raised text-mute" aria-hidden="true">
+      <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+        <path d={paths[item.kind as Exclude<ActivityItem["kind"], "badge">]} />
+      </svg>
+    </span>
   );
 }
 
 function RowTime({ iso }: { iso: string }) {
   return (
-    <time dateTime={iso} title={new Date(iso).toLocaleString()} className="shrink-0 text-sm text-mute">
+    <time dateTime={iso} title={new Date(iso).toLocaleString()} className="w-14 shrink-0 text-right text-sm text-mute">
       {timeAgo(iso)}
     </time>
   );
 }
 
-/**
- * Opened / closed / big win: a readable row (avatar, name, verb, pool pair linking to the in-app pool
- * page, realized PnL on closes, time). Lighter than a thesis card: no box, muted verb, one line on
- * desktop; on phones the pool and PnL wrap under the name.
- */
-function PositionRow({ item }: { item: ActivityItem }) {
-  const closed = item.kind !== "opened";
-  const pnl = closed ? item.amountUsd : null;
-  return (
-    <li className="flex items-start gap-3 py-2.5" data-testid="activity-row" data-kind={item.kind}>
-      <Link href={profileHref(item.actor)} className="shrink-0" tabIndex={-1} aria-hidden>
-        <Avatar user={{ id: item.actor.id, xAvatarUrl: item.actor.xAvatarUrl }} size={24} />
-      </Link>
-      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 gap-y-1 pt-0.5 text-base">
-        <span className="min-w-0 max-w-full truncate">
-          <PersonLink person={item.actor} />
-        </span>
-        <span className="shrink-0 text-mute" data-testid="position-verb">
-          {closed ? "closed" : "opened"}
-        </span>
+/** What happened, in words: "closed SOL-USDC", "earned Podium · Silver", "followed @x". */
+function Sentence({ item }: { item: ActivityItem }) {
+  if (isPositionKind(item.kind)) {
+    return (
+      <>
+        {item.kind === "opened" ? "opened" : "closed"}{" "}
         {item.pool ? (
-          <Link
-            href={`/pools/${item.pool.address}`}
-            className="inline-flex min-w-0 max-w-full rounded-full transition hover:[&>span]:border-border-strong"
-            data-testid="position-pool"
-          >
-            <PoolChip pool={item.pool} compact />
+          <Link href={`/pools/${item.pool.address}`} className="font-medium text-fg-secondary transition hover:text-fg" data-testid="position-pool">
+            {item.pool.name}
           </Link>
         ) : (
-          <span className="text-mute">a position</span>
+          "a position"
         )}
-        {pnl != null && (
-          <span className={`num shrink-0 font-semibold ${pnl >= 0 ? "text-up" : "text-dn"}`} title="Realized PnL in this pool" data-testid="position-pnl">
-            {fmtUsd(pnl, { signed: true })}
-          </span>
-        )}
-        {item.kind === "big_win" && (
-          <span className="chip">Big win</span>
-        )}
-      </div>
-      <span className="pt-0.5">
-        <RowTime iso={item.occurredAt} />
+      </>
+    );
+  }
+  if (item.kind === "badge" && item.badge) {
+    const tier = tierLabel(item.badge.id, item.badge.tier)?.split(" · ")[0] ?? null;
+    return (
+      <span data-testid="badge-line">
+        earned <span className="font-medium text-fg-secondary">{BADGES[item.badge.id].name}</span>
+        {tier && <span data-testid="badge-line-tier"> · {tier}</span>}
       </span>
-    </li>
-  );
+    );
+  }
+  return <Action item={item} />;
 }
 
+/**
+ * Every event is one quiet line in the same columns: kind glyph, "<name> <did what>", realized PnL
+ * (closes only), time. No avatars or pool chips, so posts stay the loud thing in the feed.
+ */
 export function EventRow({ item }: { item: ActivityItem }) {
-  if (isPositionKind(item.kind)) return <PositionRow item={item} />;
+  const pnl = item.kind !== "opened" && isPositionKind(item.kind) ? item.amountUsd : null;
   return (
-    <li className="flex items-center gap-3 py-2.5" data-testid="activity-row" data-kind={item.kind}>
-      <Link href={profileHref(item.actor)} className="shrink-0" tabIndex={-1} aria-hidden>
-        <Avatar user={{ id: item.actor.id, xAvatarUrl: item.actor.xAvatarUrl }} size={24} />
-      </Link>
-      {item.kind === "badge" && item.badge ? (
-        <BadgeLine item={item} badge={item.badge} />
-      ) : (
-        <p className="min-w-0 flex-1 truncate text-base text-mute">
-          <PersonLink person={item.actor} /> <Action item={item} />
-        </p>
+    <li className="flex items-center gap-3 py-2" data-testid="activity-row" data-kind={item.kind}>
+      <KindIcon item={item} />
+      {/* Phones wrap to two lines rather than cutting off the pool name. */}
+      <p className="line-clamp-2 min-w-0 flex-1 text-base text-mute sm:truncate">
+        <PersonLink person={item.actor} /> <Sentence item={item} />
+      </p>
+      {pnl != null && (
+        <span className={`num shrink-0 text-base font-semibold ${pnl >= 0 ? "text-up" : "text-dn"}`} title="Realized PnL in this pool" data-testid="position-pnl">
+          {fmtUsd(pnl, { signed: true })}
+        </span>
       )}
       <RowTime iso={item.occurredAt} />
     </li>
@@ -179,7 +159,7 @@ function Burst({ items }: { items: ActivityItem[] }) {
         <EventRow key={item.id} item={item} />
       ))}
       {hidden > 0 && (
-        <li className="pb-1 pl-11">
+        <li className="pb-1 pl-9">
           <button type="button" onClick={() => setOpen(true)} className="btn-ghost -ml-3 h-8 px-3" data-testid="activity-run-more">
             Show {hidden} more from {displayName(items[0].actor)}
           </button>
@@ -196,7 +176,8 @@ function Burst({ items }: { items: ActivityItem[] }) {
 export function EventRun({ items }: { items: ActivityItem[] }) {
   const bursts = toBursts(items);
   return (
-    <div className="px-4 py-1.5 sm:px-5" data-testid="activity-run">
+    // A recessed band: the activity log sits below the surface the posts live on.
+    <div className="bg-bg px-4 py-1.5 sm:px-5" data-testid="activity-run">
       <ul>
         {bursts.map((b) => (
           <Burst key={b[0].id} items={b} />

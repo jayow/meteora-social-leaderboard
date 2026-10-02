@@ -484,11 +484,13 @@ function PositionCard({ pool, open, panelId }: { pool: OpenPool; open: boolean; 
   // Pools with several positions list a row each; a single position shows its range bar inline.
   const expandable = hasPositionRows(pool);
   return (
-    <div className="tile relative p-4 transition hover:border-border-strong" data-testid="open-position-row">
+    <div className="tile group relative p-4 transition hover:border-border-strong hover:bg-border/40" data-testid="open-position-row">
       {/* Whole-card overlay (not a wrapper) so the token links aren't nested in it. */}
       <Link href={`/pools/${pool.poolAddress}`} aria-label={`${pair} pool, ${fmtPositions(count)}`} className="absolute inset-0 rounded-tile" />
 
-      <div className="flex items-center gap-3 pr-16">
+      {/* One line from sm: pool on the left, its figures right-aligned before Dip in; stacked on phones. */}
+      <div className="sm:flex sm:items-center sm:gap-6 sm:pr-16">
+      <div className="flex min-w-0 flex-1 items-center gap-3 pr-16 sm:pr-0">
         <PoolIcons pool={pool} size="md" />
         <div className="min-w-0">
           <div className="flex items-center gap-2">
@@ -514,22 +516,21 @@ function PositionCard({ pool, open, panelId }: { pool: OpenPool; open: boolean; 
         </div>
       </div>
 
-      <div className="mt-4 flex items-end gap-4">
-        <div className="flex min-w-0 flex-1 items-end gap-5 sm:gap-10">
-          <Stat label="Value">
-            <span className="text-fg">{fmtUsd(pool.valueUsd ?? 0)}</span>
-          </Stat>
-          {totals && (
-            <>
-              <Stat label="Fees">
-                <span className="text-up">{fmtUsd(totals.fees)}</span>
-              </Stat>
-              <Stat label="PnL">
-                <PnL usd={totals.pnl} pct={totals.pct} />
-              </Stat>
-            </>
-          )}
-        </div>
+      <div className="mt-4 flex items-end gap-5 sm:mt-0 sm:shrink-0 sm:gap-8 sm:text-right">
+        <Stat label="Value">
+          <span className="text-fg">{fmtUsd(pool.valueUsd ?? 0)}</span>
+        </Stat>
+        {totals && (
+          <>
+            <Stat label="Fees">
+              <span className="text-up">{fmtUsd(totals.fees)}</span>
+            </Stat>
+            <Stat label="PnL">
+              <PnL usd={totals.pnl} pct={totals.pct} />
+            </Stat>
+          </>
+        )}
+      </div>
       </div>
 
       {count === 1 && details.length === 1 && scale && (
@@ -574,7 +575,7 @@ function PositionCard({ pool, open, panelId }: { pool: OpenPool; open: boolean; 
         </div>
       )}
 
-      <DipLink poolAddress={pool.poolAddress} protocol={pool.protocol} className="!absolute right-4 top-4" />
+      <DipLink poolAddress={pool.poolAddress} protocol={pool.protocol} className="!absolute right-4 top-4 sm:top-[1.6rem]" />
     </div>
   );
 }
