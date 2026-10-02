@@ -14,18 +14,19 @@ const TIER_NAME = ["Bronze", "Silver", "Gold"] as const;
 /** Metal per tier (THEME.md "Medals") for step labels. */
 const TIER_TEXT = ["text-bronze", "text-silver", "text-gold"] as const;
 
-const LANDS = { label: "You qualify: it lands on your next sync", frac: 1 };
+/** Stats already clear a step the viewer doesn't hold: shown beside the name, not as a progress bar. */
+const LANDS = { label: "You qualify", frac: 1, qualifies: true };
 
 /**
  * How far the viewer is from the badge's next step, or null when there's nothing left to reach. Stats
  * that already clear a step the viewer doesn't hold yet say so (badges are awarded by the sync).
  */
-function progress(id: BadgeId, m: Metrics, have: BadgeTier | 0): { label: string; frac: number } | null {
+function progress(id: BadgeId, m: Metrics, have: BadgeTier | 0): { label: string; frac: number; qualifies?: boolean } | null {
   if (!m) return null;
   const t = BADGE_THRESHOLDS;
   const step = (current: number, steps: readonly number[], fmt: (v: number) => string, unit: string) => {
     const reached = steps.filter((v) => current >= v).length;
-    if (reached > have) return { label: `You qualify for ${TIER_NAME[reached - 1]}: it lands on your next sync`, frac: 1 };
+    if (reached > have) return { label: `You qualify for ${TIER_NAME[reached - 1]}`, frac: 1, qualifies: true };
     const next = steps.find((v) => current < v);
     if (next == null) return null;
     return { label: `${TIER_NAME[steps.indexOf(next)]} next · ${fmt(current)} of ${fmt(next)}${unit}`, frac: current / next };
@@ -120,7 +121,11 @@ export default function BadgesPage() {
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                     <h2 className="text-lg font-semibold">{def.name}</h2>
-                    {have ? (
+                    {next?.qualifies ? (
+                      <span className="text-sm font-semibold text-accent" title="Badges are awarded when your stats sync">
+                        {next.label} <span className="font-normal text-mute">· lands on your next sync</span>
+                      </span>
+                    ) : have ? (
                       <span className={`text-sm font-semibold ${def.tiered ? TIER_TEXT[have - 1] : "text-up"}`}>
                         {def.tiered ? `You have ${TIER_NAME[have - 1]}` : "You have it"}
                       </span>
@@ -147,7 +152,7 @@ export default function BadgesPage() {
                     <span className="font-semibold text-fg-secondary">{pop.total.toLocaleString("en-US")}</span> {pop.total === 1 ? "member has it" : "members have it"}
                   </p>
 
-                  {next && (
+                  {next && !next.qualifies && (
                     <div className="mt-3 max-w-md" data-testid="badge-progress">
                       <p className="num text-sm text-fg-secondary">{next.label}</p>
                       <div className="mt-1 h-1 overflow-hidden rounded-full bg-surface-raised">
