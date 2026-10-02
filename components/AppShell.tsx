@@ -102,10 +102,10 @@ const IconTrophy = () => (
     <path d="M12 13v4M9 20h6M10 17h4" />
   </Icon>
 );
-const IconTicket = () => (
+const IconBadge = () => (
   <Icon>
-    <path d="M3 8a2 2 0 0 0 2-2h14a2 2 0 0 0 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 0-2 2H5a2 2 0 0 0-2-2v-2a2 2 0 0 0 0-4V8z" />
-    <path d="M14 6v12" strokeDasharray="2 2.5" />
+    <circle cx="12" cy="9" r="5" />
+    <path d="M9 13.5 7.5 21l4.5-2.5 4.5 2.5L15 13.5" />
   </Icon>
 );
 const IconUser = () => (
@@ -141,7 +141,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const onMe = pathname.startsWith("/profile");
   const onPools = pathname === "/pools" || pathname.startsWith("/pools/");
   const onFeed = pathname === "/poolside" || pathname.startsWith("/poolside/");
-  const onInvites = pathname === "/invites";
+  const onBadges = pathname === "/badges";
   // The session knows the member number even for X-only accounts with no connected wallet.
   const isMember = Boolean(session?.memberNumber || user?.memberNumber);
   const isSignedIn = Boolean(session?.userId);
@@ -231,6 +231,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <NavLink href="/poolside" active={onFeed}>Poolside</NavLink>
               <NavLink href="/pools" active={onPools}>Pools</NavLink>
               <NavLink href="/" active={onBoard}>Leaderboard</NavLink>
+              <NavLink href="/badges" active={onBadges}>Badges</NavLink>
             </nav>
           )}
 
@@ -346,7 +347,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <TabLink href="/poolside" active={onFeed} label="Poolside" icon={<IconWaves />} />
           <TabLink href="/pools" active={onPools} label="Pools" icon={<IconPool />} />
           <TabLink href="/" active={onBoard} label="Leaderboard" icon={<IconTrophy />} />
-          {isMember && <TabLink href="/invites" active={onInvites} label="Invites" icon={<IconTicket />} />}
+          {/* Invites lives in the account menu; the tab bar carries Badges. */}
+          <TabLink href="/badges" active={onBadges} label="Badges" icon={<IconBadge />} />
           {isSignedIn && <TabLink href="/profile/me" active={onMe} label="Me" icon={<IconUser />} />}
         </div>
       </nav>

@@ -130,6 +130,23 @@ export function howEarned(b: Pick<ApiBadge, "id" | "tier" | "podium">): string {
   }
 }
 
+/**
+ * Badges page copy: what each badge is for and its steps (tier 1, 2, 3 for tiered badges). Built from
+ * BADGE_THRESHOLDS so the page never drifts from what the sync awards.
+ */
+export const BADGE_GUIDE: Record<BadgeId, { blurb: string; steps: string[] }> = {
+  podium: { blurb: "Finish top 3 on any 30-day leaderboard: PnL, fees, volume or win rate.", steps: ["3rd place", "2nd place", "1st place"] },
+  fee_farmer: { blurb: "Lifetime fees earned across your positions.", steps: BADGE_THRESHOLDS.feeFarmerUsd.map((v) => `${usdShort(v)} in fees`) },
+  whale_volume: { blurb: "Lifetime volume you've deposited into pools.", steps: BADGE_THRESHOLDS.whaleVolumeUsd.map((v) => `${usdShort(v)} volume`) },
+  pool_hopper: { blurb: "LP in many different pools.", steps: BADGE_THRESHOLDS.poolHopperPools.map((v) => `${v} pools`) },
+  sharpshooter: {
+    blurb: `Keep a ${Math.round(BADGE_THRESHOLDS.sharpshooter.minWinRate * 100)}%+ win rate over ${BADGE_THRESHOLDS.sharpshooter.minClosed}+ closed positions.`,
+    steps: [],
+  },
+  in_the_green: { blurb: `Stay positive on all-time PnL over ${BADGE_THRESHOLDS.inTheGreen.minClosed}+ closed positions.`, steps: [] },
+  first_splash: { blurb: "Close your first LP position.", steps: [] },
+};
+
 /** Display order: highest tier first, then the BADGE_IDS order. */
 export function sortBadges<T extends Pick<ApiBadge, "id" | "tier">>(badges: T[]): T[] {
   return [...badges].sort((a, b) => b.tier - a.tier || BADGE_IDS.indexOf(a.id) - BADGE_IDS.indexOf(b.id));
