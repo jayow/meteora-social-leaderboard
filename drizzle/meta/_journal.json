@@ -190,6 +190,13 @@
       "when": 1790943752584,
       "tag": "0026_lp_idea_events",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1790944232819,
+      "tag": "0027_seeded_accounts",
+      "breakpoints": true
     }
   ]
 }

@@ -197,6 +197,7 @@ function UsersTable({ users }: { users: UserMetrics[] }) {
               <td className="py-2 pr-3">
                 <div className="truncate text-fg">{u.name}</div>
                 <div className="truncate text-mute">
+                  {u.seeded ? "Seeded · " : ""}
                   {u.joinedAt ? "Member" : "Not joined"} · {u.signupMethod ?? "wallet"}
                   {u.hasX ? " · X" : ""}
                   {u.invitedByName ? ` · invited by ${u.invitedByName}` : ""}
@@ -320,7 +321,7 @@ export function MetricsDashboard() {
 
       {/* Headline numbers */}
       <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-        <Kpi label="Members" value={fmtInt(g.members)} sub={`of ${fmtInt(g.cap)} · +${g.joined7d} in 7D`} trend={series.members.map((d) => d.value)} />
+        <Kpi label="Members" value={fmtInt(g.members)} sub={`of ${fmtInt(g.cap)} · +${g.joined7d} in 7D${g.seededMembers ? ` · ${g.seededMembers} seeded` : ""}`} trend={series.members.map((d) => d.value)} />
         <Kpi label="Active today" value={fmtInt(today?.activeUsers ?? 0)} sub={`${e.active7d} active in 7D`} trend={series.activeUsers.map((d) => d.value)} />
         <Kpi label="Visitors today" value={fmtInt(today?.visitors ?? 0)} sub="incl. signed out" trend={series.visitors.map((d) => d.value)} />
         <Kpi label="Actions today" value={fmtInt(todayActions)} sub="excl. views & clicks" trend={series.actions.map((d) => d.value)} />
@@ -417,7 +418,7 @@ export function MetricsDashboard() {
         </Panel>
       </div>
 
-      <Panel title="Users" note={`${users.length} accounts · click a column to sort`}>
+      <Panel title="Users" note={`${users.length} accounts${users.some((u) => u.seeded) ? ` (${users.filter((u) => u.seeded).length} seeded)` : ""} · click a column to sort`}>
         <UsersTable users={users} />
       </Panel>
     </main>

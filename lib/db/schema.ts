@@ -81,6 +81,11 @@ export const users = pgTable(
     sessionsValidAfter: timestamp("sessions_valid_after", { withTimezone: true }),
     /** Last request from this member (middleware, at most every 10 minutes): admin activity stats. */
     lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
+    /**
+     * Seeded / demo account, not a real person: excluded from admin metrics. Seed rows are also
+     * sync-protected by a future lastAttemptedAt (the sync skips them); migration 0027 flagged those.
+     */
+    seeded: boolean("seeded").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

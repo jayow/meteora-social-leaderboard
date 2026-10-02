@@ -20,6 +20,9 @@ export interface EventsReport {
   funnel: { visitors: number; signedIn: number; newAccounts: number; inviteChecks: number; joined: number };
 }
 
+/** Events from real people: anonymous visitors, or accounts not flagged as seeded. */
+const REAL = "(e.user_id IS NULL OR NOT EXISTS (SELECT 1 FROM users su WHERE su.id = e.user_id AND su.seeded))";
+
 export async function getEventsReport(days: number): Promise<EventsReport> {
   const pool = getPool();
   const since = `now() - ($1::int || ' days')::interval`;
@@ -27,37 +30,37 @@ export async function getEventsReport(days: number): Promise<EventsReport> {
   const [totals, dailyActive, dailyCounts, topPages, topClicks, outbound, funnel] = await Promise.all([
     q<{ name: string; count: number; users: number }>(
       `SELECT name, count(*)::int AS count, count(DISTINCT user_id)::int AS users
-       FROM events WHERE at > ${since} GROUP BY name ORDER BY count DESC`
+       FROM events e WHERE ${REAL} AND at > ${since} GROUP BY name ORDER BY count DESC`
     ),
     q<{ date: string; active_users: number; visitors: number }>(
       `SELECT to_char(at AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS date,
               count(DISTINCT user_id)::int AS active_users,
               count(DISTINCT coalesce(visitor_id, 'u' || user_id))::int AS visitors
-       FROM events WHERE at > ${since} GROUP BY 1 ORDER BY 1`
+       FROM events e WHERE ${REAL} AND at > ${since} GROUP BY 1 ORDER BY 1`
     ),
     q<{ date: string; name: string; count: number }>(
       `SELECT to_char(at AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS date, name, count(*)::int AS count
-       FROM events WHERE at > ${since} GROUP BY 1, 2`
+       FROM events e WHERE ${REAL} AND at > ${since} GROUP BY 1, 2`
     ),
     q<{ path: string; views: number; users: number }>(
       `SELECT path, count(*)::int AS views, count(DISTINCT user_id)::int AS users
-       FROM events WHERE name = 'page_view' AND at > ${since} GROUP BY path ORDER BY views DESC LIMIT 30`
+       FROM events e WHERE ${REAL} AND name = 'page_view' AND at > ${since} GROUP BY path ORDER BY views DESC LIMIT 30`
     ),
     q<{ label: string; path: string; count: number }>(
       `SELECT coalesce(props->>'label', '') AS label, coalesce(path, '') AS path, count(*)::int AS count
-       FROM events WHERE name = 'click' AND at > ${since} GROUP BY 1, 2 ORDER BY count DESC LIMIT 50`
+       FROM events e WHERE ${REAL} AND name = 'click' AND at > ${since} GROUP BY 1, 2 ORDER BY count DESC LIMIT 50`
     ),
     q<{ host: string; to: string; count: number }>(
       `SELECT coalesce(props->>'host', '') AS host, coalesce(props->>'to', '') AS "to", count(*)::int AS count
-       FROM events WHERE name = 'outbound' AND at > ${since} GROUP BY 1, 2 ORDER BY count DESC LIMIT 30`
+       FROM events e WHERE ${REAL} AND name = 'outbound' AND at > ${since} GROUP BY 1, 2 ORDER BY count DESC LIMIT 30`
     ),
     q<{ visitors: number; signed_in: number; new_accounts: number; invite_checks: number; joined: number }>(
       `SELECT
-         (SELECT count(DISTINCT coalesce(visitor_id, 'u' || user_id)) FROM events WHERE name = 'page_view' AND at > ${since})::int AS visitors,
-         (SELECT count(DISTINCT user_id) FROM events WHERE name = 'sign_in' AND at > ${since})::int AS signed_in,
-         (SELECT count(*) FROM events WHERE name = 'sign_in' AND props->>'newAccount' = 'true' AND at > ${since})::int AS new_accounts,
-         (SELECT count(*) FROM events WHERE name = 'invite_check' AND at > ${since})::int AS invite_checks,
-         (SELECT count(*) FROM events WHERE name = 'join' AND props->>'ok' = 'true' AND at > ${since})::int AS joined`
+         (SELECT count(DISTINCT coalesce(visitor_id, 'u' || user_id)) FROM events e WHERE ${REAL} AND name = 'page_view' AND at > ${since})::int AS visitors,
+         (SELECT count(DISTINCT user_id) FROM events e WHERE ${REAL} AND name = 'sign_in' AND at > ${since})::int AS signed_in,
+         (SELECT count(*) FROM events e WHERE ${REAL} AND name = 'sign_in' AND props->>'newAccount' = 'true' AND at > ${since})::int AS new_accounts,
+         (SELECT count(*) FROM events e WHERE ${REAL} AND name = 'invite_check' AND at > ${since})::int AS invite_checks,
+         (SELECT count(*) FROM events e WHERE ${REAL} AND name = 'join' AND props->>'ok' = 'true' AND at > ${since})::int AS joined`
     ),
   ]);
   const byDate = new Map<string, Record<string, number>>();
@@ -77,6 +80,8 @@ export async function getEventsReport(days: number): Promise<EventsReport> {
 export interface UserMetrics {
   id: number;
   name: string;
+  /** Seeded / demo account (users.seeded), not a real person. */
+  seeded: boolean;
   memberNumber: number | null;
   signupMethod: string | null;
   hasX: boolean;
@@ -103,7 +108,7 @@ export interface UserMetrics {
 /** One row per account (members and signed-in non-members), newest first. */
 export async function getUserMetrics(): Promise<UserMetrics[]> {
   const { rows } = await getPool().query<Row>(`
-    SELECT u.id, coalesce(u.x_handle, u.anon_name, 'user ' || u.id) AS name, u.member_number, u.signup_method,
+    SELECT u.id, coalesce(u.x_handle, u.anon_name, 'user ' || u.id) AS name, u.seeded, u.member_number, u.signup_method,
            (u.x_handle IS NOT NULL) AS has_x, u.country, u.created_at, u.joined_at,
            u.invited_by_user_id, coalesce(inv.x_handle, inv.anon_name) AS invited_by_name,
            (SELECT count(*) FROM invite_codes c WHERE c.created_by_user_id = u.id)::int AS invites_created,
@@ -125,6 +130,7 @@ export async function getUserMetrics(): Promise<UserMetrics[]> {
   return rows.map((r) => ({
     id: Number(r.id),
     name: String(r.name),
+    seeded: Boolean(r.seeded),
     memberNumber: r.member_number == null ? null : Number(r.member_number),
     signupMethod: (r.signup_method as string | null) ?? null,
     hasX: Boolean(r.has_x),

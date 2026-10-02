@@ -2,9 +2,12 @@ import { getPool } from "@/lib/db";
 import { betaCap } from "@/lib/invite";
 
 /** Admin dashboard numbers (one query). Counts only; no wallets or per-user data. */
+/** Real people only: seeded / demo accounts (users.seeded) are excluded and counted separately. */
 export interface AdminStats {
   growth: {
     members: number;
+    /** Seeded / demo member accounts, excluded from every other number. */
+    seededMembers: number;
     cap: number;
     joined7d: number;
     /** Signed in at least once but haven't joined with an invite. */
@@ -40,20 +43,21 @@ export interface AdminStats {
 
 export async function getAdminStats(): Promise<AdminStats> {
   const { rows } = await getPool().query<Record<string, string | number | null>>(`
-    WITH m AS (SELECT * FROM users WHERE joined_at IS NOT NULL)
+    WITH m AS (SELECT * FROM users WHERE joined_at IS NOT NULL AND NOT seeded)
     SELECT
       (SELECT count(*) FROM m)::int AS members,
+      (SELECT count(*) FROM users WHERE joined_at IS NOT NULL AND seeded)::int AS seeded_members,
       (SELECT count(*) FROM m WHERE joined_at > now() - interval '7 days')::int AS joined7d,
-      (SELECT count(*) FROM users WHERE joined_at IS NULL AND terms_accepted_at IS NOT NULL)::int AS waiting,
+      (SELECT count(*) FROM users WHERE joined_at IS NULL AND terms_accepted_at IS NOT NULL AND NOT seeded)::int AS waiting,
       (SELECT count(*) FROM invite_codes)::int AS invites_created,
       (SELECT coalesce(sum(uses), 0) FROM invite_codes)::int AS invites_used,
       (SELECT coalesce(sum(greatest(max_uses - uses, 0)), 0) FROM invite_codes WHERE disabled = 0)::int AS invites_available,
       (SELECT count(*) FROM m WHERE last_seen_at > now() - interval '24 hours')::int AS active24h,
       (SELECT count(*) FROM m WHERE last_seen_at > now() - interval '7 days')::int AS active7d,
-      (SELECT count(*) FROM token_comments WHERE deleted_at IS NULL)::int AS lp_ideas,
-      (SELECT count(*) FROM token_comments WHERE deleted_at IS NULL AND created_at > now() - interval '7 days')::int AS lp_ideas_7d,
-      (SELECT count(*) FROM thesis_likes)::int AS likes,
-      (SELECT count(*) FROM follows)::int AS follows,
+      (SELECT count(*) FROM token_comments t JOIN m ON m.id = t.user_id WHERE t.deleted_at IS NULL)::int AS lp_ideas,
+      (SELECT count(*) FROM token_comments t JOIN m ON m.id = t.user_id WHERE t.deleted_at IS NULL AND t.created_at > now() - interval '7 days')::int AS lp_ideas_7d,
+      (SELECT count(*) FROM thesis_likes l JOIN m ON m.id = l.user_id)::int AS likes,
+      (SELECT count(*) FROM follows f JOIN m ON m.id = f.follower_user_id)::int AS follows,
       (SELECT max(last_synced_at) FROM m) AS last_sync_at,
       (SELECT count(*) FROM m WHERE last_synced_at > now() - interval '30 minutes')::int AS synced_recently,
       (SELECT count(*) FROM m WHERE last_synced_at IS NULL OR last_synced_at < now() - interval '2 hours')::int AS stale,
@@ -71,6 +75,7 @@ export async function getAdminStats(): Promise<AdminStats> {
   return {
     growth: {
       members: n("members"),
+      seededMembers: n("seeded_members"),
       cap: betaCap(),
       joined7d: n("joined7d"),
       waiting: n("waiting"),
