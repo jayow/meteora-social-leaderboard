@@ -21,19 +21,19 @@ export function invitesPerUser(): number {
   return Number(process.env.INVITES_PER_USER) || 3;
 }
 
-export function isAdmin(wallet: string | null, xHandle?: string | null): boolean {
-  const wallets = (process.env.ADMIN_WALLETS || "").split(",").map((w) => w.trim()).filter(Boolean);
-  const handles = (process.env.ADMIN_X_HANDLES || "jayowtrades").split(",").map((h) => h.trim().replace(/^@/, "").toLowerCase()).filter(Boolean);
-  
-  if (wallet && wallets.includes(wallet)) return true;
-  if (xHandle && handles.includes(xHandle.replace(/^@/, "").toLowerCase())) return true;
-  
-  return false;
-}
+const list = (v: string | undefined) => (v || "").split(",").map((x) => x.trim()).filter(Boolean);
 
-export function isAdminUser(user: { wallet: string; xHandle: string | null } | null | undefined): boolean {
+/**
+ * Admin = Pool Party account id (ADMIN_USER_IDS, default 1 = the founder) or a wallet in
+ * ADMIN_WALLETS (signed in by signature). Never by X handle alone: handles can be renamed and
+ * re-registered by someone else. ADMIN_X_HANDLES still works but only when explicitly set.
+ */
+export function isAdminUser(user: { id: number; wallet: string; xHandle: string | null } | null | undefined): boolean {
   if (!user) return false;
-  return isAdmin(user.wallet, user.xHandle);
+  if (list(process.env.ADMIN_USER_IDS || "1").includes(String(user.id))) return true;
+  if (list(process.env.ADMIN_WALLETS).includes(user.wallet)) return true;
+  const handles = list(process.env.ADMIN_X_HANDLES).map((h) => h.replace(/^@/, "").toLowerCase());
+  return Boolean(user.xHandle && handles.includes(user.xHandle.replace(/^@/, "").toLowerCase()));
 }
 
 export async function getMemberCount(): Promise<number> {
