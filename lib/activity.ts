@@ -342,7 +342,7 @@ async function getEvents(ids: number[]): Promise<Map<number, ActivityItem>> {
  * follow that still exists; position events need the actor's opt-in (see positionShareSql). Deleted
  * theses never appear.
  */
-export async function listFeed(opts: {
+interface FeedQuery {
   scope: ActivityScope;
   filter: FeedFilter;
   /** Event kinds to include (already validated against EVENT_GROUPS); all kinds when omitted. */
@@ -350,7 +350,10 @@ export async function listFeed(opts: {
   viewerId: number | null;
   cursor: FeedCursor | null;
   limit: number;
-}): Promise<{ items: FeedItem[]; nextCursor: string | null }> {
+}
+
+/** The stream's keys only (rank, id, time), newest first: what listFeed pages over and the new-items check reads. */
+async function feedKeys(opts: FeedQuery): Promise<{ rank: number; id: number; ts_text: string }[]> {
   const allKinds = ["joined", "followed", "opened", "closed", "big_win", "badge"];
   // Whitelisted strings only, so they can be inlined into the IN list.
   const kinds = (opts.kinds ?? allKinds).filter((k) => allKinds.includes(k));
@@ -365,7 +368,7 @@ export async function listFeed(opts: {
     cur ? `AND (${tsCol}, ${rank}, ${idCol}) < (${cur.ts}::timestamptz, ${cur.rank}::int, ${cur.id}::int)` : "";
   const followSql = (actorCol: string) =>
     following ? `AND ${actorCol} IN (SELECT followee_user_id FROM follows WHERE follower_user_id = ${following})` : "";
-  const limit = add(opts.limit + 1);
+  const limit = add(opts.limit);
 
   const posts = `
     SELECT ${RANK_POST} AS rank, tc.id, tc.created_at AS ts
@@ -389,7 +392,20 @@ export async function listFeed(opts: {
      LIMIT ${limit}`,
     params
   );
+  return rows;
+}
 
+/**
+ * Key of the newest item in a stream ("post:12" / "event:34", the same keys FeedItem uses), or null.
+ * One indexed key lookup, nothing hydrated: the Poolside "new items" check polls this.
+ */
+export async function newestFeedKey(opts: Omit<FeedQuery, "cursor" | "limit">): Promise<string | null> {
+  const [top] = await feedKeys({ ...opts, cursor: null, limit: 1 });
+  return top ? `${top.rank === RANK_POST ? "post" : "event"}:${top.id}` : null;
+}
+
+export async function listFeed(opts: FeedQuery): Promise<{ items: FeedItem[]; nextCursor: string | null }> {
+  const rows = await feedKeys({ ...opts, limit: opts.limit + 1 });
   const page = rows.slice(0, opts.limit);
   const postIds = page.filter((r) => r.rank === RANK_POST).map((r) => r.id);
   const eventIds = page.filter((r) => r.rank === RANK_EVENT).map((r) => r.id);

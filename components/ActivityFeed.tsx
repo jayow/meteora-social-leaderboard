@@ -127,6 +127,8 @@ export function ActivityFeed() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const reqId = useRef(0);
+  // Something newer than what's on screen exists (see the polling effect below).
+  const [hasNew, setHasNew] = useState(false);
 
   useEffect(() => {
     setGroups(readGroups());
@@ -173,6 +175,7 @@ export function ActivityFeed() {
       const id = ++reqId.current;
       setLoading(true);
       setError(null);
+      setHasNew(false);
       try {
         const data = await fetchPage(s, t, null);
         if (id !== reqId.current) return;
@@ -215,6 +218,46 @@ export function ActivityFeed() {
     } finally {
       setLoadingMore(false);
     }
+  };
+
+  // New-items check: once a minute, only while the page is visible, ask for the newest item's key (a cached
+  // one-row lookup) and show a pill if it isn't on screen. Nothing loads until the pill is tapped.
+  const shownKeys = useRef(new Set<string>());
+  shownKeys.current = new Set(items.map((i) => i.key));
+  useEffect(() => {
+    if (loading || error) return;
+    let stopped = false;
+    let last = Date.now();
+    const check = async () => {
+      if (stopped || document.visibilityState !== "visible") return;
+      last = Date.now();
+      const qs = new URLSearchParams({ scope, filter: tab === "theses" ? "posts" : "events" });
+      if (tab === "activity") qs.set("groups", groupsKey);
+      try {
+        const res = await fetch(`/api/activity/latest?${qs.toString()}`, { cache: "no-store" });
+        if (!res.ok) return;
+        const data = (await res.json()) as { newest: string | null };
+        if (!stopped && data.newest && !shownKeys.current.has(data.newest)) setHasNew(true);
+      } catch {
+        // Offline or the server is busy: try again next minute.
+      }
+    };
+    const timer = window.setInterval(() => void check(), 60_000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible" && Date.now() - last > 60_000) void check();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      stopped = true;
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [loading, error, scope, tab, groupsKey]);
+
+  const showNew = () => {
+    setHasNew(false);
+    void loadFirst(scope, tab);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const onPosted = (post: ThesisPost) => {
@@ -291,6 +334,23 @@ export function ActivityFeed() {
             })}
           </div>
         </>
+      )}
+
+      {hasNew && (
+        // Stays in view while scrolling, just under the header.
+        <div className="pointer-events-none sticky top-[72px] z-20 flex justify-center">
+          <button
+            type="button"
+            onClick={showNew}
+            className="pointer-events-auto mt-2 inline-flex h-8 items-center gap-1.5 rounded-full border border-accent/50 bg-accent-tint px-4 text-sm font-semibold text-fg shadow-lg shadow-black/40 transition hover:border-accent"
+            data-testid="feed-new-items"
+          >
+            <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M8 13V3M4 7l4-4 4 4" />
+            </svg>
+            {tab === "theses" ? "New LP ideas" : "New activity"}
+          </button>
+        </div>
       )}
 
       <div className="mt-2" data-testid="activity-feed">
