@@ -14,6 +14,7 @@ import { OwnWalletRow } from "@/components/OwnWalletRow";
 import { onSessionChanged, onSignInRequested } from "@/lib/session-events";
 import { TermsConsentModal } from "@/components/TermsConsentModal";
 import { TERMS_VERSION } from "@/lib/legal";
+import { GlobalSearch } from "@/components/GlobalSearch";
 
 interface SessionData {
   userId?: number | null;
@@ -236,6 +237,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           )}
 
           <div className="ml-auto flex min-w-0 items-center gap-4">
+            {/* Universal search (members only: /api/search sits behind the beta gate). */}
+            {isMember && <GlobalSearch />}
             {/* Signed out -> Sign in (wallet picker or X) + Sign up (invite code at /join); signed in, not joined -> Join beta; members -> account menu only. */}
             {!isSignedIn && (
               <div className="flex items-center gap-2">
