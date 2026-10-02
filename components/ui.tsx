@@ -97,17 +97,6 @@ export function Pills<T extends string>({ value, options, onChange, label, class
 }
 
 /** One stat: label, figure, optional caption. Used on the profile; same anatomy as the open-position stats. */
-export function StatTile({ label, value, tone = "white", sub }: { label: string; value: string; tone?: "white" | "up" | "dn"; sub?: string }) {
-  const c = { white: "text-fg", up: "text-up", dn: "text-dn" }[tone];
-  return (
-    <div className="tile px-3.5 py-3">
-      <div className="truncate text-sm text-mute">{label}</div>
-      <div className={`num mt-1 text-lg font-semibold ${c}`}>{value}</div>
-      {sub && <div className="mt-0.5 truncate text-xs text-mute">{sub}</div>}
-    </div>
-  );
-}
-
 export function XIcon({ className = "h-3.5 w-3.5" }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden>

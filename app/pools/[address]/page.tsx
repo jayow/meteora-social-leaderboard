@@ -177,7 +177,7 @@ export default function PoolDetailPage() {
   if (loading && !data) {
     return (
       <main className="mx-auto max-w-[1120px] px-4 pb-10 pt-6 lg:px-6">
-        <div className="card flex items-center gap-4 p-5 sm:p-6" aria-busy="true" aria-label="Loading pool">
+        <div className="flex items-center gap-4" aria-busy="true" aria-label="Loading pool">
           <div className="flex shrink-0">
             <span className="skeleton h-12 w-12 rounded-full" />
             <span className="skeleton -ml-3 h-12 w-12 rounded-full" />
@@ -190,7 +190,7 @@ export default function PoolDetailPage() {
         <span className="skeleton mt-8 block h-5 w-40" />
         <div className="mt-3 space-y-2">
           {[0, 1, 2, 3].map((i) => (
-            <div key={i} className="flex items-center gap-3 rounded-tile border border-border bg-surface px-3 py-2.5 sm:px-4">
+            <div key={i} className="flex items-center gap-3 border-b border-border py-2.5">
               <span className="skeleton h-10 w-10 rounded-full" />
               <div className="flex-1 space-y-1.5">
                 <span className="skeleton block h-4 w-32" />
@@ -225,7 +225,7 @@ export default function PoolDetailPage() {
 
   return (
     <main className="mx-auto max-w-[1120px] px-4 pb-10 pt-6 lg:px-6">
-      <div className="card p-5 sm:p-6">
+      <div className="border-b border-border pb-6">
         {/* Mobile: pair + badges on one line, Dip button below. sm+: button on the right. */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
           <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
@@ -293,7 +293,7 @@ export default function PoolDetailPage() {
                 onPost={postComment}
               />
             ) : (
-              <div className="tile mb-5 px-4 py-3 text-center text-base text-mute">Sign in to post a thesis.</div>
+              <p className="mb-5 text-base text-mute">Sign in to post a thesis.</p>
             )}
 
             {comments && comments.comments.length === 0 ? (
@@ -325,12 +325,12 @@ function LpList({ lps }: { lps: LP[] }) {
   const [showAll, setShowAll] = useState(false);
   const shown = showAll ? lps : lps.slice(0, LP_PREVIEW);
   return (
-    <aside className="card p-4 lg:sticky lg:top-[84px]">
-      <h2 className="px-1 text-md font-semibold">
+    <aside className="lg:sticky lg:top-[84px] lg:border-l lg:border-border lg:pl-8">
+      <h2 className="text-md font-semibold">
         LPs in this pool <span className="num font-medium text-mute">{lps.length}</span>
       </h2>
       {lps.length === 0 ? (
-        <p className="mt-2 px-1 text-base text-mute">No LPs synced for this pool yet.</p>
+        <p className="mt-2 text-base text-mute">No LPs synced for this pool yet.</p>
       ) : (
         <ul className="mt-2">
           {shown.map((lp) => (
@@ -354,7 +354,7 @@ function LPRow({ lp }: { lp: LP }) {
   return (
     <Link
       href={`/profile/${lp.xHandle || lp.id}`}
-      className="flex items-center gap-2.5 rounded-tile px-1 py-2 transition hover:bg-surface-raised"
+      className="-mx-2 flex items-center gap-2.5 rounded-tile px-2 py-2 transition hover:bg-surface"
       title={(lp.positionCount ?? 1) > 1 ? fmtPositions(lp.positionCount ?? 1) : undefined}
     >
       <Avatar user={lp} size={28} />
@@ -412,7 +412,7 @@ function CommentComposer({
 
   if (gate === "not_joined") {
     return (
-      <div className="tile mb-5 px-4 py-3 text-center text-base text-mute">
+      <div className="mb-5 text-base text-mute">
         Posting is for beta members.{" "}
         <Link href="/join" className="link">
           Redeem an invite code
@@ -424,7 +424,7 @@ function CommentComposer({
 
   if (gate === "no_position") {
     return (
-      <div className="tile mb-5 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 px-4 py-3 text-base text-mute">
+      <div className="mb-5 text-base text-mute">
         <span>Hold a position in {poolName} to post a thesis on this pool.</span>
       </div>
     );

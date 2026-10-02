@@ -112,7 +112,18 @@ export function PnLCalendar({ userId, compact = false }: { userId?: number | nul
   const map = useMemo(() => new Map(days.map((d) => [d.date, d])), [days]);
 
   if (empty) return <p className="text-base text-mute" data-testid="pnl-calendar-empty">No closed positions in the last {LOOKBACK_MONTHS} months.</p>;
-  if (!cursor) return <div className={`skeleton rounded-tile ${compact ? "h-[330px]" : "h-[420px] sm:h-[500px] md:h-[580px]"}`} />;
+  // Loading: the month header and a faint 7-column grid, not one big block.
+  if (!cursor)
+    return (
+      <div aria-busy="true" aria-label="Loading calendar">
+        <span className="skeleton mx-auto block h-5 w-32" />
+        <div className={`mt-4 grid grid-cols-7 gap-1 ${compact ? "" : "sm:gap-1.5"}`}>
+          {Array.from({ length: 35 }, (_, i) => (
+            <span key={i} className={`skeleton block rounded-tile ${compact ? "h-[46px]" : "h-[60px] sm:h-[76px]"}`} />
+          ))}
+        </div>
+      </div>
+    );
 
   const y = cursor.getFullYear();
   const m = cursor.getMonth();

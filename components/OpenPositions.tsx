@@ -144,11 +144,11 @@ export function OpenPositions({ userId, compact, mine = false, refreshKey }: { u
 
   if (!data && loading) {
     return (
-      <div className="card p-5" data-testid="open-positions">
+      <section data-testid="open-positions">
         {header}
-        <div className="space-y-3" aria-busy="true" aria-label="Loading open positions">
+        <div className="divide-y divide-border border-t border-border" aria-busy="true" aria-label="Loading open positions">
           {[0, 1].map((i) => (
-            <div key={i} className="tile h-[118px] p-4">
+            <div key={i} className="h-[84px] py-4">
               <div className="flex items-center gap-3">
                 <span className="skeleton h-8 w-14 rounded-full" />
                 <div className="space-y-1.5">
@@ -163,35 +163,37 @@ export function OpenPositions({ userId, compact, mine = false, refreshKey }: { u
             </div>
           ))}
         </div>
-      </div>
+      </section>
     );
   }
 
   if (error) {
     return (
-      <div className="card p-5" data-testid="open-positions">
+      <section data-testid="open-positions">
         {header}
         <p className="text-base text-dn">{error}</p>
-      </div>
+      </section>
     );
   }
 
   if (!data || data.pools.length === 0) {
     return (
-      <div className="card p-5" data-testid="open-positions">
+      <section data-testid="open-positions">
         {header}
         <p className="text-base text-mute">{mine ? "You have no open positions right now." : "No open positions right now."}</p>
-      </div>
+      </section>
     );
   }
 
   if (compact) {
     return (
-      <div className="card p-5" data-testid="open-positions">
+      <section data-testid="open-positions">
         {header}
-        <div className="space-y-2">
+        <div className="divide-y divide-border border-y border-border">
           {data.pools.slice(0, 3).map((pool) => (
-            <PositionCardCompact key={pool.poolAddress} pool={pool} />
+            <div key={pool.poolAddress}>
+              <PositionCardCompact pool={pool} />
+            </div>
           ))}
         </div>
         {data.pools.length > 3 && (
@@ -199,16 +201,19 @@ export function OpenPositions({ userId, compact, mine = false, refreshKey }: { u
             +{data.pools.length - 3} more pool{data.pools.length - 3 === 1 ? "" : "s"}
           </p>
         )}
-      </div>
+      </section>
     );
   }
 
   return (
-    <div className="card p-5" data-testid="open-positions">
+    <section data-testid="open-positions">
       {header}
-      <div className="space-y-3">
+      <div className="divide-y divide-border border-y border-border">
         {visible.map((pool) => (
-          <PositionCard key={pool.poolAddress} pool={pool} open={open} panelId={`${panelBase}-${pool.poolAddress}`} />
+          // Dividers sit on this wrapper so the row's hover fill can bleed past them.
+          <div key={pool.poolAddress}>
+            <PositionCard pool={pool} open={open} panelId={`${panelBase}-${pool.poolAddress}`} />
+          </div>
         ))}
       </div>
       {data.pools.length > INITIAL_POOLS && (
@@ -221,7 +226,7 @@ export function OpenPositions({ userId, compact, mine = false, refreshKey }: { u
           {showAll ? "Show fewer" : `Show all ${data.pools.length} pools`}
         </button>
       )}
-    </div>
+    </section>
   );
 }
 
@@ -484,7 +489,8 @@ function PositionCard({ pool, open, panelId }: { pool: OpenPool; open: boolean; 
   // Pools with several positions list a row each; a single position shows its range bar inline.
   const expandable = hasPositionRows(pool);
   return (
-    <div className="tile group relative p-4 transition hover:border-border-strong hover:bg-border/40" data-testid="open-position-row">
+    // A divided row, not a box: hover fills it so the whole row reads as one link.
+    <div className="group relative -mx-3 rounded-tile px-3 py-4 transition hover:bg-surface" data-testid="open-position-row">
       {/* Whole-card overlay (not a wrapper) so the token links aren't nested in it. */}
       <Link href={`/pools/${pool.poolAddress}`} aria-label={`${pair} pool, ${fmtPositions(count)}`} className="absolute inset-0 rounded-tile" />
 
@@ -575,7 +581,7 @@ function PositionCard({ pool, open, panelId }: { pool: OpenPool; open: boolean; 
         </div>
       )}
 
-      <DipLink poolAddress={pool.poolAddress} protocol={pool.protocol} className="!absolute right-4 top-4 sm:top-[1.6rem]" />
+      <DipLink poolAddress={pool.poolAddress} protocol={pool.protocol} className="!absolute right-3 top-4 sm:top-[1.6rem]" />
     </div>
   );
 }
@@ -583,7 +589,7 @@ function PositionCard({ pool, open, panelId }: { pool: OpenPool; open: boolean; 
 function PositionCardCompact({ pool }: { pool: OpenPool }) {
   const count = pool.positionCount || 1;
   return (
-    <div className="tile relative flex items-center justify-between gap-2 p-3 transition hover:border-border-strong">
+    <div className="relative -mx-3 flex items-center justify-between gap-2 rounded-tile px-3 py-3 transition hover:bg-surface">
       <Link href={`/pools/${pool.poolAddress}`} aria-label={`${pool.tokenX}-${pool.tokenY} pool, ${fmtPositions(count)}`} className="absolute inset-0 rounded-tile" />
       <div className="flex min-w-0 flex-1 items-center gap-2">
         <PoolIcons pool={pool} size="sm" />

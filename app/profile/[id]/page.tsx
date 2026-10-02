@@ -285,7 +285,7 @@ function Profile() {
           )}
         </div>
       </div>
-      {xNotice && <div className="tile mb-4 px-4 py-2.5 text-base text-fg-secondary">{xNotice}</div>}
+      {xNotice && <p className="mb-4 text-base text-fg-secondary">{xNotice}</p>}
       
       {/* Link prompts for missing methods */}
       {mine && user && (
@@ -293,17 +293,14 @@ function Profile() {
           {!user.memberNumber && (
             <Link
               href="/join"
-              className="tile mb-4 flex items-center justify-between gap-3 px-4 py-3 text-base transition hover:border-border-strong"
+              className="group mb-4 block text-base"
             >
-              <span className="min-w-0">
-                <span className="font-semibold text-fg">You&apos;re not on the leaderboard yet</span>
-                <span className="text-mute"> · Got an invite code? Join the beta</span>
-              </span>
-              <span className="shrink-0 text-mute">→</span>
+              <span className="font-semibold text-fg">You&apos;re not on the leaderboard yet</span>
+              <span className="text-mute transition group-hover:text-fg"> · Got an invite code? Join the beta →</span>
             </Link>
           )}
           {(user.walletCount === undefined || user.walletCount === 0) && user.wallet && user.wallet.startsWith("temp_") && (
-            <div className="tile mb-4 px-4 py-3 text-base">
+            <div className="mb-4 text-base">
               <span className="font-semibold text-fg">Link a wallet</span>
               <span className="text-mute"> · Connect your Solana wallet to track your Meteora stats</span>
             </div>
@@ -311,13 +308,14 @@ function Profile() {
         </>
       )}
 
-      <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[380px_minmax(0,1fr)]">
-        {/* Identity card, with the calendar under it on desktop so it reads at a glance. */}
-        <div className="h-fit min-w-0 space-y-5">
-        <section className="card">
+      {/* One surface: sections are grouped by headings, spacing and hairlines, not boxes. */}
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-x-12 gap-y-10 lg:grid-cols-[340px_minmax(0,1fr)]">
+        {/* Identity, with the calendar under it on desktop so it reads at a glance. */}
+        <div className="h-fit min-w-0 space-y-10">
+        <section>
           <ProfileBanner user={user} mine={mine} onUpdated={() => load(target!)} />
-          <div className="relative px-5 pb-5">
-            <div className="relative -mt-12 flex items-end justify-between">
+          <div className="relative">
+            <div className="relative -mt-12 flex items-end justify-between pl-4">
               <Avatar user={user} size={96} ring />
               <div className="mb-1 flex gap-2">
                 {snap && hasActivity(snap) && (
@@ -369,9 +367,9 @@ function Profile() {
         {desktop && <CalendarCard userId={user.id} />}
         </div>
 
-        {/* Stats + calendar */}
-        <section className="min-w-0 space-y-5">
-          <div className="card p-5">
+        {/* Stats, open positions, theses */}
+        <div className="min-w-0 space-y-12">
+          <section>
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-lg font-semibold">Meteora stats</h2>
               <Pills value={range} onChange={setRange} options={[{ value: "7d", label: "7D" }, { value: "30d", label: "30D" }, { value: "all", label: "All" }]} />
@@ -405,14 +403,14 @@ function Profile() {
             ) : (
               <p className="text-base text-mute">{syncing ? "Pulling stats from Meteora…" : "No Meteora activity found for this wallet yet."}</p>
             )}
-          </div>
+          </section>
 
           <OpenPositions userId={user.id} mine={mine} refreshKey={snap?.updatedAt ?? null} />
 
           {!desktop && <CalendarCard userId={user.id} />}
 
           <RecentTheses userId={user.id} />
-        </section>
+        </div>
       </div>
 
       {snap && (
@@ -454,7 +452,7 @@ function useIsDesktop(): boolean {
 /** Compact month calendar: a glance at daily closed PnL. */
 function CalendarCard({ userId }: { userId: number }) {
   return (
-    <section className="card p-5">
+    <section>
       <h2 className="mb-3 text-md font-semibold" title="Daily closed-position PnL, live from Meteora's portfolio calendar">
         PnL calendar
       </h2>
@@ -508,14 +506,14 @@ function OwnEmptyProfile() {
       <div className="mb-4 flex min-h-8 items-center">
         <Link href="/" className="text-base font-medium text-mute transition hover:text-fg">← Leaderboard</Link>
       </div>
-      <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[380px_minmax(0,1fr)]">
-        <section className="card h-fit p-5">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-x-12 gap-y-10 lg:grid-cols-[340px_minmax(0,1fr)]">
+        <section className="h-fit">
           <Avatar user={{}} size={80} ring />
           <h1 className="mt-3 text-xl font-bold tracking-tight">Your LP profile</h1>
           <p className="mt-1 text-base text-mute">Sign in and join the beta to claim your spot on the leaderboard.</p>
           <Link href="/join" className="btn-primary mt-4">Join the beta</Link>
         </section>
-        <section className="card p-5">
+        <section>
           <h2 className="mb-4 text-lg font-semibold">Meteora stats</h2>
           <NoActivityStats mine />
         </section>
@@ -564,7 +562,7 @@ function OwnerControls({ user, focusX, onSaved }: { user: ApiUser; focusX: boole
   if (!me.verified) {
     return (
       <div className="mt-4 space-y-2">
-        <div className="tile px-4 py-3 text-center">
+        <div>
           <p className="text-base text-mute">Sign in with X to edit your profile</p>
           <button
             type="button"
@@ -746,7 +744,7 @@ function ProfileBanner({ user, mine, onUpdated }: { user: ApiUser; mine: boolean
 
   return (
     <>
-      <div className="relative aspect-[3/1] max-h-36 w-full overflow-hidden rounded-t-card">
+      <div className="relative aspect-[3/1] max-h-36 w-full overflow-hidden rounded-tile">
         {bannerUrl ? (
           <img src={bannerUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
         ) : (
@@ -1102,47 +1100,49 @@ function RecentTheses({ userId }: { userId: number }) {
 
   if (loading) {
     return (
-      <div className="card p-5" aria-busy="true">
+      <section aria-busy="true">
         {heading}
         <div className="mt-3 space-y-2" aria-hidden>
           <div className="skeleton h-[92px] rounded-tile" />
         </div>
-      </div>
+      </section>
     );
   }
 
   if (theses.length === 0) {
     return (
-      <div className="card p-5">
+      <section>
         {heading}
         <p className="mt-1 text-base text-mute">No theses posted yet.</p>
-      </div>
+      </section>
     );
   }
 
   const shown = showAll ? theses : theses.slice(0, 3);
   return (
-    <div className="card p-5" data-testid="profile-theses">
+    <section data-testid="profile-theses">
       {heading}
-      <div className="mt-4 grid gap-2 md:grid-cols-2">
+      <ul className="mt-3 divide-y divide-border border-t border-border">
         {shown.map((thesis) => (
-          <ThesisCompact key={thesis.id} post={thesis} />
+          <li key={thesis.id}>
+            <ThesisCompact post={thesis} />
+          </li>
         ))}
-        {!showAll && theses.length > 3 && (
-          <button type="button" onClick={() => setShowAll(true)} className="btn-ghost -ml-3 h-8 px-3">
-            Show {theses.length - 3} more
-          </button>
-        )}
-        {showAll && total > theses.length && (
-          <p className="pt-1 text-sm text-mute">
-            Latest {theses.length} of {total}.{" "}
-            <Link href="/poolside" className="link">
-              More on Poolside
-            </Link>
-          </p>
-        )}
-      </div>
-    </div>
+      </ul>
+      {!showAll && theses.length > 3 && (
+        <button type="button" onClick={() => setShowAll(true)} className="btn-ghost -ml-3 mt-1 h-8 px-3">
+          Show {theses.length - 3} more
+        </button>
+      )}
+      {showAll && total > theses.length && (
+        <p className="pt-2 text-sm text-mute">
+          Latest {theses.length} of {total}.{" "}
+          <Link href="/poolside" className="link">
+            More on Poolside
+          </Link>
+        </p>
+      )}
+    </section>
   );
 }
 
@@ -1154,18 +1154,18 @@ function ProfileSkeleton({ note = null }: { note?: string | null }) {
         <div className="skeleton h-4 w-24" />
         <div className="text-sm text-mute">{note}</div>
       </div>
-      <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[380px_minmax(0,1fr)]" aria-hidden>
-        <section className="card h-fit overflow-hidden">
-          <div className="aspect-[3/1] max-h-36 w-full bg-surface-raised" />
-          <div className="px-5 pb-5">
-            <div className="-mt-12 h-[104px] w-[104px] rounded-full border-4 border-surface bg-surface-raised" />
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-x-12 gap-y-10 lg:grid-cols-[340px_minmax(0,1fr)]" aria-hidden>
+        <section className="h-fit">
+          <div className="aspect-[3/1] max-h-36 w-full rounded-tile bg-surface-raised" />
+          <div>
+            <div className="-mt-12 ml-4 h-[104px] w-[104px] rounded-full border-4 border-bg bg-surface-raised" />
             <div className="skeleton mt-3 h-6 w-40" />
             <div className="skeleton mt-2 h-4 w-24" />
             <div className="skeleton mt-4 h-4 w-32" />
           </div>
         </section>
-        <section className="min-w-0 space-y-5">
-          <div className="card p-5">
+        <section className="min-w-0 space-y-12">
+          <div>
             <div className="flex items-center justify-between">
               <div className="skeleton h-5 w-32" />
               <div className="skeleton h-9 w-36 rounded-full" />
@@ -1177,7 +1177,7 @@ function ProfileSkeleton({ note = null }: { note?: string | null }) {
               ))}
             </div>
           </div>
-          <div className="card p-5">
+          <div>
             <div className="skeleton h-5 w-28" />
             <div className="skeleton mt-5 h-[240px] rounded-tile" />
           </div>

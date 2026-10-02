@@ -52,14 +52,14 @@ function TokenDot({ icon, label, className = "" }: { icon: string | null; label:
       <img
         src={icon}
         alt={label}
-        className={`h-8 w-8 rounded-full border-2 border-surface transition group-hover:border-surface-raised bg-surface-raised object-cover ${className}`}
+        className={`h-8 w-8 rounded-full border-2 border-bg transition group-hover:border-surface-raised bg-surface-raised object-cover ${className}`}
         loading="lazy"
         onError={() => setFailedIcon(icon)}
       />
     );
   }
   return (
-    <span className={`flex h-8 w-8 items-center justify-center rounded-full border-2 border-surface transition group-hover:border-surface-raised bg-border-strong text-sm font-bold ${className}`}>
+    <span className={`flex h-8 w-8 items-center justify-center rounded-full border-2 border-bg transition group-hover:border-surface-raised bg-border-strong text-sm font-bold ${className}`}>
       {label.slice(0, 1)}
     </span>
   );
@@ -365,7 +365,8 @@ function PoolsContent() {
         </EmptyState>
       ) : (
         <>
-          <div className={`mt-6 space-y-2 transition-opacity ${loading ? "opacity-60" : ""}`}>
+          {/* An open, divided list like the leaderboard: rows are links, not boxes. */}
+          <div className={`mt-6 border-t border-border transition-opacity ${loading ? "opacity-60" : ""}`}>
             {visiblePools.map((p) => (
               <PoolRow
                 key={p.poolAddress}
@@ -410,8 +411,8 @@ function PoolRow({
   const [x = "?", y = "?"] = [pool.tokenX, pool.tokenY];
 
   return (
-    <div className="group relative flex flex-wrap items-center gap-x-3 gap-y-2 rounded-tile border border-border bg-surface px-3 py-2.5 transition hover:border-border-strong hover:bg-surface-raised sm:flex-nowrap sm:px-4" data-testid="pool-row">
-      <Link href={`/pools/${pool.poolAddress}`} prefetch={false} className="absolute inset-0 rounded-tile" aria-label={`${x}-${y} pool`} />
+    <div className="group relative flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border px-2 py-3 transition hover:bg-surface-raised sm:flex-nowrap sm:px-3" data-testid="pool-row">
+      <Link href={`/pools/${pool.poolAddress}`} prefetch={false} className="absolute inset-0" aria-label={`${x}-${y} pool`} />
 
       <div className="flex w-14 shrink-0">
         <TokenDot icon={pool.tokenXIcon} label={x} />
@@ -462,9 +463,9 @@ function PoolRow({
 /** Same footprint as a pool row (icons, two text lines), so nothing jumps when the list arrives. */
 function PoolRowsSkeleton() {
   return (
-    <div className="mt-6 space-y-2" aria-busy="true" aria-label="Loading pools">
+    <div className="mt-6 border-t border-border" aria-busy="true" aria-label="Loading pools">
       {[0, 1, 2, 3, 4, 5].map((i) => (
-        <div key={i} className="flex items-center gap-3 rounded-tile border border-border bg-surface px-3 py-2.5 sm:px-4">
+        <div key={i} className="flex items-center gap-3 border-b border-border px-2 py-3 sm:px-3">
           <div className="flex w-14 shrink-0">
             <span className="skeleton h-8 w-8 rounded-full" />
             <span className="skeleton -ml-2 h-8 w-8 rounded-full" />

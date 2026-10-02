@@ -68,9 +68,9 @@ export default function InvitesPage() {
       <main className="mx-auto max-w-[640px] px-4 pb-16 pt-6">
         <span className="skeleton block h-8 w-40" />
         <span className="skeleton mt-2 block h-4 w-56" />
-        <div className="card mt-6 space-y-2 p-5" aria-busy="true" aria-label="Loading invites">
+        <div className="mt-6 divide-y divide-border border-y border-border" aria-busy="true" aria-label="Loading invites">
           {[0, 1, 2].map((i) => (
-            <div key={i} className="tile flex h-[66px] items-center justify-between px-4">
+            <div key={i} className="flex h-[60px] items-center justify-between">
               <div className="space-y-1.5">
                 <span className="skeleton block h-4 w-28" />
                 <span className="skeleton block h-3 w-16" />
@@ -107,16 +107,16 @@ export default function InvitesPage() {
   return (
     <main className="mx-auto max-w-[640px] px-4 pb-16 pt-6">
       <PageHeader title="Your invites" description={`You have ${remaining} invite${remaining === 1 ? "" : "s"} remaining.`} />
-      <div className="card mt-6 p-5">
+      <div className="mt-6">
         {codes.length === 0 ? (
           <p className="py-6 text-center text-base text-mute">No invite codes yet.</p>
         ) : (
-          <div className="space-y-2">
+          <div className="divide-y divide-border border-y border-border">
             {/* Unused codes first; a used code is just a quiet row with a "Used" chip. */}
             {[...codes].sort((a, b) => Number(a.uses >= a.maxUses) - Number(b.uses >= b.maxUses)).map((code) => {
               const usedUp = code.uses >= code.maxUses;
               return (
-                <div key={code.id} className="tile flex items-center justify-between gap-3 px-4 py-3">
+                <div key={code.id} className="flex items-center justify-between gap-3 py-3">
                   <div className="min-w-0">
                     <p className={`num truncate text-md font-semibold ${usedUp ? "text-mute" : "text-fg"}`}>{code.code}</p>
                     {code.maxUses > 1 && (

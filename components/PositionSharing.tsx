@@ -66,7 +66,7 @@ export function PositionSharingToggle() {
   if (!state?.joined) return null;
   const on = state.share;
   return (
-    <div className="tile px-4 py-3" data-testid="position-sharing-setting">
+    <div className="border-t border-border pt-4" data-testid="position-sharing-setting">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p id="position-sharing-label" className="text-base font-semibold text-fg">
@@ -109,7 +109,7 @@ export function PositionSharingPrompt({ className = "" }: { className?: string }
 
   if (justEnabled) {
     return (
-      <div className={`card px-5 py-4 text-base text-fg-secondary ${className}`} role="status" data-testid="position-sharing-prompt-done">
+      <div className={`tile px-4 py-3 text-base text-fg-secondary ${className}`} role="status" data-testid="position-sharing-prompt-done">
         Sharing is on. New opens and closes will show on Poolside. Turn it off anytime in{" "}
         <Link href="/profile/me" className="link">
           Edit profile

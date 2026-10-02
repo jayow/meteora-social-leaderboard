@@ -39,7 +39,7 @@ export function Composer({ onPosted }: { onPosted: (post: ThesisPost) => void })
   }, [load]);
 
   const shell = (children: React.ReactNode) => (
-    <div className="card p-4 sm:p-5" data-testid="poolside-composer">
+    <div data-testid="poolside-composer">
       {children}
     </div>
   );

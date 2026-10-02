@@ -99,14 +99,14 @@ export default function AdminPage() {
     <main className="mx-auto max-w-[1320px] px-4 pb-16 pt-6 lg:px-6">
       <h1 className="mb-6 text-2xl font-bold tracking-tight">Admin</h1>
 
-      <div className="card mb-4 p-5">
+      <section className="mb-10">
         <h2 className="mb-3 text-lg font-semibold">Beta status</h2>
         <p className="num text-xl font-semibold">
           {data.memberCount} / {data.cap} members
         </p>
-      </div>
+      </section>
 
-      <div className="card mb-4 p-5">
+      <section className="mb-10">
         <h2 className="mb-3 text-lg font-semibold">Generate codes</h2>
         <div className="flex flex-wrap items-end gap-2">
           <label className="block">
@@ -135,9 +135,9 @@ export default function AdminPage() {
             {generating ? "Generating…" : "Generate"}
           </button>
         </div>
-      </div>
+      </section>
 
-      <div className="card mb-4 p-5">
+      <section className="mb-10">
         <h2 className="mb-3 text-lg font-semibold">Recent joins</h2>
         <div className="divide-y divide-border">
           {data.recentJoins.slice(0, 20).map((u) => (
@@ -146,15 +146,15 @@ export default function AdminPage() {
             </div>
           ))}
         </div>
-      </div>
+      </section>
 
-      <div className="card p-5">
+      <section>
         <h2 className="mb-3 text-lg font-semibold">
           All codes <span className="num font-medium text-mute">{data.codes.length}</span>
         </h2>
-        <div className="space-y-2">
+        <div className="divide-y divide-border border-y border-border">
           {data.codes.map((code) => (
-            <div key={code.id} className="tile flex items-center justify-between gap-3 px-4 py-3">
+            <div key={code.id} className="flex items-center justify-between gap-3 py-2.5">
               <div className="flex min-w-0 items-center">
                 <span className={`num font-semibold ${code.disabled ? "text-mute" : ""}`}>{code.code}</span>
                 {code.disabled ? <span className="chip ml-2">Disabled</span> : null}
@@ -171,7 +171,7 @@ export default function AdminPage() {
             </div>
           ))}
         </div>
-      </div>
+      </section>
     </main>
   );
 }

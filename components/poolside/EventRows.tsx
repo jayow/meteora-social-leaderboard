@@ -176,8 +176,8 @@ function Burst({ items }: { items: ActivityItem[] }) {
 export function EventRun({ items }: { items: ActivityItem[] }) {
   const bursts = toBursts(items);
   return (
-    // A recessed band: the activity log sits below the surface the posts live on.
-    <div className="bg-bg px-4 py-1.5 sm:px-5" data-testid="activity-run">
+    // Events sit in the post text column (past the avatar gutter), so posts own the left edge.
+    <div className="py-2 pl-[52px]" data-testid="activity-run">
       <ul>
         {bursts.map((b) => (
           <Burst key={b[0].id} items={b} />

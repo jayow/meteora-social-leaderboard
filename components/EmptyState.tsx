@@ -1,26 +1,24 @@
 import type { ReactNode } from "react";
 
 /**
- * The one empty / not-found / error block: a quiet card with a title, a line of help and an optional action.
- * `inset` drops the card chrome for use inside an existing card or list.
+ * The one empty / not-found / error block: a centred title, a line of help and an optional action. No box:
+ * it sits on the page surface.
  */
 export function EmptyState({
   title,
   children,
   action,
-  inset = false,
   className = "",
   testId,
 }: {
   title: ReactNode;
   children?: ReactNode;
   action?: ReactNode;
-  inset?: boolean;
   className?: string;
   testId?: string;
 }) {
   return (
-    <div className={`${inset ? "" : "card"} px-6 py-10 text-center ${className}`} data-testid={testId}>
+    <div className={`px-6 py-12 text-center ${className}`} data-testid={testId}>
       <h2 className="text-md font-semibold text-fg">{title}</h2>
       {children && <div className="mx-auto mt-1 max-w-md text-base text-mute">{children}</div>}
       {action && <div className="mt-4 flex justify-center">{action}</div>}

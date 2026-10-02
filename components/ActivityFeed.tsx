@@ -207,7 +207,7 @@ export function ActivityFeed() {
         />
       </div>
 
-      <div className="card mt-4 overflow-hidden" data-testid="activity-feed">
+      <div className="mt-1" data-testid="activity-feed">
         {!loading && scope === "following" && shownScope === "everyone" && (
           <div className="border-b border-border">
             <FallbackNote fallback={fallback} />
@@ -218,7 +218,6 @@ export function ActivityFeed() {
           <Skeleton />
         ) : error && items.length === 0 ? (
           <EmptyState
-            inset
             testId="activity-error"
             title={error}
             action={
@@ -249,7 +248,7 @@ export function ActivityFeed() {
           <div className="divide-y divide-border">
             {blocks.map((b) =>
               b.type === "post" ? (
-                <div key={b.key} className="px-4 py-4 sm:px-5">
+                <div key={b.key} className="py-5">
                   <ThesisCard post={b.post} />
                 </div>
               ) : (

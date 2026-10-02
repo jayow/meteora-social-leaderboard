@@ -162,7 +162,7 @@ export function ThesisCard({ post, onDelete, size = "md" }: { post: ThesisPost; 
 /** Thesis without the author header (the author is the page's subject, e.g. their profile). */
 export function ThesisCompact({ post }: { post: ThesisPost }) {
   return (
-    <article className="tile p-3" data-testid="thesis-card" data-thesis-id={post.id}>
+    <article className="py-3" data-testid="thesis-card" data-thesis-id={post.id}>
       <div className="flex min-w-0 items-center gap-2">
         <ThesisPoolTag pool={post.pool} token={post.token} />
         <AuthorPoolPnl pnl={post.authorPoolPnl} />

@@ -56,7 +56,7 @@ export default function BetaGatePage() {
         </EmptyState>
       ) : gate === "loading" ? (
         // Same footprint as the card above, so the page doesn't flash blank.
-        <div className="card px-6 py-10" aria-busy="true">
+        <div className="px-6 py-12" aria-busy="true">
           <span className="skeleton mx-auto block h-5 w-56" />
           <span className="skeleton mx-auto mt-2 block h-4 w-72 max-w-full" />
           <span className="skeleton mx-auto mt-4 block h-9 w-48 rounded-full" />

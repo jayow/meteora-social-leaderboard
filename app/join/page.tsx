@@ -176,8 +176,8 @@ function JoinFlow() {
   const errorLine = error ? <p role="alert" className="mt-3 text-base text-dn">{error}</p> : null;
 
   return (
-    <main className="mx-auto max-w-[480px] px-4 pb-16 pt-10 sm:pt-16">
-      <div className="card p-5 sm:p-6">
+    <main className="mx-auto max-w-[400px] px-4 pb-16 pt-10 sm:pt-16">
+      <div>
         {step !== "member" && step !== "complete" && (
           <div className="mb-6 text-center">
             <h1 className="text-2xl font-bold tracking-tight">Join Pool Party</h1>
@@ -257,7 +257,7 @@ function JoinFlow() {
               className="field h-11"
               maxLength={200}
             />
-            <div className="tile mt-4 p-3">
+            <div className="mt-5">
               <TermsCheckbox checked={termsAccepted} onChange={setTermsAccepted} id="join-terms-consent" />
             </div>
             {errorLine}
@@ -302,8 +302,8 @@ export default function JoinPage() {
   return (
     <Suspense
       fallback={
-        <main className="mx-auto max-w-[480px] px-4 pb-16 pt-10 sm:pt-16">
-          <div className="card p-5 sm:p-6" aria-busy="true">
+        <main className="mx-auto max-w-[400px] px-4 pb-16 pt-10 sm:pt-16">
+          <div aria-busy="true">
             <span className="skeleton mx-auto block h-7 w-48" />
             <span className="skeleton mx-auto mt-2 block h-4 w-64 max-w-full" />
             <span className="skeleton mt-6 block h-11 w-full" />

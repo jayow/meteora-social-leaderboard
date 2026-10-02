@@ -1,6 +1,8 @@
 # Pool Party theme
 
 Flat, dark, one accent. No gradients (text, buttons, avatar rings, backgrounds), no glows, no coloured shadows.
+
+**One surface, few boxes.** Don't use cards, panels or boxed surfaces unless a region is a repeated object or must be acted on independently. Group related content with type, spacing and alignment instead: section headings, whitespace (`space-y-10`/`12` between sections) and hairlines (`border-t border-border`, `divide-y divide-border`). A page reads as one surface, not a grid of boxes; if a box doesn't separate a distinct item, remove it. Boxes that stay: modals, floating menus and previews, the phone tab bar, alert banners, one-off prompts you act on (Poolside sharing ask), form fields, and calendar day cells. Lists (leaderboard, pools, open positions, LPs, invites, theses on a profile) are divided rows with a `hover:bg-surface` fill, not tiles.
 Tokens live in `app/globals.css` (`@theme`, Tailwind v4), so each one is both a CSS variable (`var(--color-surface)`) and a utility (`bg-surface`, `text-mute`, `border-border`). `lib/theme.ts` mirrors them as hex for places without CSS (share card image, `themeColor`); keep both in sync.
 
 ## Tokens
@@ -53,7 +55,7 @@ Sentence case everywhere. No `uppercase` or tracked-out labels (acronyms like DL
 
 | Class | What |
 | --- | --- |
-| `card` | Page-level panel: `surface` + `border` + `rounded-card`. Add padding at the call site. |
+| `card` | Boxed panel: `surface` + `border` + `rounded-card`. Rarely right; see "One surface, few boxes". |
 | `tile` | Something on a card: `surface-raised` + `border` + `rounded-tile`. |
 | `field` | Text input / textarea / select: h-10, `surface-raised`, border, hover `border-strong`, accent focus ring. Use `h-9` in toolbars, `h-11` in forms, `h-auto py-2.5` for textareas. |
 | `chip` | 20px neutral pill (bin step, "You", status). |
@@ -63,7 +65,7 @@ Sentence case everywhere. No `uppercase` or tracked-out labels (acronyms like DL
 | `link` | Inline link in body copy: `fg`, semibold, quiet underline that brightens on hover. |
 | `skeleton` | Loading block (`surface-raised`, gentle pulse, off under reduced motion). Give it the final element's size so nothing jumps. |
 
-Components: `BoardHeading`, `WordMenu` and `LiveStatus` (`components/BoardHeading.tsx`, see "Leaderboard heading" below); `CountrySelect` (`plain` renders a borderless text control for filter rows), `PageHeader` and `EmptyState` (`components/EmptyState.tsx`) for page titles and empty/error/signed-out states; `Tag`, `binLabel()` ("Bin 80"), `Pills`, `StatTile` (`components/ui.tsx`); `Modal` + `ModalClose` (`components/Modal.tsx`) for every modal.
+Components: `BoardHeading`, `WordMenu` and `LiveStatus` (`components/BoardHeading.tsx`, see "Leaderboard heading" below); `CountrySelect` (`plain` renders a borderless text control for filter rows), `PageHeader` and `EmptyState` (`components/EmptyState.tsx`) for page titles and empty/error/signed-out states; `Tag`, `binLabel()` ("Bin 80"), `Pills` (`components/ui.tsx`); `Modal` + `ModalClose` (`components/Modal.tsx`) for every modal.
 
 ## Buttons
 
@@ -90,9 +92,9 @@ Don't override font size, radius or colours with `!` classes.
 - Header: flush, `sticky top-0 border-b border-border bg-bg`, 60px. Wordmark left, plain text nav links (`text-mute hover:text-fg`; active `text-fg` with a 2px accent bar sitting on the hairline), account avatar + chevron right (name from lg). No pill containers. Phones keep the bottom tab bar.
 - Leaderboard heading (`BoardHeading`): the playful headline first, then the controls on a fixed line. The control line (`text-md font-semibold`) reads "30 days ▾ · ranked by PnL ▾". Both words are `WordMenu`s: `accent` text with a small chevron, no resting underline (a dotted one read like a spellcheck mark), and a thin solid `accent/50` underline on hover or keyboard focus only. Each opens a small radio menu (`role="menu"` + `menuitemradio`; arrows, Home/End, Enter/Space, Esc/Tab return focus to the word, with no focus ring after a mouse pick). The range word reserves the width of its longest option (`reserve`) and the metric ends the line, so neither word, nor its menu, ever moves. The headline above is a playful line per metric, `text-2xl font-bold` (a page title, so the #1 podium figure stays the biggest thing on screen): "Biggest splashes", "Who's farming the most fees", "Making the most waves", "Sharpest swimmers" (Countries view: "Countries making the biggest splashes", etc.). On phones it reserves two lines so nothing below jumps. Under it: `LiveStatus` (6px dot + "Fresh from Meteora · 2m ago", `text-sm text-mute`; the dot is `up` only while the data is under an hour old, `mute` otherwise, and the text reads "Updating…" during a refetch) on the left, and the quiet country / Following controls with Members / Countries anchored at the right end (first, on its own row, on phones). Copy stays sentence case, pool-themed but not cheesy, no emoji.
 - Leaderboard list (members, countries): open list with hairline dividers (`LIST_ROW` in `components/RankMedal.tsx`: `border-b border-border hover:bg-surface`), no per-row boxes. Rank `text-sm text-mute`, name `font-medium text-fg`, metric `font-bold num` flush right. Own row: `bg-surface` + 2px accent left bar.
-- Other list rows (pools, LPs): `rounded-tile border border-border bg-surface px-3 py-2.5 sm:px-4 hover:border-border-strong`, whole row clickable via an overlay link.
+- Other list rows (pools, open positions, LPs): divided rows like the leaderboard (`border-b border-border`, `hover:bg-surface`), whole row clickable via an overlay link.
 - Section header: `text-lg font-semibold`, optional count in `num font-medium text-mute` after the title.
-- Stat: label `text-sm text-mute` above value `text-md`-`text-lg font-semibold` (`StatTile`).
+- Stat: label `text-sm text-mute` above value `text-md`-`text-lg font-semibold`, in an open row with thin dividers (profile `StatStrip`), never boxed tiles.
 - Small text (11-12px): `text-mute` or brighter, never `text-white/40`, `opacity-50` etc.
 - Icons: inline SVG at `h-4 w-4` (stroke 1.75), no emoji as icons.
 - Shadows: none, or a neutral `shadow-black/40` for floating menus only.
