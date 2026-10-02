@@ -4,7 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useMe } from "@/components/MeProvider";
-import { Avatar, Flag } from "@/components/ui";
+import { Avatar, Flag, Tag } from "@/components/ui";
+import { EmptyState } from "@/components/EmptyState";
 import { FollowButton } from "@/components/FollowButton";
 import { avatarFor, displayName, fmtPositions, fmtUsd } from "@/lib/format";
 import { meteoraPoolUrl } from "@/lib/meteora-links";
@@ -64,7 +65,7 @@ function TokenDot({ icon, label, className = "" }: { icon: string | null; label:
     );
   }
   return (
-    <span className={`flex h-12 w-12 items-center justify-center rounded-full border-2 border-surface bg-border-strong text-[16px] font-bold ${className}`}>
+    <span className={`flex h-12 w-12 items-center justify-center rounded-full border-2 border-surface bg-surface-raised text-md font-semibold text-mute ${className}`}>
       {label.slice(0, 1)}
     </span>
   );
@@ -176,10 +177,27 @@ export default function PoolDetailPage() {
   if (loading && !data) {
     return (
       <main className="mx-auto max-w-[900px] px-4 pb-10 pt-6 lg:px-6">
-        <div className="glass h-32 animate-pulse rounded-[28px]" />
-        <div className="mt-6 space-y-3">
+        <div className="card flex items-center gap-4 p-5 sm:p-6" aria-busy="true" aria-label="Loading pool">
+          <div className="flex shrink-0">
+            <span className="skeleton h-12 w-12 rounded-full" />
+            <span className="skeleton -ml-3 h-12 w-12 rounded-full" />
+          </div>
+          <div className="flex-1 space-y-2">
+            <span className="skeleton block h-6 w-40" />
+            <span className="skeleton block h-4 w-24" />
+          </div>
+        </div>
+        <span className="skeleton mt-8 block h-5 w-40" />
+        <div className="mt-3 space-y-2">
           {[0, 1, 2, 3].map((i) => (
-            <div key={i} className="glass h-16 animate-pulse rounded-[20px]" />
+            <div key={i} className="flex items-center gap-3 rounded-tile border border-border bg-surface px-3 py-2.5 sm:px-4">
+              <span className="skeleton h-10 w-10 rounded-full" />
+              <div className="flex-1 space-y-1.5">
+                <span className="skeleton block h-4 w-32" />
+                <span className="skeleton block h-3 w-48 max-w-full" />
+              </div>
+              <span className="skeleton h-8 w-20 rounded-full" />
+            </div>
           ))}
         </div>
       </main>
@@ -189,19 +207,16 @@ export default function PoolDetailPage() {
   if (!pool) {
     return (
       <main className="mx-auto max-w-[900px] px-4 pb-10 pt-6 lg:px-6">
-        <div className="glass rounded-[28px] px-6 py-12 text-center">
-          <div className="text-[46px]">🏊</div>
-          <h2 className="mt-2 text-[22px] font-extrabold">Pool not found</h2>
-          <p className="mx-auto mt-1 max-w-md text-[14px] text-mute">
-            This pool doesn&apos;t have any active LPs synced yet.
-          </p>
-          <Link
-            href="/pools"
-            className="btn-primary mt-5 h-11 px-6 text-[14px]"
-          >
-            Browse all pools
-          </Link>
-        </div>
+        <EmptyState
+          title="Pool not found"
+          action={
+            <Link href="/pools" className="btn-primary">
+              Browse all pools
+            </Link>
+          }
+        >
+          This pool doesn&apos;t have any active LPs synced yet.
+        </EmptyState>
       </main>
     );
   }
@@ -210,7 +225,7 @@ export default function PoolDetailPage() {
 
   return (
     <main className="mx-auto max-w-[900px] px-4 pb-10 pt-6 lg:px-6">
-      <div className="glass rounded-[28px] p-5 sm:p-6">
+      <div className="card p-5 sm:p-6">
         {/* Mobile: pair + badges on one line, Dip button below. sm+: button on the right. */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
           <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
@@ -219,26 +234,24 @@ export default function PoolDetailPage() {
               <TokenDot icon={pool.tokenYIcon} label={y} className="-ml-3" />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="flex min-w-0 items-center gap-2 text-[20px] font-extrabold sm:text-[24px]">
+              <div className="flex min-w-0 items-center gap-2 text-lg font-bold tracking-tight sm:text-xl">
                 <span className="min-w-0 truncate" data-testid="pool-pair">
                   {pool.tokenXMint ? (
-                    <Link href={`/pools?token=${pool.tokenXMint}`} className="hover:underline">{x}</Link>
+                    <Link href={`/pools?token=${pool.tokenXMint}`} className="underline-offset-2 hover:underline">{x}</Link>
                   ) : (
                     <span>{x}</span>
                   )}
                   <span>-</span>
                   {pool.tokenYMint ? (
-                    <Link href={`/pools?token=${pool.tokenYMint}`} className="hover:underline">{y}</Link>
+                    <Link href={`/pools?token=${pool.tokenYMint}`} className="underline-offset-2 hover:underline">{y}</Link>
                   ) : (
                     <span>{y}</span>
                   )}
                 </span>
-                <span className="shrink-0 rounded border border-border px-2 py-0.5 text-[11px] font-semibold uppercase text-mute">
-                  DLMM
-                </span>
+                <Tag>DLMM</Tag>
               </div>
               {pool.binStep != null && (
-                <div className="mt-1 whitespace-nowrap text-[13px] text-mute">Bin step {pool.binStep}</div>
+                <div className="num mt-1 whitespace-nowrap text-base text-mute">Bin step {pool.binStep}</div>
               )}
             </div>
           </div>
@@ -246,23 +259,22 @@ export default function PoolDetailPage() {
             href={meteoraPoolUrl(pool.poolAddress, pool.protocol)}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center whitespace-nowrap rounded-full border border-border-strong px-5 py-2 text-[14px] font-semibold text-fg-secondary transition hover:bg-surface-raised hover:text-fg"
+            className="btn-secondary"
           >
             Dip in ↗
           </a>
         </div>
       </div>
 
-      <div className="mt-6 space-y-6">
+      <div className="mt-8 space-y-8">
         <section>
-          <h2 className="text-[18px] font-bold">
-            LPs in this pool ({lps.length})
+          <h2 className="text-lg font-semibold">
+            LPs in this pool <span className="num font-medium text-mute">{lps.length}</span>
           </h2>
           {lps.length === 0 ? (
-            <div className="glass mt-3 rounded-[20px] px-6 py-8 text-center">
-              <div className="text-[32px]">🏊</div>
-              <p className="mt-2 text-[14px] text-mute">No LPs synced for this pool yet.</p>
-            </div>
+            <EmptyState className="mt-3" title="No LPs yet">
+              No LPs synced for this pool yet.
+            </EmptyState>
           ) : (
             <div className="mt-3 space-y-2">
               {lps.map((lp) => (
@@ -273,9 +285,9 @@ export default function PoolDetailPage() {
         </section>
 
         {pool.tokenXMint && (
-          <section className="glass rounded-[28px] p-6">
-            <h2 className="mb-4 text-[20px] font-extrabold">
-              {pool.tokenX} Thesis Feed ({comments?.total ?? comments?.comments.length ?? 0})
+          <section className="card p-5 sm:p-6">
+            <h2 className="mb-4 text-lg font-semibold">
+              {pool.tokenX} theses <span className="num font-medium text-mute">{comments?.total ?? comments?.comments.length ?? 0}</span>
             </h2>
 
             {user ? (
@@ -292,19 +304,17 @@ export default function PoolDetailPage() {
                 onPost={postComment}
               />
             ) : (
-              <div className="mb-6 rounded-2xl border border-border bg-surface-raised px-4 py-3 text-center">
-                <p className="text-[14px] text-mute">Sign in to post</p>
-              </div>
+              <div className="tile mb-5 px-4 py-3 text-center text-base text-mute">Sign in to post a thesis.</div>
             )}
 
             {comments && comments.comments.length === 0 ? (
-              <p className="text-[14px] text-mute">
-                No theses yet. {user ? "Be the first to share yours!" : ""}
+              <p className="border-t border-border pt-5 text-base text-mute">
+                No theses yet.{user ? " Be the first to share yours." : ""}
               </p>
             ) : (
-              <div className="space-y-4">
+              <div className="divide-y divide-border border-t border-border">
                 {comments?.comments.map((comment) => (
-                  <div key={comment.id} className="rounded-2xl border border-border bg-bg p-4">
+                  <div key={comment.id} className="py-4 last:pb-0">
                     <ThesisCard post={comment} onDelete={comment.isOwn ? () => deleteComment(comment.id) : undefined} />
                   </div>
                 ))}
@@ -321,29 +331,21 @@ function LPRow({ lp }: { lp: LP }) {
   const pnlTone = (lp.totalPnl ?? 0) >= 0 ? "text-up" : "text-dn";
 
   return (
-    <div className="glass relative flex items-center gap-3 rounded-[20px] px-3 py-2.5 transition hover:bg-surface-raised sm:px-4">
+    <div className="relative flex items-center gap-3 rounded-tile border border-border bg-surface px-3 py-2.5 transition hover:border-border-strong sm:px-4">
       {/* Row link as an overlay so the Follow button isn't nested inside an anchor. */}
-      <Link href={`/profile/${lp.xHandle || lp.id}`} aria-label={`${displayName(lp)}'s profile`} className="absolute inset-0 rounded-[20px]" />
-      <Avatar user={lp} size={42} />
+      <Link href={`/profile/${lp.xHandle || lp.id}`} aria-label={`${displayName(lp)}'s profile`} className="absolute inset-0 rounded-tile" />
+      <Avatar user={lp} size={40} />
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1.5 text-[15px] font-bold">
+        <div className="flex min-w-0 items-center gap-1.5 text-md font-semibold">
           <span className="truncate">{displayName(lp)}</span>
           <Flag code={lp.country} />
         </div>
-        <div className="mt-0.5 flex items-center gap-2 text-[12px] text-mute">
-          <span>Value {fmtUsd(lp.valueUsd)}</span>
-          {(lp.positionCount ?? 1) > 1 && (
-            <>
-              <span>·</span>
-              <span className="num" data-testid="lp-position-count">{fmtPositions(lp.positionCount ?? 1)}</span>
-            </>
-          )}
-          {lp.totalPnl != null && (
-            <>
-              <span>·</span>
-              <span className={pnlTone}>PnL {fmtUsd(lp.totalPnl, { signed: true })}</span>
-            </>
-          )}
+        <div className="mt-0.5 overflow-hidden">
+          <div className="num dot-list text-sm text-mute">
+            <span>Value {fmtUsd(lp.valueUsd)}</span>
+            {(lp.positionCount ?? 1) > 1 && <span data-testid="lp-position-count">{fmtPositions(lp.positionCount ?? 1)}</span>}
+            {lp.totalPnl != null && <span className={pnlTone}>PnL {fmtUsd(lp.totalPnl, { signed: true })}</span>}
+          </div>
         </div>
       </div>
       <div className="relative z-10">
@@ -397,9 +399,9 @@ function CommentComposer({
 
   if (gate === "not_joined") {
     return (
-      <div className="mb-6 rounded-2xl border border-border bg-surface-raised px-4 py-3 text-center text-[14px] text-mute">
+      <div className="tile mb-5 px-4 py-3 text-center text-base text-mute">
         Posting is for beta members.{" "}
-        <Link href="/join" className="font-semibold text-fg hover:underline">
+        <Link href="/join" className="link">
           Redeem an invite code
         </Link>{" "}
         to share a thesis.
@@ -409,9 +411,9 @@ function CommentComposer({
 
   if (gate === "no_position") {
     return (
-      <div className="mb-6 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 rounded-2xl border border-border bg-surface-raised px-4 py-3 text-[14px] text-mute">
+      <div className="tile mb-5 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 px-4 py-3 text-base text-mute">
         <span>Hold a position in {poolName} to post a thesis on this pool.</span>
-        <a href={meteoraPoolUrl(poolAddress, protocol)} target="_blank" rel="noopener noreferrer" className="whitespace-nowrap text-[12px] font-semibold text-mute transition hover:text-fg">
+        <a href={meteoraPoolUrl(poolAddress, protocol)} target="_blank" rel="noopener noreferrer" className="whitespace-nowrap rounded-tag text-sm font-semibold text-mute transition hover:text-fg">
           Meteora ↗
         </a>
       </div>
@@ -419,13 +421,13 @@ function CommentComposer({
   }
 
   return (
-    <div className="mb-6">
+    <div className="mb-5">
       <div className="flex gap-3">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={avatarFor(user)}
           alt=""
-          className="h-10 w-10 rounded-full border border-surface bg-surface-raised object-cover"
+          className="hidden h-10 w-10 shrink-0 rounded-full border border-border bg-surface-raised object-cover sm:block"
         />
         <div className="min-w-0 flex-1">
           <textarea
@@ -433,24 +435,24 @@ function CommentComposer({
             onChange={(e) => setCommentText(e.target.value)}
             maxLength={500}
             rows={3}
-            placeholder={`Share your ${tokenSymbol} thesis...`}
+            placeholder={`Share your ${tokenSymbol} thesis…`}
             disabled={posting || hasPosition === null}
-            className="w-full rounded-xl border border-border bg-bg p-3 text-[14px] outline-none focus:border-accent disabled:opacity-60"
+            className="field block h-auto resize-y py-2.5"
           />
           <div className="mt-2 flex items-center justify-between">
-            <span className="text-[12px] text-mute">
+            <span className="num text-sm text-mute">
               {commentText.length}/500
             </span>
             <button
               type="button"
               onClick={onPost}
               disabled={!commentText.trim() || posting || hasPosition === null}
-              className="btn-primary h-9 px-5 text-[13px] disabled:!bg-surface-raised disabled:!text-mute disabled:!opacity-100"
+              className="btn-primary"
             >
-              {posting ? "Posting..." : "Post"}
+              {posting ? "Posting…" : "Post"}
             </button>
           </div>
-          {error && <p className="mt-2 text-[12px] text-dn">{error}</p>}
+          {error && <p className="mt-2 text-base text-dn">{error}</p>}
         </div>
       </div>
     </div>

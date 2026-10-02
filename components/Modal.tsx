@@ -8,7 +8,7 @@ import { createPortal } from "react-dom";
  * Exported so modals that manage their own markup stay consistent with <Modal>.
  */
 export const MODAL_BACKDROP = "fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-bg p-4";
-export const MODAL_PANEL = "relative w-full rounded-3xl border border-border bg-surface outline-none";
+export const MODAL_PANEL = "relative w-full rounded-card border border-border bg-surface outline-none";
 
 // Open modals, innermost last: only the top one reacts to Escape.
 const stack: symbol[] = [];
@@ -25,7 +25,7 @@ interface ModalProps {
 }
 
 /**
- * Portaled to <body> so no ancestor (e.g. a `.glass` card with backdrop-filter, or a z-index stacking
+ * Portaled to <body> so no ancestor (e.g. a card with a transform or z-index stacking
  * context) can trap or overlap it. Escape and a click on the backdrop both close it.
  */
 export function Modal({ onClose, children, className = "", labelledBy, label, testId }: ModalProps) {
@@ -98,5 +98,21 @@ export function Modal({ onClose, children, className = "", labelledBy, label, te
       </div>
     </div>,
     document.body
+  );
+}
+
+/** The one close control for every modal: a quiet icon button, top right of the panel or header. */
+export function ModalClose({ onClick, className = "" }: { onClick: () => void; className?: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label="Close"
+      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-mute transition hover:bg-surface-raised hover:text-fg ${className}`}
+    >
+      <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" aria-hidden="true">
+        <path d="M4 4l8 8M12 4l-8 8" />
+      </svg>
+    </button>
   );
 }

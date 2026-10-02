@@ -85,10 +85,11 @@ export function FollowButton({
     }
   };
 
-  const sizeClasses = size === "sm" ? "h-8 px-3.5 text-[13px]" : "h-9 px-4 text-[13px]";
+  // sm sits in rows and cards (h-8); md is the profile header button (default btn height).
+  const sizeClasses = size === "sm" ? "h-8 px-3" : "";
   // Same look signed in or out. On a profile (md) "Follow" is the primary action; in lists (sm) it stays
   // secondary so a column of rows isn't a column of accent buttons. "Following" is always quiet.
-  const tone = verified && isFollowing ? "btn-ghost border border-border" : size === "sm" ? "btn-secondary" : "btn-primary";
+  const tone = verified && isFollowing ? "btn-ghost border-border" : size === "sm" ? "btn-secondary" : "btn-primary";
 
   return (
     <button

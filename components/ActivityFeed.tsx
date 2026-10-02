@@ -6,6 +6,7 @@ import { ThesisCard } from "@/components/ThesisCard";
 import { Composer } from "@/components/poolside/Composer";
 import { EventRun } from "@/components/poolside/EventRows";
 import { PositionSharingPrompt } from "@/components/PositionSharing";
+import { EmptyState, PageHeader } from "@/components/EmptyState";
 import { onSessionChanged, requestSignIn } from "@/lib/session-events";
 import type {
   ActivityFallback,
@@ -36,27 +37,22 @@ function toBlocks(items: FeedItem[]): Block[] {
   return out;
 }
 
-function Tabs<T extends string>({ value, options, onChange, label, size = "md" }: { value: T; options: { value: T; label: string }[]; onChange: (v: T) => void; label: string; size?: "md" | "sm" }) {
+/** Underline tabs (scope) or a segmented toggle (filter); same components as the leaderboard. */
+function Tabs<T extends string>({ value, options, onChange, label, variant = "tabs" }: { value: T; options: { value: T; label: string }[]; onChange: (v: T) => void; label: string; variant?: "tabs" | "seg" }) {
   return (
-    <div role="tablist" aria-label={label} className="flex items-center gap-1">
-      {options.map((o) => {
-        const active = value === o.value;
-        return (
-          <button
-            key={o.value}
-            type="button"
-            role="tab"
-            aria-selected={active}
-            onClick={() => onChange(o.value)}
-            className={`relative rounded-full font-semibold transition ${size === "md" ? "h-9 px-3.5 text-[14px]" : "h-7 px-2.5 text-[12.5px]"} ${
-              active ? "bg-surface-raised text-fg" : "text-mute hover:text-fg"
-            }`}
-          >
-            {o.label}
-            {active && size === "md" && <span className="absolute inset-x-3.5 -bottom-[7px] h-0.5 rounded-full bg-accent" aria-hidden />}
-          </button>
-        );
-      })}
+    <div role="tablist" aria-label={label} className={variant === "tabs" ? "flex items-end gap-6" : "seg"}>
+      {options.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          role="tab"
+          aria-selected={value === o.value}
+          onClick={() => onChange(o.value)}
+          className={variant === "tabs" ? "tab" : "seg-item"}
+        >
+          {o.label}
+        </button>
+      ))}
     </div>
   );
 }
@@ -64,8 +60,8 @@ function Tabs<T extends string>({ value, options, onChange, label, size = "md" }
 function FallbackNote({ fallback }: { fallback: ActivityFallback }) {
   if (fallback === "signed_out") {
     return (
-      <p className="px-4 py-2.5 text-[12.5px] text-mute" data-testid="activity-fallback">
-        <button type="button" onClick={requestSignIn} className="font-semibold text-fg hover:underline">
+      <p className="px-4 py-3 text-base text-mute sm:px-5" data-testid="activity-fallback">
+        <button type="button" onClick={requestSignIn} className="link">
           Sign in
         </button>{" "}
         to see people you follow. Showing everyone for now.
@@ -74,9 +70,9 @@ function FallbackNote({ fallback }: { fallback: ActivityFallback }) {
   }
   if (fallback === "no_follows") {
     return (
-      <p className="px-4 py-2.5 text-[12.5px] text-mute" data-testid="activity-fallback">
+      <p className="px-4 py-3 text-base text-mute sm:px-5" data-testid="activity-fallback">
         You&apos;re not following anyone yet, so this shows everyone.{" "}
-        <Link href="/" className="font-semibold text-fg hover:underline">
+        <Link href="/" className="link">
           Browse the leaderboard
         </Link>{" "}
         to find LPs to follow.
@@ -91,12 +87,12 @@ function Skeleton() {
     <div aria-hidden data-testid="activity-loading">
       {Array.from({ length: 3 }, (_, i) => (
         <div key={i} className="flex gap-3 border-b border-border px-4 py-4 last:border-b-0">
-          <span className="h-10 w-10 shrink-0 animate-pulse rounded-full bg-surface-raised" />
+          <span className="skeleton h-10 w-10 shrink-0 rounded-full" />
           <div className="flex-1 space-y-2">
-            <span className="block h-3 w-40 animate-pulse rounded bg-surface-raised" />
-            <span className="block h-5 w-24 animate-pulse rounded-full bg-surface-raised" />
-            <span className="block h-3 w-full animate-pulse rounded bg-surface-raised" />
-            <span className="block h-3 animate-pulse rounded bg-surface-raised" style={{ width: `${60 + i * 12}%` }} />
+            <span className="skeleton block h-3.5 w-40" />
+            <span className="skeleton block h-6 w-28 rounded-full" />
+            <span className="skeleton block h-3.5 w-full" />
+            <span className="skeleton block h-3.5" style={{ width: `${60 + i * 12}%` }} />
           </div>
         </div>
       ))}
@@ -181,18 +177,18 @@ export function ActivityFeed() {
   const blocks = useMemo(() => toBlocks(items), [items]);
 
   return (
-    <section className="mx-auto w-full max-w-[680px] px-4 py-8 md:px-0">
-      <div className="mb-4">
-        <h1 className="text-[22px] font-bold tracking-tight">Poolside</h1>
-        <p className="mt-0.5 text-[13px] text-mute">
-          Theses from LPs on the pools they&apos;re in, plus what members are up to. Opened and closed positions appear only for members who share them.
-        </p>
+    <section className="mx-auto w-full max-w-[680px] px-4 pb-10 pt-6 md:px-0">
+      <div className="mb-5">
+        <PageHeader
+          title="Poolside"
+          description="Theses from LPs on the pools they're in, plus what members are up to. Opened and closed positions appear only for members who share them."
+        />
       </div>
 
       <Composer onPosted={onPosted} />
       <PositionSharingPrompt className="mt-4" />
 
-      <div className="mt-5 flex flex-wrap items-center justify-between gap-2 border-b border-border pb-1.5">
+      <div className="mt-6 flex flex-wrap items-end justify-between gap-2 border-b border-border">
         <Tabs
           label="Poolside scope"
           value={scope}
@@ -202,9 +198,10 @@ export function ActivityFeed() {
             { value: "following", label: "Following" },
           ]}
         />
+        <div className="mb-2">
         <Tabs
           label="Show"
-          size="sm"
+          variant="seg"
           value={filter}
           onChange={setFilter}
           options={[
@@ -212,9 +209,10 @@ export function ActivityFeed() {
             { value: "posts", label: "Posts" },
           ]}
         />
+        </div>
       </div>
 
-      <div className="mt-3 overflow-hidden rounded-2xl border border-border bg-surface" data-testid="activity-feed">
+      <div className="card mt-4 overflow-hidden" data-testid="activity-feed">
         {!loading && scope === "following" && shownScope === "everyone" && (
           <div className="border-b border-border">
             <FallbackNote fallback={fallback} />
@@ -224,16 +222,20 @@ export function ActivityFeed() {
         {loading ? (
           <Skeleton />
         ) : error && items.length === 0 ? (
-          <div className="px-4 py-12 text-center text-[13px] text-mute" data-testid="activity-error">
-            {error}{" "}
-            <button type="button" onClick={() => void loadFirst(scope, filter)} className="font-semibold text-fg hover:underline">
-              Try again
-            </button>
-          </div>
+          <EmptyState
+            inset
+            testId="activity-error"
+            title={error}
+            action={
+              <button type="button" onClick={() => void loadFirst(scope, filter)} className="btn-secondary">
+                Try again
+              </button>
+            }
+          />
         ) : items.length === 0 ? (
-          <div className="px-4 py-12 text-center" data-testid="activity-empty">
-            <p className="text-[14px] font-semibold text-fg">{filter === "posts" ? "No theses yet" : "Nothing here yet"}</p>
-            <p className="mx-auto mt-1 max-w-[380px] text-[13px] text-mute">
+          <div className="px-6 py-10 text-center" data-testid="activity-empty">
+            <p className="text-md font-semibold text-fg">{filter === "posts" ? "No theses yet" : "Nothing here yet"}</p>
+            <p className="mx-auto mt-1 max-w-md text-base text-mute">
               {shownScope === "following"
                 ? filter === "posts"
                   ? "People you follow haven't posted a thesis yet."
@@ -243,7 +245,7 @@ export function ActivityFeed() {
                   : "Theses, follows and badges show up here as they happen, plus opened and closed positions from members who choose to share them."}
             </p>
             {shownScope === "following" && (
-              <button type="button" onClick={() => setScope("everyone")} className="btn-secondary mt-3 h-8 px-3 text-[12.5px]">
+              <button type="button" onClick={() => setScope("everyone")} className="btn-secondary mt-4">
                 See everyone
               </button>
             )}
@@ -252,7 +254,7 @@ export function ActivityFeed() {
           <div className="divide-y divide-border">
             {blocks.map((b) =>
               b.type === "post" ? (
-                <div key={b.key} className="px-4 py-4">
+                <div key={b.key} className="px-4 py-4 sm:px-5">
                   <ThesisCard post={b.post} />
                 </div>
               ) : (
@@ -264,12 +266,12 @@ export function ActivityFeed() {
 
         {!loading && nextCursor && (
           <div className="border-t border-border p-2 text-center">
-            <button type="button" onClick={() => void loadMore()} disabled={loadingMore} className="btn-ghost h-8 px-4 text-[13px]" data-testid="activity-more">
+            <button type="button" onClick={() => void loadMore()} disabled={loadingMore} className="btn-ghost w-full" data-testid="activity-more">
               {loadingMore ? "Loading…" : "Show more"}
             </button>
           </div>
         )}
-        {error && items.length > 0 && <p className="px-4 pb-3 text-center text-[12px] text-dn">{error}</p>}
+        {error && items.length > 0 && <p className="px-4 pb-3 text-center text-base text-dn">{error}</p>}
       </div>
     </section>
   );

@@ -43,14 +43,15 @@ export function TermsConsentModal({ open, onAccepted, onSignOut }: TermsConsentM
     <Modal onClose={() => undefined} labelledBy="terms-consent-title" className="max-w-md p-6" testId="terms-consent-modal">
       <div className="space-y-4">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.14em] text-accent">One quick step</p>
-          <h2 id="terms-consent-title" className="mt-1 text-2xl font-bold text-fg">Review our terms</h2>
-          <p className="mt-2 text-sm leading-6 text-mute">Please accept the current Terms and Privacy Policy to keep using Pool Party. You can sign out instead.</p>
+          <h2 id="terms-consent-title" className="text-xl font-semibold tracking-tight text-fg">Review our terms</h2>
+          <p className="mt-1 text-base text-mute">One quick step: please accept the current Terms and Privacy Policy to keep using Pool Party. You can sign out instead.</p>
         </div>
-        <TermsCheckbox checked={checked} onChange={setChecked} id="required-terms-consent" />
-        {error && <p role="alert" className="rounded-xl border border-dn/30 bg-dn/10 px-3 py-2 text-[13px] text-fg">{error}</p>}
-        <button type="button" onClick={accept} disabled={!checked || busy} className="btn-primary h-11 w-full">{busy ? "Saving..." : "Accept and continue"}</button>
-        <button type="button" onClick={onSignOut} disabled={busy} className="btn-secondary h-11 w-full">Sign out</button>
+        <div className="tile p-3">
+          <TermsCheckbox checked={checked} onChange={setChecked} id="required-terms-consent" />
+        </div>
+        {error && <p role="alert" className="rounded-tile border border-dn/30 bg-dn/10 px-3 py-2.5 text-base text-fg">{error}</p>}
+        <button type="button" onClick={accept} disabled={!checked || busy} className="btn-primary h-11 w-full">{busy ? "Saving…" : "Accept and continue"}</button>
+        <button type="button" onClick={onSignOut} disabled={busy} className="btn-ghost h-11 w-full">Sign out</button>
       </div>
     </Modal>
   );

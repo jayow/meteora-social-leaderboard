@@ -92,14 +92,14 @@ export function PoolMemberAvatars({ poolAddress, members, isSignedIn }: PoolMemb
         })}
         {remainingCount > 0 && (
           <div
-            className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-surface bg-border-strong text-[10px] font-bold ring-1 ring-border"
+            className="num flex h-8 w-8 items-center justify-center rounded-full border-2 border-surface bg-surface-raised text-xs font-semibold text-fg-secondary ring-1 ring-border"
             title={`+${remainingCount} more`}
           >
             +{remainingCount}
           </div>
         )}
       </div>
-      <div className="text-[12px]">{getLabel()}</div>
+      <div className="text-sm">{getLabel()}</div>
     </div>
   );
 }

@@ -43,45 +43,52 @@ function TokenDot({ icon, label, className = "" }: { icon: string | null; label:
     return <img src={icon} alt={label} className={`h-4 w-4 rounded-full border border-surface bg-surface-raised object-cover ${className}`} loading="lazy" />;
   }
   return (
-    <span className={`flex h-4 w-4 items-center justify-center rounded-full border border-surface bg-border-strong text-[9px] font-bold ${className}`}>
+    <span className={`flex h-4 w-4 items-center justify-center rounded-full border border-surface bg-border-strong text-xs font-semibold ${className}`}>
       {label.slice(0, 1)}
     </span>
   );
 }
 
+/** Bin step, written the same way everywhere ("Bin 200"). */
+export function binLabel(binStep: number): string {
+  return `Bin ${binStep}`;
+}
+
+/** Small neutral label (protocol, bin step). Not uppercase-transformed: acronyms are written as they are. */
+export function Tag({ children, title, className = "" }: { children: React.ReactNode; title?: string; className?: string }) {
+  return (
+    <span title={title} className={`inline-flex h-5 shrink-0 items-center rounded-tag border border-border px-1.5 text-xs font-medium text-mute ${className}`}>
+      {children}
+    </span>
+  );
+}
+
 export function PoolChip({ pool, compact = false }: { pool: PoolInfo | null; compact?: boolean }) {
-  if (!pool) return <span className="text-[12px] text-mute">No pool yet</span>;
+  if (!pool) return <span className="text-sm text-mute">No pool yet</span>;
   const [x = "?", y = "?"] = pool.name.split("-");
   return (
-    <span className="inline-flex max-w-full items-center gap-1 rounded-full border border-border bg-surface-raised py-0.5 pl-1 pr-2 text-[12px] font-semibold" title={`${pool.name}${pool.binStep ? ` · bin step ${pool.binStep}` : ""}`}>
-      <span className="flex">
+    <span className="inline-flex h-6 max-w-full items-center gap-1.5 rounded-full border border-border bg-surface-raised pl-1 pr-2 text-sm font-semibold text-fg" title={`${pool.name}${pool.binStep ? ` · ${binLabel(pool.binStep)}` : ""}`}>
+      <span className="flex shrink-0">
         <TokenDot icon={pool.xIcon} label={x} />
         <TokenDot icon={pool.yIcon} label={y} className="-ml-1.5" />
       </span>
       <span className="truncate">{pool.name}</span>
       {!compact && (
         <>
-          <span className="rounded border border-border px-1 text-[10px] font-semibold uppercase text-mute">{pool.protocol === "damm_v2" ? "DAMM" : "DLMM"}</span>
-          {pool.binStep != null && <span className="text-[10px] font-medium text-mute">Bin {pool.binStep}</span>}
+          <span className="shrink-0 font-medium text-mute">{pool.protocol === "damm_v2" ? "DAMM" : "DLMM"}</span>
+          {pool.binStep != null && <span className="shrink-0 font-medium text-mute">{binLabel(pool.binStep)}</span>}
         </>
       )}
     </span>
   );
 }
 
-export function Pills<T extends string>({ value, options, onChange, label }: { value: T; options: { value: T; label: string }[]; onChange: (v: T) => void; label?: string }) {
+/** Segmented toggle (range etc.). Same look as every other toggle group (`seg` / `seg-item`). */
+export function Pills<T extends string>({ value, options, onChange, label, className = "" }: { value: T; options: { value: T; label: string }[]; onChange: (v: T) => void; label?: string; className?: string }) {
   return (
-    <div className="glass flex items-center gap-1 rounded-full p-1">
-      {label && <span className="pl-3 pr-1 text-[13px] font-medium text-mute">{label}</span>}
+    <div className={`seg ${className}`} role="group" aria-label={label}>
       {options.map((o) => (
-        <button
-          key={o.value}
-          type="button"
-          onClick={() => onChange(o.value)}
-          className={`h-8 rounded-full px-3.5 text-[13px] font-semibold transition ${
-            value === o.value ? "bg-accent text-accent-fg" : "text-mute hover:bg-surface-raised hover:text-fg"
-          }`}
-        >
+        <button key={o.value} type="button" aria-pressed={value === o.value} onClick={() => onChange(o.value)} className="seg-item flex-1 sm:flex-none">
           {o.label}
         </button>
       ))}
@@ -89,13 +96,14 @@ export function Pills<T extends string>({ value, options, onChange, label }: { v
   );
 }
 
+/** One stat: label, figure, optional caption. Used on the profile; same anatomy as the open-position stats. */
 export function StatTile({ label, value, tone = "white", sub }: { label: string; value: string; tone?: "white" | "up" | "dn"; sub?: string }) {
   const c = { white: "text-fg", up: "text-up", dn: "text-dn" }[tone];
   return (
-    <div className="rounded-2xl border border-border bg-surface-raised p-3">
-      <div className="text-[11px] font-medium text-mute">{label}</div>
-      <div className={`num mt-0.5 text-[20px] font-bold leading-tight ${c}`}>{value}</div>
-      {sub && <div className="mt-0.5 text-[10px] text-mute">{sub}</div>}
+    <div className="tile px-3.5 py-3">
+      <div className="truncate text-sm text-mute">{label}</div>
+      <div className={`num mt-1 text-lg font-semibold ${c}`}>{value}</div>
+      {sub && <div className="mt-0.5 truncate text-xs text-mute">{sub}</div>}
     </div>
   );
 }

@@ -133,8 +133,8 @@ export function SignInModal({ open, onClose, onSuccess, initialStep = "methods" 
       {step === "methods" ? (
         <>
           <div className="mb-6 text-center">
-            <h2 id="signin-title" className="text-2xl font-bold text-fg">Sign in</h2>
-            <p className="mt-2 text-sm text-mute">Choose your sign in method</p>
+            <h2 id="signin-title" className="text-xl font-semibold tracking-tight text-fg">Sign in</h2>
+            <p className="mt-1 text-base text-mute">Choose how you want to sign in.</p>
           </div>
 
           <div className="space-y-3">
@@ -144,23 +144,23 @@ export function SignInModal({ open, onClose, onSuccess, initialStep = "methods" 
                 setError(null);
                 setStep("wallets");
               }}
-              className="btn-primary h-14 w-full gap-3 !rounded-2xl text-base"
+              className="btn-primary h-11 w-full gap-2"
             >
-              <span className="text-xl">👛</span>
+              <WalletIcon />
               Connect wallet
             </button>
 
             <button
               type="button"
               onClick={handleXConnect}
-              className="btn-secondary h-14 w-full gap-3 !rounded-2xl text-base"
+              className="btn-secondary h-11 w-full gap-2"
             >
               <XIcon className="h-4 w-4" />
               Continue with X
             </button>
           </div>
 
-          <div className="mt-5 rounded-2xl border border-border bg-surface-raised p-3">
+          <div className="tile mt-5 p-3">
             <TermsCheckbox checked={termsAccepted} onChange={setTermsAccepted} id="signin-terms-consent" />
           </div>
         </>
@@ -175,35 +175,47 @@ export function SignInModal({ open, onClose, onSuccess, initialStep = "methods" 
                   setError(null);
                   setStep("methods");
                 }}
-                className="flex h-9 w-9 items-center justify-center rounded-full text-mute transition hover:bg-surface-raised hover:text-fg"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-mute transition hover:bg-surface-raised hover:text-fg"
                 aria-label="Back"
               >
-                ←
+                <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M10 3.5L5.5 8l4.5 4.5" />
+                </svg>
               </button>
             )}
-            <div>
-              <h2 id="signin-title" className="text-xl font-bold text-fg">
+            <div className="min-w-0">
+              <h2 id="signin-title" className="text-xl font-semibold tracking-tight text-fg">
                 {initialStep === "wallets" ? "Change wallet" : "Connect a wallet"}
               </h2>
-              <p className="mt-0.5 text-[13px] text-mute">Pick a wallet, then sign a free message to verify.</p>
+              <p className="mt-0.5 text-base text-mute">Pick a wallet, then sign a free message to verify.</p>
             </div>
           </div>
           <WalletPicker busyName={pending} onPick={handlePick} />
-          <div className="mt-4 rounded-2xl border border-border bg-surface-raised p-3">
+          <div className="tile mt-4 p-3">
             <TermsCheckbox checked={termsAccepted} onChange={setTermsAccepted} id="signin-terms-consent-wallets" />
           </div>
         </>
       )}
 
       {error && (
-        <p role="alert" className="mt-4 rounded-xl border border-dn/30 bg-dn/10 px-3 py-2 text-[13px] text-fg">
+        <p role="alert" className="mt-4 rounded-tile border border-dn/30 bg-dn/10 px-3 py-2.5 text-base text-fg">
           {error}
         </p>
       )}
 
-      <button type="button" onClick={onClose} className="mt-6 w-full text-sm text-mute hover:text-fg">
+      <button type="button" onClick={onClose} className="btn-ghost mt-4 w-full">
         Cancel
       </button>
     </Modal>
+  );
+}
+
+function WalletIcon() {
+  return (
+    <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinejoin="round" aria-hidden="true">
+      <path d="M3 6.5A2.5 2.5 0 0 1 5.5 4H15v2.5" />
+      <path d="M3 6.5v8A1.5 1.5 0 0 0 4.5 16h12a.5.5 0 0 0 .5-.5v-8a.5.5 0 0 0-.5-.5h-12A1.5 1.5 0 0 1 3 6.5z" />
+      <circle cx="13.5" cy="11.5" r="1" fill="currentColor" stroke="none" />
+    </svg>
   );
 }

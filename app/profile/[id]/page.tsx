@@ -18,6 +18,7 @@ import { FollowButton } from "@/components/FollowButton";
 import { FollowListModal, type FollowListKind } from "@/components/FollowListModal";
 import { SharePnLModal } from "@/components/SharePnLModal";
 import { PositionSharingPrompt, PositionSharingToggle } from "@/components/PositionSharing";
+import { EmptyState } from "@/components/EmptyState";
 import { displayName, fmtPct, fmtUsd, shortAddr, timeAgo } from "@/lib/format";
 import { patchCachedProfile } from "@/lib/storage";
 import { loginMessage } from "@/lib/login-message";
@@ -45,7 +46,7 @@ const RANGE_LABEL: Record<Range, string> = { "7d": "7D", "30d": "30D", all: "All
 
 export default function ProfilePage() {
   return (
-    <Suspense fallback={<main className="mx-auto max-w-[1200px] px-4 py-10 text-mute">Loading…</main>}>
+    <Suspense fallback={<ProfileSkeleton />}>
       <Profile />
     </Suspense>
   );
@@ -194,16 +195,16 @@ function Profile() {
   if (isMeRoute && me.sessionChecked && !me.userId) {
     return (
       <main className="mx-auto max-w-[640px] px-4 py-16">
-        <div className="glass rounded-[28px] px-6 py-12 text-center">
-          <div className="text-[46px]">👛</div>
-          <h1 className="mt-2 text-[24px] font-extrabold">Your LP profile</h1>
-          <p className="mx-auto mt-1 max-w-sm text-[14px] text-mute">
-            {me.wallet ? "Sign in with your connected wallet to see your profile, claim your rank and post your thesis." : "Connect Phantom or Solflare to pull your Meteora stats, claim your rank and post your thesis."}
-          </p>
-          <button type="button" onClick={() => requestSignIn()} className="btn-primary mt-5 h-11 px-6 text-[14px]">
-            Sign in
-          </button>
-        </div>
+        <EmptyState
+          title="Your LP profile"
+          action={
+            <button type="button" onClick={() => requestSignIn()} className="btn-primary">
+              Sign in
+            </button>
+          }
+        >
+          {me.wallet ? "Sign in with your connected wallet to see your profile, claim your rank and post your thesis." : "Connect Phantom or Solflare to pull your Meteora stats, claim your rank and post your thesis."}
+        </EmptyState>
       </main>
     );
   }
@@ -212,12 +213,16 @@ function Profile() {
     if (isMeRoute) return <OwnEmptyProfile />;
     return (
       <main className="mx-auto max-w-[640px] px-4 py-16">
-        <div className="glass rounded-[28px] px-6 py-12 text-center">
-          <div className="text-[40px]">🔍</div>
-          <h1 className="mt-2 text-[22px] font-extrabold">Profile not found</h1>
-          <p className="mx-auto mt-1 max-w-sm text-[14px] text-mute">This LP isn&apos;t on Pool Party (yet).</p>
-          <Link href="/" className="mt-5 inline-block text-[14px] font-semibold text-fg hover:underline">← Back to the leaderboard</Link>
-        </div>
+        <EmptyState
+          title="Profile not found"
+          action={
+            <Link href="/" className="btn-secondary">
+              Back to the leaderboard
+            </Link>
+          }
+        >
+          This LP isn&apos;t on Pool Party (yet).
+        </EmptyState>
       </main>
     );
   }
@@ -225,45 +230,40 @@ function Profile() {
   if (!user && (status === "error" || status === "timeout")) {
     return (
       <main className="mx-auto max-w-[640px] px-4 py-16">
-        <div className="glass rounded-[28px] px-6 py-12 text-center">
-          <h1 className="text-[20px] font-extrabold">Couldn&apos;t load this profile</h1>
-          <p className="mx-auto mt-1 max-w-sm text-[14px] text-mute">
-            {status === "timeout" ? "This is taking longer than usual." : "Something went wrong on our side."}
-          </p>
-          <button
-            type="button"
-            onClick={() => setReloadKey((k) => k + 1)}
-            className="mt-5 h-10 rounded-full bg-border px-5 text-[14px] font-semibold text-fg hover:bg-border-strong"
-          >
-            Try again
-          </button>
-        </div>
+        <EmptyState
+          title="Couldn't load this profile"
+          action={
+            <button type="button" onClick={() => setReloadKey((k) => k + 1)} className="btn-secondary">
+              Try again
+            </button>
+          }
+        >
+          {status === "timeout" ? "This is taking longer than usual." : "Something went wrong on our side."}
+        </EmptyState>
       </main>
     );
   }
 
-  if (!user) {
-    return (
-      <main className="mx-auto max-w-[1200px] px-4 py-8">
-        <div className="grid gap-5 lg:grid-cols-[380px_1fr]">
-          <div className="glass h-[520px] animate-pulse rounded-[28px]" />
-          <div className="glass h-[520px] animate-pulse rounded-[28px]" />
-        </div>
-        {syncing && <p className="mt-4 text-[13px] text-mute">Pulling stats from Meteora…</p>}
-      </main>
-    );
-  }
+  if (!user) return <ProfileSkeleton note={syncing ? "Pulling stats from Meteora…" : null} />;
 
   const pnlBy: Record<Range, number | null> = { "7d": snap?.pnl7d ?? null, "30d": snap?.pnl30d ?? null, all: snap?.totalPnlUsd ?? null };
   const volBy: Record<Range, number | null> = { "7d": snap?.volume7dUsd ?? null, "30d": snap?.volume30dUsd ?? null, all: snap?.volumeUsd ?? null };
   const winBy: Record<Range, number | null> = { "7d": snap?.winRate7d ?? null, "30d": snap?.winRate30d ?? null, all: snap?.winRate ?? null };
 
   return (
-    <main className="mx-auto max-w-[1200px] px-4 pb-10 pt-6 lg:px-6">
-      <div className="mb-4 flex items-center justify-between">
-        <Link href="/" className="text-[13px] font-semibold text-mute hover:text-fg">← Leaderboard</Link>
-        <div className="flex items-center gap-3 text-[12px] text-mute">
-          <span>{syncing ? "Syncing with Meteora…" : syncNote ?? `Stats updated ${timeAgo(snap?.updatedAt)}`}</span>
+    <main className="mx-auto max-w-[1320px] px-4 pb-10 pt-6 lg:px-6">
+      <div className="mb-4 flex min-h-8 items-center justify-between gap-3">
+        <Link href="/" className="shrink-0 text-base font-medium text-mute transition hover:text-fg">← Leaderboard</Link>
+        <div className="flex min-w-0 items-center gap-3 text-sm text-mute">
+          {syncing || syncNote ? (
+            <span className="truncate" title={syncNote ?? undefined}>{syncing ? "Syncing with Meteora…" : syncNote}</span>
+          ) : (
+            <span className="truncate">
+              <span className="hidden sm:inline">Stats updated </span>
+              <span className="sm:hidden">Updated </span>
+              {timeAgo(snap?.updatedAt)}
+            </span>
+          )}
           {canRefresh && (
             <button
               type="button"
@@ -273,7 +273,7 @@ function Profile() {
               }}
               disabled={syncing || coolingDown}
               title={coolingDown ? "Stats can be refreshed every 5 minutes" : "Pull fresh stats from Meteora"}
-              className="h-8 rounded-full border border-border bg-surface-raised px-3 font-semibold text-fg transition hover:border-border-strong disabled:cursor-not-allowed disabled:text-mute disabled:hover:border-border"
+              className="btn-secondary h-8 shrink-0 px-3"
               data-testid="profile-refresh"
             >
               {syncing ? "Refreshing…" : coolingDown ? `Refresh in ${Math.ceil((nextSyncAt - now) / 60000)}m` : "Refresh"}
@@ -281,7 +281,7 @@ function Profile() {
           )}
         </div>
       </div>
-      {xNotice && <div className="mb-4 rounded-2xl border border-border bg-surface-raised px-4 py-2 text-[13px] text-fg-secondary">{xNotice}</div>}
+      {xNotice && <div className="tile mb-4 px-4 py-2.5 text-base text-fg-secondary">{xNotice}</div>}
       
       {/* Link prompts for missing methods */}
       {mine && user && (
@@ -289,31 +289,28 @@ function Profile() {
           {!user.memberNumber && (
             <Link
               href="/join"
-              className="mb-4 flex items-center justify-between rounded-2xl border border-border bg-surface-raised px-4 py-3 text-[14px] transition hover:border-border-strong"
+              className="tile mb-4 flex items-center justify-between gap-3 px-4 py-3 text-base transition hover:border-border-strong"
             >
-              <span>
+              <span className="min-w-0">
                 <span className="font-semibold text-fg">You&apos;re not on the leaderboard yet</span>
-                <span className="ml-2 text-[13px] text-mute">Got an invite code? Join the beta</span>
+                <span className="text-mute"> · Got an invite code? Join the beta</span>
               </span>
-              <span className="text-[13px] text-mute">→</span>
+              <span className="shrink-0 text-mute">→</span>
             </Link>
           )}
           {user.memberNumber ? <PositionSharingPrompt className="mb-4" /> : null}
           {(user.walletCount === undefined || user.walletCount === 0) && user.wallet && user.wallet.startsWith("temp_") && (
-            <div className="mb-4 rounded-2xl border border-border bg-surface-raised px-4 py-3">
-              <div className="flex items-center gap-2 text-[14px]">
-                <span className="text-[20px]">👛</span>
-                <span className="font-semibold text-fg">Link a wallet</span>
-                <span className="text-[13px] text-mute">Connect your Solana wallet to track your Meteora stats</span>
-              </div>
+            <div className="tile mb-4 px-4 py-3 text-base">
+              <span className="font-semibold text-fg">Link a wallet</span>
+              <span className="text-mute"> · Connect your Solana wallet to track your Meteora stats</span>
             </div>
           )}
         </>
       )}
 
-      <div className="grid gap-5 lg:grid-cols-[380px_minmax(0,1fr)]">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[380px_minmax(0,1fr)]">
         {/* Identity card */}
-        <section className="glass h-fit rounded-[28px]">
+        <section className="card h-fit">
           <ProfileBanner user={user} mine={mine} onUpdated={() => load(target!)} />
           <div className="relative px-5 pb-5">
             <div className="relative -mt-12 flex items-end justify-between">
@@ -323,7 +320,7 @@ function Profile() {
                   <button
                     type="button"
                     onClick={() => setShareModalOpen(true)}
-                    className={`h-9 shrink-0 px-3.5 text-[13px] sm:px-4 ${mine ? "btn-primary" : "btn-secondary"}`}
+                    className={`shrink-0 ${mine ? "btn-primary" : "btn-secondary"}`}
                   >
                     Share PnL
                   </button>
@@ -331,27 +328,27 @@ function Profile() {
                 {!mine && <FollowButton targetUser={user} />}
               </div>
             </div>
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <h1 className="text-[26px] font-extrabold tracking-tight">{user.xName || displayName(user)}</h1>
-              <Flag code={user.country} className="!h-[14px] !w-[20px]" />
-              {mine && <span className="rounded-full border border-border px-2 py-0.5 text-[11px] font-semibold text-mute">You</span>}
+            <div className="mt-3 flex min-w-0 items-center gap-2">
+              <h1 className="min-w-0 truncate text-xl font-bold tracking-tight" title={user.xName || displayName(user)}>{user.xName || displayName(user)}</h1>
+              <Flag code={user.country} className="shrink-0" />
+              {mine && <span className="chip">You</span>}
             </div>
             {user.xHandle && (
-              <a href={`https://x.com/${user.xHandle}`} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-[13px] text-mute hover:text-fg">
+              <a href={`https://x.com/${user.xHandle}`} target="_blank" rel="noreferrer" className="mt-0.5 inline-flex items-center gap-1 text-base text-mute transition hover:text-fg">
                 <XIcon className="h-3 w-3" />@{user.xHandle}
               </a>
             )}
-            <BadgeRow badges={badges} className="mt-2.5" />
+            <BadgeRow badges={badges} className="mt-3" />
             {(user.followersCount !== undefined || user.followingCount !== undefined) && (
-              <div className="mt-2 flex gap-4 text-[13px]">
+              <div className="mt-3 flex gap-4 text-base">
                 {user.followersCount !== undefined && (
-                  <button type="button" onClick={() => setFollowList("followers")} className="hover:underline" data-testid="followers-count">
-                    <span className="font-semibold text-fg">{user.followersCount}</span> <span className="text-mute">{user.followersCount === 1 ? "follower" : "followers"}</span>
+                  <button type="button" onClick={() => setFollowList("followers")} className="transition hover:text-fg" data-testid="followers-count">
+                    <span className="num font-semibold text-fg">{user.followersCount}</span> <span className="text-mute">{user.followersCount === 1 ? "follower" : "followers"}</span>
                   </button>
                 )}
                 {user.followingCount !== undefined && (
-                  <button type="button" onClick={() => setFollowList("following")} className="hover:underline" data-testid="following-count">
-                    <span className="font-semibold text-fg">{user.followingCount}</span> <span className="text-mute">following</span>
+                  <button type="button" onClick={() => setFollowList("following")} className="transition hover:text-fg" data-testid="following-count">
+                    <span className="num font-semibold text-fg">{user.followingCount}</span> <span className="text-mute">following</span>
                   </button>
                 )}
               </div>
@@ -368,9 +365,9 @@ function Profile() {
 
         {/* Stats + calendar */}
         <section className="min-w-0 space-y-5">
-          <div className="glass rounded-[28px] p-5">
+          <div className="card p-5">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-[18px] font-extrabold">Meteora stats</h2>
+              <h2 className="text-lg font-semibold">Meteora stats</h2>
               <Pills value={range} onChange={setRange} options={[{ value: "7d", label: "7D" }, { value: "30d", label: "30D" }, { value: "all", label: "All" }]} />
             </div>
             {!hasActivity(snap) && (mine || !snap) && !syncing ? (
@@ -379,11 +376,11 @@ function Profile() {
               <>
                 <div className="flex flex-wrap items-end gap-x-6 gap-y-1">
                   <div>
-                    <div className="text-[12px] font-medium text-mute">{RANGE_LABEL[range]} PnL</div>
-                    <div className={`num text-[44px] font-extrabold leading-none tracking-tight ${(pnlBy[range] ?? 0) >= 0 ? "text-up" : "text-dn"}`}>{fmtUsd(pnlBy[range], { signed: true, compact: false })}</div>
+                    <div className="text-sm text-mute">{RANGE_LABEL[range]} PnL</div>
+                    <div className={`num mt-1 text-3xl font-bold tracking-tight ${(pnlBy[range] ?? 0) >= 0 ? "text-up" : "text-dn"}`}>{fmtUsd(pnlBy[range], { signed: true, compact: false })}</div>
                   </div>
-                  <div className="pb-1 text-[13px] text-mute">
-                    Lifetime DLMM PnL <span className={`num font-bold ${(snap.totalPnlUsd ?? 0) >= 0 ? "text-up" : "text-dn"}`}>{fmtUsd(snap.totalPnlUsd, { signed: true })}</span>
+                  <div className="pb-1.5 text-base text-mute">
+                    Lifetime DLMM PnL <span className={`num font-semibold ${(snap.totalPnlUsd ?? 0) >= 0 ? "text-up" : "text-dn"}`}>{fmtUsd(snap.totalPnlUsd, { signed: true })}</span>
                   </div>
                 </div>
                 <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -395,16 +392,16 @@ function Profile() {
                   <StatTile label="Closed positions" value={`${snap.positionsClosed ?? 0}`} sub="DLMM lifetime" />
                 </div>
                 {user.walletCount !== undefined && user.walletCount > 1 && (
-                  <div className="mt-3 text-[11px] text-mute">Combined across {user.walletCount} wallets</div>
+                  <div className="mt-3 text-sm text-mute">Combined across {user.walletCount} wallets</div>
                 )}
               </>
             ) : (
-              <p className="text-[14px] text-mute">{syncing ? "Pulling stats from Meteora…" : "No Meteora activity found for this wallet yet."}</p>
+              <p className="text-base text-mute">{syncing ? "Pulling stats from Meteora…" : "No Meteora activity found for this wallet yet."}</p>
             )}
           </div>
 
-          <div className="glass rounded-[28px] p-5">
-            <h2 className="mb-3 text-[18px] font-extrabold">PnL calendar</h2>
+          <div className="card p-5">
+            <h2 className="mb-4 text-lg font-semibold">PnL calendar</h2>
             <PnLCalendar userId={user.id} />
           </div>
 
@@ -429,17 +426,17 @@ function Profile() {
 function NoActivityStats({ mine }: { mine: boolean }) {
   return (
     <div data-testid="no-activity">
-      <div className="text-[12px] font-medium text-mute">PnL</div>
-      <div className="num text-[44px] font-extrabold leading-none tracking-tight text-fg-secondary">{fmtUsd(0, { compact: false })}</div>
+      <div className="text-sm text-mute">PnL</div>
+      <div className="num mt-1 text-3xl font-bold tracking-tight text-fg-secondary">{fmtUsd(0, { compact: false })}</div>
       <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
         <StatTile label="Total value" value={fmtUsd(0)} sub="open positions" />
         <StatTile label="Volume" value={fmtUsd(0)} sub="deposited" />
         <StatTile label="Fees earned" value={fmtUsd(0)} tone="up" />
       </div>
-      <p className="mt-4 text-[14px] text-mute">
+      <p className="mt-4 text-base text-mute">
         No Meteora LP activity yet.{" "}
         {mine && (
-          <a href={meteoraHomeUrl()} target="_blank" rel="noreferrer" className="font-semibold text-fg-secondary hover:text-fg">
+          <a href={meteoraHomeUrl()} target="_blank" rel="noreferrer" className="link">
             Dip in ↗
           </a>
         )}
@@ -451,19 +448,19 @@ function NoActivityStats({ mine }: { mine: boolean }) {
 /** /profile/me when the account can't be loaded (e.g. wallet connected but not signed in yet). */
 function OwnEmptyProfile() {
   return (
-    <main className="mx-auto max-w-[1200px] px-4 pb-10 pt-6 lg:px-6" data-testid="own-empty-profile">
-      <div className="mb-4">
-        <Link href="/" className="text-[13px] font-semibold text-mute hover:text-fg">← Leaderboard</Link>
+    <main className="mx-auto max-w-[1320px] px-4 pb-10 pt-6 lg:px-6" data-testid="own-empty-profile">
+      <div className="mb-4 flex min-h-8 items-center">
+        <Link href="/" className="text-base font-medium text-mute transition hover:text-fg">← Leaderboard</Link>
       </div>
-      <div className="grid gap-5 lg:grid-cols-[380px_minmax(0,1fr)]">
-        <section className="glass h-fit rounded-[28px] p-5">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[380px_minmax(0,1fr)]">
+        <section className="card h-fit p-5">
           <Avatar user={{}} size={80} ring />
-          <h1 className="mt-3 text-[24px] font-extrabold tracking-tight">Your LP profile</h1>
-          <p className="mt-1 text-[13px] text-mute">Sign in and join the beta to claim your spot on the leaderboard.</p>
-          <Link href="/join" className="mt-4 inline-block text-[13px] font-semibold text-accent hover:text-accent-hover">Join the beta →</Link>
+          <h1 className="mt-3 text-xl font-bold tracking-tight">Your LP profile</h1>
+          <p className="mt-1 text-base text-mute">Sign in and join the beta to claim your spot on the leaderboard.</p>
+          <Link href="/join" className="btn-primary mt-4">Join the beta</Link>
         </section>
-        <section className="glass rounded-[28px] p-5">
-          <h2 className="mb-4 text-[18px] font-extrabold">Meteora stats</h2>
+        <section className="card p-5">
+          <h2 className="mb-4 text-lg font-semibold">Meteora stats</h2>
           <NoActivityStats mine />
         </section>
       </div>
@@ -511,12 +508,12 @@ function OwnerControls({ user, focusX, onSaved }: { user: ApiUser; focusX: boole
   if (!me.verified) {
     return (
       <div className="mt-4 space-y-2">
-        <div className="rounded-2xl border border-border bg-surface-raised px-4 py-3 text-center">
-          <p className="text-[13px] text-mute">Sign in with X to edit your profile</p>
+        <div className="tile px-4 py-3 text-center">
+          <p className="text-base text-mute">Sign in with X to edit your profile</p>
           <button
             type="button"
             onClick={connectX}
-            className="btn-secondary mt-2 h-9 px-4 text-[13px]"
+            className="btn-secondary mt-2"
           >
             <XIcon /> Sign in with X
           </button>
@@ -526,20 +523,20 @@ function OwnerControls({ user, focusX, onSaved }: { user: ApiUser; focusX: boole
   }
 
   return (
-    <div className="mt-4 space-y-2">
+    <div className="mt-4 space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         {user.xHandle ? (
-          <button type="button" onClick={unlink} disabled={busy !== null} className="btn-ghost h-9 px-3.5 text-[12px]">
+          <button type="button" onClick={unlink} disabled={busy !== null} className="btn-secondary">
             Disconnect X
           </button>
         ) : (
-          <button type="button" onClick={connectX} disabled={busy !== null} className={`h-9 px-4 text-[13px] ${focusX ? "btn-primary" : "btn-secondary"}`}>
+          <button type="button" onClick={connectX} disabled={busy !== null} className={focusX ? "btn-primary" : "btn-secondary"}>
             <XIcon /> {busy === "x" ? "Connecting…" : "Connect X"}
           </button>
         )}
         <CountrySelect value={user.country || ""} onChange={saveCountry} allLabel="Set your country" disabled={busy !== null} />
       </div>
-      {err && <p className="text-[12px] text-dn">{err}</p>}
+      {err && <p className="text-sm text-dn">{err}</p>}
       <PositionSharingToggle />
     </div>
   );
@@ -693,7 +690,7 @@ function ProfileBanner({ user, mine, onUpdated }: { user: ApiUser; mine: boolean
 
   return (
     <>
-      <div className="relative aspect-[3/1] w-full overflow-hidden">
+      <div className="relative aspect-[3/1] w-full overflow-hidden rounded-t-card">
         {bannerUrl ? (
           <img src={bannerUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
         ) : (
@@ -703,7 +700,7 @@ function ProfileBanner({ user, mine, onUpdated }: { user: ApiUser; mine: boolean
           <button
             type="button"
             onClick={handleEditClick}
-            className="absolute right-3 top-3 z-10 flex items-center gap-1.5 rounded-full border border-border-strong bg-surface px-3 py-1.5 text-[12px] font-semibold text-fg hover:border-border-strong hover:bg-surface-raised"
+            className="btn-secondary absolute right-3 top-3 z-10 h-8 px-3"
           >
             <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
@@ -715,7 +712,7 @@ function ProfileBanner({ user, mine, onUpdated }: { user: ApiUser; mine: boolean
       </div>
 
       {editing && (
-        // Portaled, opaque modal: it used to be trapped inside the glass identity card.
+        // Portaled, opaque modal so the identity card never traps it.
         <Modal
           onClose={() => {
             if (uploading) return;
@@ -727,12 +724,12 @@ function ProfileBanner({ user, mine, onUpdated }: { user: ApiUser; mine: boolean
           labelledBy="banner-modal-title"
           className="max-w-lg p-6"
         >
-            <h3 id="banner-modal-title" className="text-[18px] font-bold">Profile banner</h3>
-            <p className="mt-1 text-[13px] text-mute">Upload a JPG, PNG, or WebP up to 5MB. It will be cropped to 3:1 aspect ratio.</p>
+            <h3 id="banner-modal-title" className="text-lg font-semibold">Profile banner</h3>
+            <p className="mt-1 text-base text-mute">Upload a JPG, PNG, or WebP up to 5MB. It will be cropped to 3:1 aspect ratio.</p>
 
             <div className="mt-4">
               <div
-                className={`group relative aspect-[3/1] cursor-pointer overflow-hidden rounded-xl transition-all ${
+                className={`group relative aspect-[3/1] cursor-pointer overflow-hidden rounded-tile transition ${
                   dragActive ? "ring-2 ring-accent ring-offset-2 ring-offset-surface" : "ring-1 ring-border"
                 }`}
                 onDragEnter={handleDrag}
@@ -757,11 +754,11 @@ function ProfileBanner({ user, mine, onUpdated }: { user: ApiUser; mine: boolean
                     hovered || (!preview && !bannerUrl) ? "opacity-100" : "opacity-0"
                   }`}
                 >
-                  <svg className="h-10 w-10 text-fg-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <svg className="h-6 w-6 text-mute" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
                   </svg>
-                  <p className="mt-2 text-[14px] font-semibold text-fg">Click or drag an image here</p>
-                  <p className="mt-1 text-[12px] text-mute">JPG, PNG or WebP · up to 5MB · 3:1</p>
+                  <p className="mt-2 text-base font-semibold text-fg">Click or drag an image here</p>
+                  <p className="mt-1 text-sm text-mute">JPG, PNG or WebP · up to 5MB · 3:1</p>
                 </div>
               </div>
 
@@ -780,20 +777,20 @@ function ProfileBanner({ user, mine, onUpdated }: { user: ApiUser; mine: boolean
                 type="button"
                 onClick={handleClickDropzone}
                 disabled={uploading}
-                className="mt-3 h-9 w-full rounded-full bg-surface-raised px-4 text-[13px] font-semibold text-fg hover:bg-border disabled:opacity-60"
+                className="btn-secondary mt-3 w-full"
               >
                 {preview ? "Replace image" : "Upload image"}
               </button>
 
               {/* Filename display */}
               {fileName && (
-                <p className="mt-2 truncate text-[12px] text-mute">
-                  Selected: <span className="text-mute">{fileName}</span>
+                <p className="mt-2 truncate text-sm text-mute">
+                  Selected: <span className="text-fg-secondary">{fileName}</span>
                 </p>
               )}
             </div>
 
-            {error && <p className="mt-2 text-[12px] text-dn">{error}</p>}
+            {error && <p className="mt-2 text-sm text-dn">{error}</p>}
 
             <div className="mt-4 flex justify-between gap-2">
               <div>
@@ -802,7 +799,7 @@ function ProfileBanner({ user, mine, onUpdated }: { user: ApiUser; mine: boolean
                     type="button"
                     onClick={remove}
                     disabled={uploading}
-                    className="h-9 rounded-full bg-dn/20 px-4 text-[13px] font-semibold text-dn hover:bg-dn/30 disabled:opacity-60"
+                    className="btn-ghost text-dn hover:text-dn"
                   >
                     Remove banner
                   </button>
@@ -818,7 +815,7 @@ function ProfileBanner({ user, mine, onUpdated }: { user: ApiUser; mine: boolean
                     setError(null);
                   }}
                   disabled={uploading}
-                  className="h-9 rounded-full bg-surface-raised px-4 text-[13px] font-semibold disabled:opacity-60"
+                  className="btn-secondary"
                 >
                   Cancel
                 </button>
@@ -826,7 +823,7 @@ function ProfileBanner({ user, mine, onUpdated }: { user: ApiUser; mine: boolean
                   type="button"
                   onClick={upload}
                   disabled={!preview || uploading}
-                  className="btn-primary h-9 px-4 text-[13px] disabled:!bg-surface-raised disabled:!text-mute disabled:!opacity-100"
+                  className="btn-primary"
                 >
                   {uploading ? "Uploading…" : "Save"}
                 </button>
@@ -953,15 +950,15 @@ function WalletsSection() {
   const canAddMore = wallets.length < 5;
 
   return (
-    <div className="mt-4 rounded-2xl border border-border bg-bg p-4">
+    <div className="tile mt-4 p-4">
       <div className="flex items-center justify-between">
-        <div className="text-[13px] font-bold text-fg">Linked Wallets</div>
+        <div className="text-base font-semibold text-fg">Linked wallets</div>
         {publicKey && canAddMore && !currentIsLinked && (
           <button
             type="button"
             onClick={addCurrentWallet}
             disabled={adding}
-            className="btn-secondary h-7 px-3 text-[12px]"
+            className="btn-secondary h-8 px-3"
           >
             {adding ? "Signing…" : "Link current wallet"}
           </button>
@@ -969,19 +966,19 @@ function WalletsSection() {
       </div>
       
       {loading ? (
-        <div className="mt-3 text-[12px] text-mute">Loading…</div>
+        <div className="mt-3 text-sm text-mute">Loading…</div>
       ) : wallets.length === 0 ? (
-        <div className="mt-3 text-[12px] text-mute">No wallets linked yet.</div>
+        <div className="mt-3 text-sm text-mute">No wallets linked yet.</div>
       ) : (
         <div className="mt-3 space-y-2">
           {wallets.map((w) => (
-            <div key={w.id} className="flex items-center justify-between rounded-xl border border-border bg-surface-raised px-3 py-2">
+            <div key={w.id} className="flex items-center justify-between rounded-tile border border-border bg-surface px-3 py-2">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="num text-[13px] font-semibold">{shortAddr(w.address)}</span>
-                  {w.isPrimary && <span className="rounded border border-border px-1.5 py-0.5 text-[10px] font-semibold text-mute">PRIMARY</span>}
+                  <span className="num text-base font-semibold">{shortAddr(w.address)}</span>
+                  {w.isPrimary && <span className="chip">Primary</span>}
                 </div>
-                {w.label && <div className="mt-0.5 text-[11px] text-mute">{w.label}</div>}
+                {w.label && <div className="mt-0.5 text-xs text-mute">{w.label}</div>}
               </div>
               <div className="flex gap-2">
                 {!w.isPrimary && wallets.length > 1 && (
@@ -989,7 +986,7 @@ function WalletsSection() {
                     type="button"
                     onClick={() => setPrimary(w.address)}
                     disabled={busy === w.id}
-                    className="text-[11px] font-semibold text-mute hover:text-fg disabled:opacity-50"
+                    className="text-xs font-semibold text-mute hover:text-fg disabled:opacity-50"
                   >
                     Set primary
                   </button>
@@ -999,7 +996,7 @@ function WalletsSection() {
                     type="button"
                     onClick={() => removeWallet(w.address)}
                     disabled={busy === w.id}
-                    className="text-[11px] font-semibold text-dn hover:underline disabled:opacity-50"
+                    className="text-xs font-semibold text-dn hover:underline disabled:opacity-50"
                   >
                     Remove
                   </button>
@@ -1010,8 +1007,8 @@ function WalletsSection() {
         </div>
       )}
       
-      {error && <div className="mt-2 text-[12px] text-dn">{error}</div>}
-      {!loading && wallets.length >= 5 && <div className="mt-2 text-[11px] text-mute">Maximum 5 wallets per account</div>}
+      {error && <div className="mt-2 text-sm text-dn">{error}</div>}
+      {!loading && wallets.length >= 5 && <div className="mt-2 text-xs text-mute">Maximum 5 wallets per account</div>}
     </div>
   );
 }
@@ -1042,51 +1039,94 @@ function RecentTheses({ userId }: { userId: number }) {
   }, [userId]);
 
   const heading = (
-    <div className="text-[11px] font-bold uppercase tracking-wider text-mute">
-      Theses{total > 0 ? ` (${total})` : ""}
-    </div>
+    <h2 className="text-base font-semibold text-fg">
+      Theses{total > 0 ? <span className="num font-normal text-mute"> {total}</span> : null}
+    </h2>
   );
 
   if (loading) {
     return (
-      <div className="mt-4 rounded-2xl border border-border bg-surface-raised p-3.5">
+      <div className="mt-5 border-t border-border pt-4" aria-busy="true">
         {heading}
-        <p className="mt-2 text-[13px] text-mute">Loading...</p>
+        <div className="mt-3 space-y-2" aria-hidden>
+          <div className="skeleton h-[92px] rounded-tile" />
+        </div>
       </div>
     );
   }
 
   if (theses.length === 0) {
     return (
-      <div className="mt-4 rounded-2xl border border-border bg-surface-raised p-3.5">
+      <div className="mt-5 border-t border-border pt-4">
         {heading}
-        <p className="mt-2 text-[13px] text-mute">No theses posted yet</p>
+        <p className="mt-1 text-base text-mute">No theses posted yet.</p>
       </div>
     );
   }
 
   const shown = showAll ? theses : theses.slice(0, 3);
   return (
-    <div className="mt-4 rounded-2xl border border-border bg-surface-raised p-3.5" data-testid="profile-theses">
+    <div className="mt-5 border-t border-border pt-4" data-testid="profile-theses">
       {heading}
-      <div className="mt-2 space-y-2">
+      <div className="mt-3 space-y-2">
         {shown.map((thesis) => (
           <ThesisCompact key={thesis.id} post={thesis} />
         ))}
         {!showAll && theses.length > 3 && (
-          <button type="button" onClick={() => setShowAll(true)} className="btn-ghost -ml-2 h-7 px-2 text-[12px]">
+          <button type="button" onClick={() => setShowAll(true)} className="btn-ghost -ml-3 h-8 px-3">
             Show {theses.length - 3} more
           </button>
         )}
         {showAll && total > theses.length && (
-          <p className="pt-1 text-[11px] text-mute">
+          <p className="pt-1 text-sm text-mute">
             Latest {theses.length} of {total}.{" "}
-            <Link href="/poolside" className="font-semibold text-fg hover:underline">
+            <Link href="/poolside" className="link">
               More on Poolside
             </Link>
           </p>
         )}
       </div>
     </div>
+  );
+}
+
+/** Loading state shaped like the real profile: identity card on the left, stats + calendar on the right. */
+function ProfileSkeleton({ note = null }: { note?: string | null }) {
+  return (
+    <main className="mx-auto max-w-[1320px] px-4 pb-10 pt-6 lg:px-6" aria-busy="true" data-testid="profile-skeleton">
+      <div className="mb-4 flex min-h-8 items-center justify-between">
+        <div className="skeleton h-4 w-24" />
+        <div className="text-sm text-mute">{note}</div>
+      </div>
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[380px_minmax(0,1fr)]" aria-hidden>
+        <section className="card h-fit overflow-hidden">
+          <div className="aspect-[3/1] w-full bg-surface-raised" />
+          <div className="px-5 pb-5">
+            <div className="-mt-12 h-[104px] w-[104px] rounded-full border-4 border-surface bg-surface-raised" />
+            <div className="skeleton mt-3 h-6 w-40" />
+            <div className="skeleton mt-2 h-4 w-24" />
+            <div className="skeleton mt-4 h-4 w-32" />
+          </div>
+        </section>
+        <section className="min-w-0 space-y-5">
+          <div className="card p-5">
+            <div className="flex items-center justify-between">
+              <div className="skeleton h-5 w-32" />
+              <div className="skeleton h-9 w-36 rounded-full" />
+            </div>
+            <div className="skeleton mt-5 h-10 w-56" />
+            <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {Array.from({ length: 6 }, (_, i) => (
+                <div key={i} className="skeleton h-[76px] rounded-tile" />
+              ))}
+            </div>
+          </div>
+          <div className="card p-5">
+            <div className="skeleton h-5 w-28" />
+            <div className="skeleton mt-5 h-[320px] rounded-tile" />
+          </div>
+        </section>
+      </div>
+    </main>
   );
 }

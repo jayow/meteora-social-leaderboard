@@ -1,5 +1,6 @@
 "use client";
 
+import { EmptyState } from "@/components/EmptyState";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { CountryLeaderboardEntry, CountryLeaderboardResponse } from "@/lib/api-types";
@@ -31,7 +32,7 @@ const lpHref = (lp: NonNullable<CountryLeaderboardEntry["topLp"]>) => `/profile/
 
 function FlagImg({ code, className }: { code: string; className: string }) {
   // eslint-disable-next-line @next/next/no-img-element
-  return <img src={flagUrl(code, 80)} alt="" className={`shrink-0 rounded-[4px] object-cover ${className}`} loading="lazy" />;
+  return <img src={flagUrl(code, 80)} alt="" className={`shrink-0 rounded-[3px] object-cover ${className}`} loading="lazy" />;
 }
 
 /** Top LP mini link (sits above the card's overlay button, never inside it). */
@@ -41,7 +42,7 @@ function TopLp({ lp, size = 20, className = "" }: { lp: CountryLeaderboardEntry[
   return (
     <Link
       href={lpHref(lp)}
-      className={`relative z-10 inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-full text-fg-secondary hover:text-fg ${className}`}
+      className={`relative z-10 inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-full text-fg-secondary transition hover:text-fg ${className}`}
       title={`Top LP: ${name}`}
       data-testid="country-top-lp"
     >
@@ -105,10 +106,9 @@ export function CountryBoard({
   return (
     <div data-testid="country-board" aria-busy={loading || undefined}>
       {entries.length === 0 ? (
-        <div className="mt-6 rounded-2xl border border-border bg-surface px-6 py-10 text-center" data-testid="country-empty">
-          <h2 className="text-[18px] font-bold">No countries on the board yet</h2>
-          <p className="mx-auto mt-1 max-w-md text-[13px] text-mute">Countries show up once members set one in their profile and their Meteora stats sync.</p>
-        </div>
+        <EmptyState className="mt-6" testId="country-empty" title="No countries on the board yet">
+          Countries show up once members set one in their profile and their Meteora stats sync.
+        </EmptyState>
       ) : (
         <>
           {podium.length > 0 && (
@@ -132,11 +132,11 @@ export function CountryBoard({
         </>
       )}
       {missing > 0 && (
-        <p className="mt-5 text-center text-[12px] text-mute" data-testid="country-missing-note">
+        <p className="mt-5 text-center text-sm text-mute" data-testid="country-missing-note">
           {plural(missing, "active member")} without a country {missing === 1 ? "isn't" : "aren't"} counted here.
         </p>
       )}
-      {data?.error && <p className="mt-4 text-[13px] text-dn">{data.error}</p>}
+      {data?.error && <p className="mt-4 text-base text-dn">{data.error}</p>}
     </div>
   );
 }
@@ -147,30 +147,30 @@ function CountryPodiumCard({ e, metric, caption, onPick }: { e: Ranked; metric: 
   const medal = MEDAL[e.rank];
   return (
     <div
-      className={`relative flex min-w-0 items-center gap-3 rounded-2xl border px-3.5 transition sm:flex-col sm:gap-0 sm:px-5 sm:pb-5 sm:text-center ${medal.card} ${PODIUM_STACK_ORDER[e.rank]} ${first ? "py-4 sm:pt-10" : "py-3 sm:pt-8"}`}
+      className={`relative flex min-w-0 items-center gap-3 rounded-card border px-3.5 transition sm:flex-col sm:gap-0 sm:px-5 sm:pb-5 sm:text-center ${medal.card} ${PODIUM_STACK_ORDER[e.rank]} ${first ? "py-4 sm:pt-10" : "py-3 sm:pt-8"}`}
       data-testid="country-podium-card"
       data-rank={e.rank}
     >
-      <button type="button" onClick={() => onPick(e.country)} aria-label={`Show LPs from ${name}`} className="absolute inset-0 rounded-2xl" />
+      <button type="button" onClick={() => onPick(e.country)} aria-label={`Show LPs from ${name}`} className="absolute inset-0 rounded-card" />
       <RankMedal rank={e.rank} size={first ? 30 : 26} className={`pointer-events-none sm:absolute sm:left-4 sm:top-4 ${first ? "sm:h-10 sm:w-[34px]" : "sm:h-8 sm:w-[27px]"}`} />
       {/* Flag in a metal frame, standing in for the avatar ring. */}
       <span className={`pointer-events-none inline-flex shrink-0 rounded-[9px] border-2 p-[3px] ${medal.ring}`}>
         <FlagImg code={e.country} className={first ? "h-[34px] w-12 sm:h-[54px] sm:w-[78px]" : "h-[30px] w-[42px] sm:h-[44px] sm:w-16"} />
       </span>
       <div className="min-w-0 flex-1 sm:mt-3 sm:w-full sm:flex-none">
-        <div className={`pointer-events-none truncate font-bold leading-tight ${first ? "text-[15px] sm:text-[19px]" : "text-[15px] sm:text-[16px]"}`} title={name} data-testid="country-name">
+        <div className={`pointer-events-none truncate font-semibold ${first ? "text-md sm:text-lg" : "text-md"}`} title={name} data-testid="country-name">
           {name}
         </div>
         <div
-          className={`num pointer-events-none mt-0.5 font-extrabold leading-tight tracking-tight sm:mt-2 ${first ? "text-[22px] sm:text-[38px]" : "text-[19px] sm:text-[29px]"} ${valueTone(e.value, metric)}`}
+          className={`num pointer-events-none mt-0.5 text-xl font-bold tracking-tight sm:mt-2 ${first ? "sm:text-3xl" : "sm:text-2xl"} ${valueTone(e.value, metric)}`}
           data-testid="country-value"
         >
           {valueText(e.value, metric)}
         </div>
-        <div className="pointer-events-none mt-0.5 hidden text-[12px] text-mute sm:block">{caption}</div>
-        <div className="pointer-events-none mt-0.5 text-[12px] text-mute sm:mt-1">{membersText(e, metric)}</div>
+        <div className="pointer-events-none mt-0.5 hidden text-sm text-mute sm:block">{caption}</div>
+        <div className="pointer-events-none mt-0.5 text-sm text-mute sm:mt-1">{membersText(e, metric)}</div>
         {e.topLp && (
-          <div className="mt-1.5 flex min-w-0 items-center gap-1.5 text-[12px] sm:mt-4 sm:justify-center sm:border-t sm:border-border sm:pt-3">
+          <div className="mt-1.5 flex min-w-0 items-center gap-1.5 text-sm sm:mt-4 sm:justify-center sm:border-t sm:border-border sm:pt-3">
             <span className="pointer-events-none shrink-0 text-mute">Top LP</span>
             <TopLp lp={e.topLp} size={20} className="font-semibold" />
           </div>
@@ -183,29 +183,29 @@ function CountryPodiumCard({ e, metric, caption, onPick }: { e: Ranked; metric: 
 function CountryRow({ e, metric, onPick }: { e: CountryLeaderboardEntry; metric: Metric; onPick: (code: string) => void }) {
   const name = countryName(e.country);
   return (
-    <div className="relative flex min-w-0 items-center gap-3 rounded-xl border border-border bg-surface px-3 py-2.5 transition hover:border-border-strong sm:px-4" data-testid="country-row">
-      <button type="button" onClick={() => onPick(e.country)} aria-label={`Show LPs from ${name}`} className="absolute inset-0 rounded-xl" />
-      <span className="num pointer-events-none w-7 shrink-0 text-center text-[13px] font-bold text-mute" title={e.rank === null ? "No members with closed positions" : undefined}>
+    <div className="relative flex min-w-0 items-center gap-3 rounded-tile border border-border bg-surface px-3 py-2.5 transition hover:border-border-strong sm:px-4" data-testid="country-row">
+      <button type="button" onClick={() => onPick(e.country)} aria-label={`Show LPs from ${name}`} className="absolute inset-0 rounded-tile" />
+      <span className="num pointer-events-none w-7 shrink-0 text-center text-sm font-medium text-mute" title={e.rank === null ? "No members with closed positions" : undefined}>
         {e.rank ?? "–"}
       </span>
       <FlagImg code={e.country} className="pointer-events-none h-[22px] w-8" />
       <div className="min-w-0 flex-1">
-        <div className="pointer-events-none truncate text-[14px] font-semibold sm:text-[15px]" title={name}>
+        <div className="pointer-events-none truncate text-md font-semibold" title={name}>
           {name}
         </div>
-        <div className="flex min-w-0 items-center gap-1.5 text-[12px] text-mute">
+        <div className="flex min-w-0 items-center gap-1.5 text-sm text-mute">
           <span className="pointer-events-none shrink-0">{membersText(e, metric)}</span>
           {e.topLp && (
             <>
               <span className="pointer-events-none shrink-0" aria-hidden>
                 ·
               </span>
-              <TopLp lp={e.topLp} size={16} className="text-[12px]" />
+              <TopLp lp={e.topLp} size={16} className="text-sm" />
             </>
           )}
         </div>
       </div>
-      <div className={`num pointer-events-none shrink-0 text-right text-[15px] font-bold sm:text-[16px] ${valueTone(e.value, metric)}`} data-testid="country-row-value">
+      <div className={`num pointer-events-none shrink-0 text-right text-md font-semibold ${valueTone(e.value, metric)}`} data-testid="country-row-value">
         {valueText(e.value, metric)}
       </div>
     </div>

@@ -174,46 +174,69 @@ function JoinFlow() {
     window.open(`https://x.com/intent/post?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, "_blank");
   };
 
+  const errorLine = error ? <p role="alert" className="mt-3 text-base text-dn">{error}</p> : null;
+
   return (
-    <main className="mx-auto max-w-[600px] px-4 py-20">
-      <div className="glass rounded-3xl p-8">
-        <h1 className="mb-6 text-center text-3xl font-bold">Join Pool Party</h1>
+    <main className="mx-auto max-w-[480px] px-4 pb-16 pt-10 sm:pt-16">
+      <div className="card p-6 sm:p-8">
+        {step !== "member" && step !== "complete" && (
+          <div className="mb-6 text-center">
+            <h1 className="text-2xl font-bold tracking-tight">Join Pool Party</h1>
+            <p className="mt-1 text-base text-mute">
+              {step === "code"
+                ? "Enter your invite code to join the beta."
+                : step === "wallet"
+                  ? "Sign in with your Solana wallet or X to continue."
+                  : step === "x"
+                    ? "Connect your X account (optional)."
+                    : step === "country"
+                      ? "Pick the country you rep on the leaderboard."
+                      : "Last step: add a one-line thesis if you like."}
+            </p>
+          </div>
+        )}
 
         {step === "code" && (
           <div>
-            <label className="mb-2 block text-sm font-medium text-mute">Invite Code</label>
+            <label htmlFor="join-code" className="mb-1.5 block text-sm font-medium text-mute">
+              Invite code
+            </label>
             <input
+              id="join-code"
               type="text"
               value={code}
               onChange={(e) => setCode(e.target.value.toUpperCase())}
               placeholder="XXXXXXXX"
-              className="mb-4 w-full rounded-xl border border-border bg-surface-raised px-4 py-3 font-semibold uppercase"
+              autoComplete="off"
+              spellCheck={false}
+              className="field num h-11 text-md font-semibold"
               maxLength={8}
             />
-            {error && <p className="mb-4 text-sm text-dn">{error}</p>}
-            <button onClick={validateCode} disabled={loading} className="btn-primary w-full py-3">
-              {loading ? "Validating..." : "Continue"}
+            {errorLine}
+            <button type="button" onClick={validateCode} disabled={loading} className="btn-primary mt-4 h-11 w-full">
+              {loading ? "Validating…" : "Continue"}
             </button>
           </div>
         )}
 
         {step === "wallet" && (
           <div>
-            <p className="mb-4 text-center">Sign in with your Solana wallet or X to continue</p>
-            {error && <p className="mb-4 text-sm text-dn">{error}</p>}
-            <button type="button" onClick={openSignIn} disabled={loading} className="btn-primary w-full py-3">
+            {errorLine}
+            <button type="button" onClick={openSignIn} disabled={loading} className="btn-primary h-11 w-full">
               Sign in
             </button>
           </div>
         )}
 
         {step === "x" && (
-          <div>
-            <p className="mb-4 text-center">Connect your X account (optional)</p>
-            <a href={`/api/x/login?termsVersion=${encodeURIComponent(TERMS_VERSION)}&returnTo=${encodeURIComponent(`/join?code=${code.trim()}`)}`} className="btn-primary mb-4 flex w-full py-3">
+          <div className="space-y-2">
+            <a
+              href={`/api/x/login?termsVersion=${encodeURIComponent(TERMS_VERSION)}&returnTo=${encodeURIComponent(`/join?code=${code.trim()}`)}`}
+              className="btn-primary h-11 w-full"
+            >
               Connect X
             </a>
-            <button onClick={skipX} className="w-full text-sm text-mute hover:text-fg">
+            <button type="button" onClick={skipX} className="btn-ghost h-11 w-full">
               Skip
             </button>
           </div>
@@ -221,10 +244,10 @@ function JoinFlow() {
 
         {step === "country" && (
           <div>
-            <label className="mb-2 block text-sm font-medium text-mute">Country (optional)</label>
-            <CountrySelect value={country} onChange={setCountry} />
-            {error && <p className="mb-4 text-sm text-dn">{error}</p>}
-            <button onClick={continueWithCountry} className="btn-primary mt-4 w-full py-3">
+            <span className="mb-1.5 block text-sm font-medium text-mute">Country (optional)</span>
+            <CountrySelect value={country} onChange={setCountry} className="h-11 w-full" />
+            {errorLine}
+            <button type="button" onClick={continueWithCountry} className="btn-primary mt-4 h-11 w-full">
               Continue
             </button>
           </div>
@@ -232,30 +255,35 @@ function JoinFlow() {
 
         {step === "thesis" && (
           <div>
-            <label className="mb-2 block text-sm font-medium text-mute">One-line thesis (optional)</label>
+            <label htmlFor="join-thesis" className="mb-1.5 block text-sm font-medium text-mute">
+              One-line thesis (optional)
+            </label>
             <input
+              id="join-thesis"
               type="text"
               value={thesis}
               onChange={(e) => setThesis(e.target.value)}
-              placeholder="Your trading philosophy..."
-              className="mb-4 w-full rounded-xl border border-border bg-surface-raised px-4 py-3"
+              placeholder="Your trading philosophy…"
+              className="field h-11"
               maxLength={200}
             />
-            <div className="mb-4 rounded-2xl border border-border bg-surface-raised p-3">
+            <div className="tile mt-4 p-3">
               <TermsCheckbox checked={termsAccepted} onChange={setTermsAccepted} id="join-terms-consent" />
             </div>
-            {error && <p className="mb-4 text-sm text-dn">{error}</p>}
-            <button onClick={finishJoin} disabled={loading || !termsAccepted} className="btn-primary w-full py-3">
-              {loading ? "Joining..." : "Join Pool Party"}
+            {errorLine}
+            <button type="button" onClick={finishJoin} disabled={loading || !termsAccepted} className="btn-primary mt-4 h-11 w-full">
+              {loading ? "Joining…" : "Join Pool Party"}
             </button>
           </div>
         )}
 
         {step === "member" && (
           <div className="text-center">
-            <h2 className="mb-2 text-3xl font-bold text-fg">You&apos;re already in{memberNumber ? ` (#${memberNumber})` : ""}</h2>
-            <p className="mb-6 text-mute">This account has already joined the Pool Party beta.</p>
-            <Link href="/profile/me" className="btn-primary flex w-full py-3">
+            <h1 className="text-2xl font-bold tracking-tight text-fg">
+              You&apos;re already in{memberNumber ? <span className="num"> (#{memberNumber})</span> : null}
+            </h1>
+            <p className="mt-1 text-base text-mute">This account has already joined the Pool Party beta.</p>
+            <Link href="/profile/me" className="btn-primary mt-6 h-11 w-full">
               Go to your profile
             </Link>
           </div>
@@ -263,14 +291,16 @@ function JoinFlow() {
 
         {step === "complete" && (
           <div className="text-center">
-            <h2 className="mb-4 text-4xl font-bold text-fg">You&apos;re #{memberNumber}</h2>
-            <p className="mb-6 text-lg">of 500 in the Pool Party beta 🎉</p>
-            <button onClick={shareOnX} className="btn-primary mb-4 w-full py-3">
-              Share on X
-            </button>
-            <button onClick={() => router.push("/")} className="w-full rounded-full border border-border py-3 font-semibold hover:bg-surface-raised">
-              Go to Leaderboard
-            </button>
+            <h1 className="num text-3xl font-bold tracking-tight text-fg">You&apos;re #{memberNumber}</h1>
+            <p className="mt-1 text-md text-fg-secondary">of 500 in the Pool Party beta</p>
+            <div className="mt-6 space-y-2">
+              <button type="button" onClick={shareOnX} className="btn-primary h-11 w-full">
+                Share on X
+              </button>
+              <button type="button" onClick={() => router.push("/")} className="btn-secondary h-11 w-full">
+                Go to leaderboard
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -280,7 +310,18 @@ function JoinFlow() {
 
 export default function JoinPage() {
   return (
-    <Suspense fallback={<main className="mx-auto max-w-[600px] px-4 py-20"><p className="text-center text-mute">Loading...</p></main>}>
+    <Suspense
+      fallback={
+        <main className="mx-auto max-w-[480px] px-4 pb-16 pt-10 sm:pt-16">
+          <div className="card p-6 sm:p-8" aria-busy="true">
+            <span className="skeleton mx-auto block h-7 w-48" />
+            <span className="skeleton mx-auto mt-2 block h-4 w-64 max-w-full" />
+            <span className="skeleton mt-6 block h-11 w-full" />
+            <span className="skeleton mt-4 block h-11 w-full rounded-full" />
+          </div>
+        </main>
+      }
+    >
       <JoinFlow />
     </Suspense>
   );

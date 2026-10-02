@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 
 export default function TokenPage() {
   return (
-    <Suspense fallback={<div className="mx-auto max-w-[1200px] px-4 py-10">Loading...</div>}>
+    <Suspense fallback={null}>
       <TokenDetail />
     </Suspense>
   );

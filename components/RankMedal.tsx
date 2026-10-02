@@ -31,7 +31,7 @@ export function RankMedal({ rank, size = 28, className = "" }: { rank: MedalRank
       <path d="M20 0h-6l-4 11h6z" fill="currentColor" fillOpacity={0.7} />
       <circle cx="12" cy="18.5" r="9.5" fill="currentColor" />
       <circle cx="12" cy="18.5" r="7.25" fill="none" stroke="var(--color-bg)" strokeOpacity={0.28} strokeWidth="1" />
-      <text x="12" y="22.2" textAnchor="middle" fontSize="10.5" fontWeight="800" fill="var(--color-bg)" fontFamily="inherit">
+      <text x="12" y="22.2" textAnchor="middle" fontSize="10.5" fontWeight="700" fill="var(--color-bg)" fontFamily="inherit">
         {rank}
       </text>
     </svg>
@@ -62,13 +62,13 @@ export function PodiumSkeleton({
         {([2, 1, 3] as const).map((r) => (
           <div
             key={r}
-            className={`animate-pulse rounded-2xl border ${MEDAL[r].card} ${PODIUM_STACK_ORDER[r]} ${r === 1 ? heights.first : heights.other}`}
+            className={`animate-pulse rounded-card border ${MEDAL[r].card} ${PODIUM_STACK_ORDER[r]} ${r === 1 ? heights.first : heights.other}`}
           />
         ))}
       </div>
       <div className="mt-6 grid gap-2 lg:grid-cols-2 lg:gap-x-4">
         {Array.from({ length: 8 }, (_, i) => (
-          <div key={i} className="h-[58px] animate-pulse rounded-xl border border-border bg-surface" />
+          <div key={i} className="h-[58px] animate-pulse rounded-tile border border-border bg-surface" />
         ))}
       </div>
     </div>

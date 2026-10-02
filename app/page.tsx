@@ -12,6 +12,7 @@ import { LeaderboardHoverCard } from "@/components/LeaderboardHoverCard";
 import { CountryBoard } from "@/components/CountryBoard";
 import { MEDAL, MedalRing, PODIUM_GRID, PODIUM_STACK_ORDER, PodiumSkeleton, RankMedal, isMedalRank, type MedalRank } from "@/components/RankMedal";
 import { useMe } from "@/components/MeProvider";
+import { EmptyState, PageHeader } from "@/components/EmptyState";
 import { displayName, fmtPct, fmtUsd } from "@/lib/format";
 import { applyFollowChange, onFollowChanged } from "@/lib/session-events";
 import { isCountryCode } from "@/lib/countries";
@@ -310,24 +311,22 @@ function LeaderboardBoard() {
 
   return (
     <main className="mx-auto max-w-[1320px] px-4 pb-10 pt-6 lg:px-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className="min-w-0">
-          <h1 className="text-[28px] font-extrabold leading-tight tracking-tight sm:text-[34px]" data-testid="board-heading">
-            Top {view === "countries" ? "countries" : "LPs"} by {metricInfo.heading}
-          </h1>
-          <p className="mt-1 text-[13px] text-mute">{RANGE_TEXT[range]} · live data from Meteora</p>
-        </div>
+      <PageHeader
+        testId="board-heading"
+        title={<>Top {view === "countries" ? "countries" : "LPs"} by {metricInfo.heading}</>}
+        description={`${RANGE_TEXT[range]} · live data from Meteora`}
+      >
         {/* Phones: the Members / Countries switch gets its own full-width row; range + country share the
             next one (the country name truncates). From sm everything sits on one line. */}
         <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap" data-testid="board-filters">
-          <div className="flex w-full items-center gap-0.5 rounded-full border border-border bg-surface p-1 sm:w-auto" role="group" aria-label="Rank" data-testid="view-toggle">
+          <div className="seg w-full sm:w-auto" role="group" aria-label="Rank" data-testid="view-toggle">
             {(["members", "countries"] as const).map((v) => (
               <button
                 key={v}
                 type="button"
                 aria-pressed={view === v}
                 onClick={() => setView(v)}
-                className={`h-8 flex-1 rounded-full px-3.5 text-[13px] font-semibold transition sm:flex-none ${view === v ? "bg-surface-raised text-fg" : "text-mute hover:text-fg"}`}
+                className="seg-item flex-1 sm:flex-none"
               >
                 {v === "members" ? "Members" : "Countries"}
               </button>
@@ -346,11 +345,11 @@ function LeaderboardBoard() {
             <CountrySelect value={country} onChange={onCountryChange} allLabel="Global" membersOnly className="min-w-0 flex-1 sm:max-w-[220px] sm:flex-none" />
           )}
         </div>
-      </div>
+      </PageHeader>
 
       {/* Which leaderboard: each metric re-ranks the board server-side. */}
-      <div className="mt-5 flex items-end justify-between gap-3 border-b border-border">
-        <div role="tablist" aria-label="Leaderboard" className="no-scrollbar flex min-w-0 gap-5 overflow-x-auto sm:gap-6">
+      <div className="mt-6 flex items-end justify-between gap-3 border-b border-border">
+        <div role="tablist" aria-label="Leaderboard" className="no-scrollbar flex min-w-0 gap-6 overflow-x-auto">
           {METRICS.map((m) => (
             <button
               key={m.value}
@@ -358,7 +357,7 @@ function LeaderboardBoard() {
               role="tab"
               aria-selected={metric === m.value}
               onClick={() => setMetric(m.value)}
-              className={`-mb-px shrink-0 border-b-2 pb-2.5 text-[14px] font-semibold transition ${metric === m.value ? "border-accent text-fg" : "border-transparent text-mute hover:text-fg"}`}
+              className="tab shrink-0"
             >
               {m.label}
             </button>
@@ -369,7 +368,7 @@ function LeaderboardBoard() {
             type="button"
             aria-pressed={who === "following"}
             onClick={() => setWho((w) => (w === "following" ? "all" : "following"))}
-            className={`mb-1.5 h-8 shrink-0 rounded-full border px-3 text-[13px] font-semibold transition ${who === "following" ? "border-border-strong bg-surface-raised text-fg" : "border-border text-mute hover:text-fg"}`}
+            className={`mb-2 h-8 shrink-0 px-3 ${who === "following" ? "btn-secondary" : "btn-ghost border-border"}`}
             data-testid="following-toggle"
           >
             Following
@@ -379,9 +378,9 @@ function LeaderboardBoard() {
 
       {/* Members who aren't on the board yet (first sync pending). Sign in / join live in the header. */}
       {view === "members" && !loading && isMember && !mine && !followingOnly && (
-        <p className="mt-4 text-[13px] text-mute" data-testid="sync-note">
+        <p className="mt-4 text-base text-mute" data-testid="sync-note">
           Your rank shows up after your first sync.{" "}
-          <button type="button" onClick={load} className="font-semibold text-fg-secondary hover:text-fg">
+          <button type="button" onClick={load} className="link">
             Refresh
           </button>
         </p>
@@ -402,14 +401,13 @@ function LeaderboardBoard() {
       ) : loading && !data ? (
         <PodiumSkeleton />
       ) : followingOnly && entries.length === 0 ? (
-        <div className="mt-6 rounded-2xl border border-dashed border-border px-6 py-10 text-center text-[13px] text-mute" data-testid="following-empty">
-          You&apos;re not following anyone on this board yet. Hit Follow on an LP to see them here.
-        </div>
+        <EmptyState className="mt-6" testId="following-empty" title="No one you follow is on this board">
+          Hit Follow on an LP to see them here.
+        </EmptyState>
       ) : entries.length === 0 ? (
-        <div className="mt-6 rounded-2xl border border-border bg-surface px-6 py-10 text-center">
-          <h2 className="text-[18px] font-bold">{country ? "No LPs from here yet" : "No LPs on the board yet"}</h2>
-          <p className="mx-auto mt-1 max-w-md text-[13px] text-mute">Members show up here once their Meteora stats sync.</p>
-        </div>
+        <EmptyState className="mt-6" title={country ? "No LPs from here yet" : "No LPs on the board yet"}>
+          Members show up here once their Meteora stats sync.
+        </EmptyState>
       ) : (
         <>
           {n > 0 && (
@@ -440,7 +438,7 @@ function LeaderboardBoard() {
           )}
         </>
       )}
-      {view === "members" && data?.error && <p className="mt-4 text-[13px] text-dn">{data.error}</p>}
+      {view === "members" && data?.error && <p className="mt-4 text-base text-dn">{data.error}</p>}
 
       {hover && hovered && (
         <LeaderboardHoverCard
@@ -565,11 +563,11 @@ function PodiumCard({
   return (
     <div
       {...hp.container}
-      className={`relative flex min-w-0 items-center gap-3 rounded-2xl border px-3.5 transition ${TOUCH_SAFE} sm:flex-col sm:gap-0 sm:px-5 sm:pb-5 sm:text-center ${medal.card} ${STACK_ORDER[rank]} ${first ? "py-4 sm:pt-10" : "py-3 sm:pt-8"}`}
+      className={`relative flex min-w-0 items-center gap-3 rounded-card border px-3.5 transition ${TOUCH_SAFE} sm:flex-col sm:gap-0 sm:px-5 sm:pb-5 sm:text-center ${medal.card} ${STACK_ORDER[rank]} ${first ? "py-4 sm:pt-10" : "py-3 sm:pt-8"}`}
       data-testid="podium-card"
       data-rank={rank}
     >
-      <Link href={profileHref(e)} aria-label={`${name}'s profile`} className="absolute inset-0 rounded-2xl" {...hp.link} />
+      <Link href={profileHref(e)} aria-label={`${name}'s profile`} className="absolute inset-0 rounded-card" {...hp.link} />
       <RankMedal rank={rank} size={first ? 30 : 26} className={`pointer-events-none sm:absolute sm:left-4 sm:top-4 ${first ? "sm:h-10 sm:w-[34px]" : "sm:h-8 sm:w-[27px]"}`} />
       <MedalRing rank={rank} className="pointer-events-none">
         {/* Two sizes instead of resizing one <img>; the hidden one is lazy and never loads. */}
@@ -581,22 +579,22 @@ function PodiumCard({
         </span>
       </MedalRing>
       <div className="pointer-events-none min-w-0 flex-1 sm:mt-3 sm:w-full sm:flex-none">
-        <div className={`flex min-w-0 items-center gap-1.5 font-bold leading-tight sm:justify-center ${first ? "text-[15px] sm:text-[19px]" : "text-[15px] sm:text-[16px]"}`} data-testid="podium-name">
+        <div className={`flex min-w-0 items-center gap-1.5 font-semibold sm:justify-center ${first ? "text-md sm:text-lg" : "text-md"}`} data-testid="podium-name">
           <span className="truncate" title={name}>
             {name}
           </span>
           <Flag code={e.country} className="shrink-0" />
         </div>
         <div
-          className={`num mt-0.5 font-extrabold leading-tight tracking-tight sm:mt-2 ${first ? "text-[22px] sm:text-[38px]" : "text-[19px] sm:text-[29px]"} ${metricTone(e, metric)}`}
+          className={`num mt-0.5 text-xl font-bold tracking-tight sm:mt-2 ${first ? "sm:text-3xl" : "sm:text-2xl"} ${metricTone(e, metric)}`}
           data-testid="podium-metric"
         >
           {metricValue(e, metric)}
         </div>
-        <div className="mt-0.5 hidden text-[12px] text-mute sm:block">{caption}</div>
+        <div className="mt-0.5 hidden text-sm text-mute sm:block">{caption}</div>
       </div>
       <div className="relative z-10 shrink-0 sm:mt-4">
-        {isMe ? <span className="px-1 text-[12px] font-semibold text-mute">You</span> : <FollowButton targetUser={e} size="sm" />}
+        {isMe ? <span className="chip">You</span> : <FollowButton targetUser={e} size="sm" />}
       </div>
     </div>
   );
@@ -608,20 +606,20 @@ function Row({ e, isMe, metric, ...handlers }: { e: LeaderboardEntry; isMe: bool
   return (
     <div
       {...hp.container}
-      className={`group relative flex min-w-0 items-center gap-3 rounded-xl border bg-surface ${TOUCH_SAFE} px-3 py-2.5 transition sm:px-4 ${isMe ? "border-accent" : "border-border hover:border-border-strong"}`}
+      className={`group relative flex min-w-0 items-center gap-3 rounded-tile border bg-surface ${TOUCH_SAFE} px-3 py-2.5 transition sm:px-4 ${isMe ? "border-accent" : "border-border hover:border-border-strong"}`}
       data-testid="board-row"
     >
-      <Link href={profileHref(e)} aria-label={`${name}'s profile`} className="absolute inset-0 rounded-xl" {...hp.link} />
-      <span className="num w-7 shrink-0 text-center text-[13px] font-bold text-mute" title={e.rank === null ? "No Meteora activity yet" : undefined}>
+      <Link href={profileHref(e)} aria-label={`${name}'s profile`} className="absolute inset-0 rounded-tile" {...hp.link} />
+      <span className="num w-7 shrink-0 text-center text-sm font-medium text-mute" title={e.rank === null ? "No Meteora activity yet" : undefined}>
         {e.rank ?? "–"}
       </span>
       <Avatar user={e} size={36} />
-      <div className="flex min-w-0 flex-1 items-center gap-1.5 text-[14px] font-semibold sm:text-[15px]">
+      <div className="flex min-w-0 flex-1 items-center gap-1.5 text-md font-semibold">
         <span className="truncate">{name}</span>
         <Flag code={e.country} className="shrink-0" />
-        {isMe && <span className="shrink-0 text-[11px] font-semibold text-mute">You</span>}
+        {isMe && <span className="chip">You</span>}
       </div>
-      <div className={`num shrink-0 text-right text-[15px] font-bold sm:text-[16px] ${metricTone(e, metric)}`} data-testid="row-metric">
+      <div className={`num shrink-0 text-right text-md font-semibold ${metricTone(e, metric)}`} data-testid="row-metric">
         {metricValue(e, metric)}
       </div>
       {!isMe && (

@@ -38,7 +38,7 @@ export function Composer({ onPosted }: { onPosted: (post: ThesisPost) => void })
   }, [load]);
 
   const shell = (children: React.ReactNode) => (
-    <div className="rounded-2xl border border-border bg-surface p-4" data-testid="poolside-composer">
+    <div className="card p-4 sm:p-5" data-testid="poolside-composer">
       {children}
     </div>
   );
@@ -46,16 +46,16 @@ export function Composer({ onPosted }: { onPosted: (post: ThesisPost) => void })
   if (!info && !loadError) {
     return shell(
       <div className="flex items-center gap-3" aria-hidden>
-        <span className="h-10 w-10 shrink-0 animate-pulse rounded-full bg-surface-raised" />
-        <span className="h-9 flex-1 animate-pulse rounded-xl bg-surface-raised" />
+        <span className="skeleton h-10 w-10 shrink-0 rounded-full" />
+        <span className="skeleton h-10 flex-1 rounded-tile" />
       </div>
     );
   }
   if (!info) {
     return shell(
-      <p className="text-[13px] text-mute">
+      <p className="text-base text-mute">
         Couldn&apos;t check whether you can post.{" "}
-        <button type="button" onClick={() => void load()} className="font-semibold text-fg hover:underline">
+        <button type="button" onClick={() => void load()} className="link">
           Try again
         </button>
       </p>
@@ -65,8 +65,8 @@ export function Composer({ onPosted }: { onPosted: (post: ThesisPost) => void })
   if (!info.signedIn) {
     return shell(
       <div className="flex flex-wrap items-center justify-between gap-3" data-testid="composer-signed-out">
-        <p className="text-[13.5px] text-mute">Sign in to share a thesis on a pool you&apos;re in.</p>
-        <button type="button" onClick={requestSignIn} className="btn-secondary h-9 px-4 text-[13px]">
+        <p className="text-base text-mute">Sign in to share a thesis on a pool you&apos;re in.</p>
+        <button type="button" onClick={requestSignIn} className="btn-secondary">
           Sign in
         </button>
       </div>
@@ -75,9 +75,9 @@ export function Composer({ onPosted }: { onPosted: (post: ThesisPost) => void })
 
   if (!info.joined) {
     return shell(
-      <p className="text-[13.5px] text-mute" data-testid="composer-note">
+      <p className="text-base text-mute" data-testid="composer-note">
         Posting is for beta members. You&apos;re signed in but haven&apos;t joined yet;{" "}
-        <Link href="/join" className="font-semibold text-fg hover:underline">
+        <Link href="/join" className="link">
           redeem an invite code
         </Link>{" "}
         to post.
@@ -87,10 +87,10 @@ export function Composer({ onPosted }: { onPosted: (post: ThesisPost) => void })
 
   if (info.pools.length === 0) {
     return shell(
-      <p className="text-[13.5px] text-mute" data-testid="composer-note">
+      <p className="text-base text-mute" data-testid="composer-note">
         You can post a thesis on a pool once you hold a position in it. We don&apos;t see any open positions from your last
         sync.{" "}
-        <a href={meteoraHomeUrl()} target="_blank" rel="noopener noreferrer" className="font-semibold text-fg hover:underline">
+        <a href={meteoraHomeUrl()} target="_blank" rel="noopener noreferrer" className="link">
           Meteora ↗
         </a>
       </p>
@@ -144,10 +144,10 @@ export function Composer({ onPosted }: { onPosted: (post: ThesisPost) => void })
           rows={3}
           placeholder={`What's your thesis on ${selected.name}?`}
           disabled={posting}
-          className="block w-full resize-y rounded-xl border border-border bg-surface-raised p-3 text-[14px] leading-snug text-fg outline-none placeholder:text-mute focus:border-border-strong disabled:opacity-60"
+          className="field block h-auto resize-y py-2.5"
           data-testid="composer-text"
         />
-        <div className="mt-2 flex flex-wrap items-center gap-2">
+        <div className="mt-2 flex items-center gap-2">
           <label className="sr-only" htmlFor="poolside-pool">
             Pool
           </label>
@@ -156,33 +156,33 @@ export function Composer({ onPosted }: { onPosted: (post: ThesisPost) => void })
             value={selected.address}
             onChange={(e) => setPoolAddress(e.target.value)}
             disabled={posting}
-            className="h-8 max-w-[60%] truncate rounded-full border border-border bg-surface-raised px-3 text-[12.5px] font-semibold text-fg outline-none focus:border-border-strong"
+            className="field h-9 min-w-0 flex-1 truncate rounded-full px-3 font-medium sm:w-auto sm:max-w-[60%] sm:flex-none"
             data-testid="composer-pool"
           >
             {info.pools.map((p) => (
               <option key={p.address} value={p.address}>
                 {p.name}
-                {p.binStep != null ? ` · bin ${p.binStep}` : ""}
+                {p.binStep != null ? ` · Bin ${p.binStep}` : ""}
                 {p.positionCount > 1 ? ` · ${p.positionCount} positions` : ""}
               </option>
             ))}
           </select>
-          <span className="ml-auto text-[12px] text-mute num">
+          <span className="num ml-auto shrink-0 text-sm text-mute">
             {text.length}/{THESIS_MAX_LENGTH}
           </span>
           <button
             type="button"
             onClick={() => void post()}
             disabled={!trimmed || posting}
-            className="btn-primary h-9 px-5 text-[13px]"
+            className="btn-primary shrink-0"
             data-testid="composer-post"
           >
             {posting ? "Posting…" : "Post"}
           </button>
         </div>
-        <p className="mt-1.5 text-[12px] text-mute">Only pools you hold are listed. Your post is tagged with the pool.</p>
+        <p className="mt-2 text-sm text-mute">Only pools you hold are listed. Your post is tagged with the pool.</p>
         {error && (
-          <p role="alert" className="mt-1.5 text-[12.5px] text-dn">
+          <p role="alert" className="mt-1.5 text-base text-dn">
             {error}
           </p>
         )}

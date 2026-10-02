@@ -121,47 +121,47 @@ export function LeaderboardHoverCard({
           if (next && !ev.currentTarget.contains(next)) onFocusOutside?.();
         }}
         onKeyDown={onKeyDown}
-        className={`fixed z-40 rounded-2xl border border-border-strong bg-surface shadow-xl shadow-black/40 ${mode === "touch" ? "p-4 [-webkit-touch-callout:none]" : "p-4"}`}
+        className={`fixed z-40 rounded-card border border-border-strong bg-surface p-4 shadow-lg shadow-black/40 ${mode === "touch" ? "[-webkit-touch-callout:none]" : ""}`}
         style={{ width: W, left: pos?.left ?? -9999, top: pos?.top ?? -9999 }}
       >
         <div className="flex items-center gap-3">
           <Avatar user={entry} size={44} />
           <div className="min-w-0 flex-1">
             <div className="flex min-w-0 items-center gap-1.5">
-              <span className="truncate text-[15px] font-bold">{name}</span>
+              <span className="truncate text-md font-semibold">{name}</span>
               <Flag code={entry.country} className="shrink-0" />
             </div>
-            <div className="mt-0.5 flex min-w-0 items-center gap-1 text-[12px] text-mute">
+            <div className="mt-0.5 flex min-w-0 items-center gap-1 text-sm text-mute">
               {isMedalRank(entry.rank) && <RankMedal rank={entry.rank} size={15} />}
               <span className="truncate">{rankLabel}</span>
-              {isMe && <span className="shrink-0 text-fg-secondary">· You</span>}
+              {isMe && <span className="chip ml-1">You</span>}
             </div>
           </div>
         </div>
 
         <BadgeRow badges={entry.badges} max={4} size="sm" className="mt-3" />
 
-        <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2">
+        <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2.5 border-t border-border pt-3">
           {stats.map((s) => (
             <div key={s.label}>
-              <dt className="text-[11px] text-mute">{s.label}</dt>
-              <dd className={`num text-[14px] font-semibold ${s.tone ?? "text-fg"}`}>{s.value}</dd>
+              <dt className="text-sm text-mute">{s.label}</dt>
+              <dd className={`num text-md font-semibold ${s.tone ?? "text-fg"}`}>{s.value}</dd>
             </div>
           ))}
         </dl>
 
-        <div className={`mt-3 flex items-center gap-3 text-mute ${mode === "touch" ? "text-[13px] [&>button]:py-1.5" : "text-[12px]"}`}>
-          <button type="button" onClick={() => onOpenList("followers")} className="hover:text-fg" data-testid="hover-followers">
-            <span className="font-semibold text-fg-secondary">{entry.followersCount ?? 0}</span> {entry.followersCount === 1 ? "follower" : "followers"}
+        <div className={`mt-3 flex items-center gap-4 text-sm text-mute ${mode === "touch" ? "[&>button]:py-1.5" : ""}`}>
+          <button type="button" onClick={() => onOpenList("followers")} className="transition hover:text-fg" data-testid="hover-followers">
+            <span className="num font-semibold text-fg">{entry.followersCount ?? 0}</span> {entry.followersCount === 1 ? "follower" : "followers"}
           </button>
-          <button type="button" onClick={() => onOpenList("following")} className="hover:text-fg" data-testid="hover-following">
-            <span className="font-semibold text-fg-secondary">{entry.followingCount ?? 0}</span> following
+          <button type="button" onClick={() => onOpenList("following")} className="transition hover:text-fg" data-testid="hover-following">
+            <span className="num font-semibold text-fg">{entry.followingCount ?? 0}</span> following
           </button>
         </div>
 
         <div className="mt-3 flex items-center gap-2">
           {!isMe && <FollowButton targetUser={entry} size="sm" />}
-          <Link href={`/profile/${entry.xHandle || entry.id}`} className="btn-secondary flex h-8 items-center rounded-full px-3.5 text-[13px] font-semibold">
+          <Link href={`/profile/${entry.xHandle || entry.id}`} className="btn-secondary h-8 px-3">
             View profile
           </Link>
         </div>

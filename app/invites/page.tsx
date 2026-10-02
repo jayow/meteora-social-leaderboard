@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { EmptyState, PageHeader } from "@/components/EmptyState";
 import { useMe } from "@/components/MeProvider";
 import { useRouter } from "next/navigation";
 
@@ -60,58 +61,71 @@ export default function InvitesPage() {
 
   if (!sessionChecked || !userId || status === "loading") {
     return (
-      <main className="mx-auto max-w-[800px] px-4 py-20">
-        <p className="text-center text-mute">Loading…</p>
+      <main className="mx-auto max-w-[640px] px-4 pb-16 pt-6">
+        <span className="skeleton block h-8 w-40" />
+        <span className="skeleton mt-2 block h-4 w-56" />
+        <div className="card mt-6 space-y-2 p-5" aria-busy="true" aria-label="Loading invites">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="tile flex h-[66px] items-center justify-between px-4">
+              <div className="space-y-1.5">
+                <span className="skeleton block h-4 w-28" />
+                <span className="skeleton block h-3 w-16" />
+              </div>
+              <span className="skeleton h-8 w-24 rounded-full" />
+            </div>
+          ))}
+        </div>
       </main>
     );
   }
 
   if (status !== "ready") {
     return (
-      <main className="mx-auto max-w-[800px] px-4 py-20 text-center">
-        <h1 className="mb-3 text-3xl font-bold">Your Invites</h1>
-        {status === "not-member" ? (
-          <p className="text-mute">
-            Invites are for beta members.{" "}
-            <Link href="/join" className="font-semibold text-accent hover:text-accent-hover">
-              Join the beta →
-            </Link>
-          </p>
-        ) : (
-          <p className="text-mute">Couldn&apos;t load your invites. Try refreshing.</p>
-        )}
+      <main className="mx-auto max-w-[640px] px-4 pb-16 pt-6">
+        <EmptyState
+          title="Your invites"
+          action={
+            status === "not-member" ? (
+              <Link href="/join" className="btn-primary">
+                Join the beta
+              </Link>
+            ) : undefined
+          }
+        >
+          {status === "not-member" ? "Invites are for beta members." : "Couldn't load your invites. Try refreshing."}
+        </EmptyState>
       </main>
     );
   }
 
+  const remaining = codes.filter((c) => c.uses < c.maxUses).length;
+
   return (
-    <main className="mx-auto max-w-[800px] px-4 py-20">
-      <h1 className="mb-8 text-3xl font-bold">Your Invites</h1>
-      <div className="glass rounded-3xl p-6">
-        <p className="mb-4 text-sm text-mute">You have {codes.filter((c) => c.uses < c.maxUses).length} invites remaining</p>
-        <div className="space-y-3">
-          {codes.map((code) => (
-            <div key={code.id} className="flex items-center justify-between rounded-xl border border-border bg-surface-raised p-4">
-              <div>
-                <p className="font-mono text-lg font-bold">{code.code}</p>
-                <p className="text-sm text-mute">
-                  {code.uses} / {code.maxUses} used
-                </p>
-              </div>
-              <button
-                onClick={() => copyLink(code.code)}
-                disabled={code.uses >= code.maxUses}
-                className={`rounded-full px-4 py-2 text-sm font-semibold ${
-                  code.uses >= code.maxUses
-                    ? "cursor-not-allowed bg-surface-raised text-mute"
-                    : "btn-primary"
-                }`}
-              >
-                {copiedCode === code.code ? "Copied!" : "Copy Link"}
-              </button>
-            </div>
-          ))}
-        </div>
+    <main className="mx-auto max-w-[640px] px-4 pb-16 pt-6">
+      <PageHeader title="Your invites" description={`You have ${remaining} invite${remaining === 1 ? "" : "s"} remaining.`} />
+      <div className="card mt-6 p-5">
+        {codes.length === 0 ? (
+          <p className="py-6 text-center text-base text-mute">No invite codes yet.</p>
+        ) : (
+          <div className="space-y-2">
+            {codes.map((code) => {
+              const usedUp = code.uses >= code.maxUses;
+              return (
+                <div key={code.id} className="tile flex items-center justify-between gap-3 px-4 py-3">
+                  <div className="min-w-0">
+                    <p className={`num truncate text-md font-semibold ${usedUp ? "text-mute" : "text-fg"}`}>{code.code}</p>
+                    <p className="num mt-0.5 text-sm text-mute">
+                      {code.uses} / {code.maxUses} used
+                    </p>
+                  </div>
+                  <button type="button" onClick={() => copyLink(code.code)} disabled={usedUp} className="btn-secondary h-8 shrink-0 px-3">
+                    {copiedCode === code.code ? "Copied" : usedUp ? "Used" : "Copy link"}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </main>
   );

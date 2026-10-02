@@ -1,31 +1,21 @@
 import Link from "next/link";
-import { Logo } from "@/components/ui";
 
 export default function NotFound() {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center px-4 text-center">
-      <Logo />
-      <h1 className="mt-8 text-[64px] font-extrabold tracking-tight">
-        404
-      </h1>
-      <h2 className="mt-2 text-[24px] font-bold">Page not found</h2>
-      <p className="mt-2 max-w-md text-[14px] text-mute">
+    <main className="mx-auto flex max-w-[640px] flex-col items-center px-4 pb-16 pt-20 text-center sm:pt-28">
+      <p className="num text-3xl font-bold tracking-tight text-mute">404</p>
+      <h1 className="mt-2 text-xl font-semibold tracking-tight">Page not found</h1>
+      <p className="mt-1 max-w-md text-base text-mute">
         This page doesn&apos;t exist or has been moved. Head back to the leaderboard or browse active pools.
       </p>
-      <div className="mt-8 flex gap-3">
-        <Link
-          href="/"
-          className="btn-primary h-11 px-6 text-[14px]"
-        >
+      <div className="mt-6 flex gap-2">
+        <Link href="/" className="btn-primary">
           Leaderboard
         </Link>
-        <Link
-          href="/pools"
-          className="h-11 rounded-full bg-surface-raised px-6 text-[14px] font-bold leading-[44px] hover:bg-border"
-        >
+        <Link href="/pools" className="btn-secondary">
           Browse pools
         </Link>
       </div>
-    </div>
+    </main>
   );
 }

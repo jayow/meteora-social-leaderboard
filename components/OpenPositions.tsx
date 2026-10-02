@@ -4,6 +4,7 @@ import { useEffect, useId, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { fmtPct, fmtPositions, fmtUsd, pnlClass, timeAgo } from "@/lib/format";
 import { DipLink } from "@/components/DipLink";
+import { binLabel } from "@/components/ui";
 import type { OpenPositionDetail } from "@/lib/db/schema";
 
 /** One row per pool; `positionCount` = the user's open positions in that pool. Mirrors lib/open-positions.ts. */
@@ -101,20 +102,20 @@ export function OpenPositions({ userId, compact, mine = false, refreshKey }: { u
   const panelIds = visible.filter(hasPositionRows).map((p) => `${panelBase}-${p.poolAddress}`);
   const title = (
     <>
-      Open Positions{data ? <span className="num"> ({total})</span> : null}
+      Open positions{data ? <span className="num font-medium text-mute"> {total}</span> : null}
     </>
   );
 
   const header = (
     <div className="mb-4 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-      <h2 className="text-[18px] font-extrabold">
+      <h2 className="text-lg font-semibold">
         {!compact && panelIds.length > 0 ? (
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
             aria-expanded={open}
             aria-controls={panelIds.join(" ")}
-            className="flex items-center gap-2 rounded text-left hover:text-fg-secondary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mute"
+            className="flex items-center gap-2 rounded-tag text-left transition hover:text-fg-secondary"
             data-testid="open-positions-toggle-details"
           >
             <span>{title}</span>
@@ -134,7 +135,7 @@ export function OpenPositions({ userId, compact, mine = false, refreshKey }: { u
         )}
       </h2>
       {summary && (
-        <span className="num text-[12px] text-mute" data-testid="open-positions-summary">
+        <span className="num text-sm text-mute" data-testid="open-positions-summary">
           {summary}
         </span>
       )}
@@ -143,34 +144,50 @@ export function OpenPositions({ userId, compact, mine = false, refreshKey }: { u
 
   if (!data && loading) {
     return (
-      <div className="glass rounded-[28px] p-5" data-testid="open-positions">
+      <div className="card p-5" data-testid="open-positions">
         {header}
-        <p className="text-[12px] text-mute">Loading…</p>
+        <div className="space-y-3" aria-busy="true" aria-label="Loading open positions">
+          {[0, 1].map((i) => (
+            <div key={i} className="tile h-[118px] p-4">
+              <div className="flex items-center gap-3">
+                <span className="skeleton h-8 w-14 rounded-full" />
+                <div className="space-y-1.5">
+                  <span className="skeleton block h-4 w-28" />
+                  <span className="skeleton block h-3 w-20" />
+                </div>
+              </div>
+              <div className="mt-5 flex gap-10">
+                <span className="skeleton block h-8 w-16" />
+                <span className="skeleton block h-8 w-16" />
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="glass rounded-[28px] p-5" data-testid="open-positions">
+      <div className="card p-5" data-testid="open-positions">
         {header}
-        <p className="text-[12px] text-dn">{error}</p>
+        <p className="text-base text-dn">{error}</p>
       </div>
     );
   }
 
   if (!data || data.pools.length === 0) {
     return (
-      <div className="glass rounded-[28px] p-5" data-testid="open-positions">
+      <div className="card p-5" data-testid="open-positions">
         {header}
-        <p className="text-[13px] text-mute">{mine ? "You have no open positions right now." : "No open positions right now."}</p>
+        <p className="text-base text-mute">{mine ? "You have no open positions right now." : "No open positions right now."}</p>
       </div>
     );
   }
 
   if (compact) {
     return (
-      <div className="glass rounded-[28px] p-5" data-testid="open-positions">
+      <div className="card p-5" data-testid="open-positions">
         {header}
         <div className="space-y-2">
           {data.pools.slice(0, 3).map((pool) => (
@@ -178,7 +195,7 @@ export function OpenPositions({ userId, compact, mine = false, refreshKey }: { u
           ))}
         </div>
         {data.pools.length > 3 && (
-          <p className="mt-2 text-[11px] text-mute">
+          <p className="mt-3 text-sm text-mute">
             +{data.pools.length - 3} more pool{data.pools.length - 3 === 1 ? "" : "s"}
           </p>
         )}
@@ -187,7 +204,7 @@ export function OpenPositions({ userId, compact, mine = false, refreshKey }: { u
   }
 
   return (
-    <div className="glass rounded-[28px] p-5" data-testid="open-positions">
+    <div className="card p-5" data-testid="open-positions">
       {header}
       <div className="space-y-3">
         {visible.map((pool) => (
@@ -198,7 +215,7 @@ export function OpenPositions({ userId, compact, mine = false, refreshKey }: { u
         <button
           type="button"
           onClick={() => setShowAll((v) => !v)}
-          className="mt-3 w-full rounded-xl py-2 text-[13px] font-semibold text-mute hover:bg-surface-raised hover:text-fg"
+          className="btn-ghost mt-3 w-full"
           data-testid="open-positions-toggle"
         >
           {showAll ? "Show fewer" : `Show all ${data.pools.length} pools`}
@@ -233,15 +250,15 @@ function PoolName({ pool }: { pool: OpenPool }) {
   return (
     <>
       {pool.tokenXMint ? (
-        <Link href={`/pools?token=${pool.tokenXMint}`} className="relative z-10 hover:underline">
+        <Link href={`/pools?token=${pool.tokenXMint}`} className="relative z-10 underline-offset-2 hover:underline">
           {pool.tokenX}
         </Link>
       ) : (
         <span>{pool.tokenX}</span>
       )}
-      <span>/</span>
+      <span>-</span>
       {pool.tokenYMint ? (
-        <Link href={`/pools?token=${pool.tokenYMint}`} className="relative z-10 hover:underline">
+        <Link href={`/pools?token=${pool.tokenYMint}`} className="relative z-10 underline-offset-2 hover:underline">
           {pool.tokenY}
         </Link>
       ) : (
@@ -305,7 +322,7 @@ function poolPriceOf(details: OpenPositionDetail[]): number | null {
 function RangeBar({ d, scale, unit }: { d: OpenPositionDetail; scale: PriceScale | null; unit: string }) {
   if (!scale || !finitePos(d.minPrice) || !finitePos(d.maxPrice)) {
     return (
-      <span className={`${NUM} text-[11px] text-mute`}>
+      <span className={`${NUM} text-xs text-mute`}>
         {fmtPrice(d.minPrice)} – {fmtPrice(d.maxPrice)}
       </span>
     );
@@ -333,7 +350,7 @@ function RangeBar({ d, scale, unit }: { d: OpenPositionDetail; scale: PriceScale
           />
         )}
       </div>
-      <div className={`${NUM} relative mt-1 h-3.5 whitespace-nowrap text-[11px] leading-none text-mute`} aria-hidden="true">
+      <div className={`${NUM} relative mt-1 h-3.5 whitespace-nowrap text-xs leading-none text-mute`} aria-hidden="true">
         {split ? (
           <>
             <span className="absolute" style={{ left: `${a}%` }}>
@@ -372,7 +389,7 @@ function PnL({ usd, pct, className = "" }: { usd: number | null; pct: number | n
     <span className={`${NUM} ${pnlClass(usd)} ${className}`} title={pct != null ? "PnL vs. deposits" : "PnL"}>
       {fmtUsd(usd, { signed: true })}
       {pct != null && (
-        <span className="ml-1.5 opacity-60">
+        <span className="ml-1.5 font-normal">
           {pct >= 0 ? "+" : "−"}
           {fmtPct(Math.abs(pct), 1)}
         </span>
@@ -399,15 +416,15 @@ const COLS = "sm:grid sm:grid-cols-[minmax(0,1fr)_4.75rem_4.25rem_6.75rem_2.75re
 function PositionRow({ d, scale, unit }: { d: OpenPositionDetail; scale: PriceScale | null; unit: string }) {
   const opened = d.openedAt != null ? new Date(d.openedAt * 1000) : null;
   return (
-    <div className={`py-3 text-[13px] ${COLS}`} data-testid="open-position-line">
+    <div className={`py-3 text-base ${COLS}`} data-testid="open-position-line">
       <RangeBar d={d} scale={scale} unit={unit} />
       <div className={`${NUM} mt-2.5 flex items-baseline gap-3 sm:contents`}>
         <span className="font-medium text-fg sm:text-right">
           <span className="sr-only">Value </span>
           {fmtUsd(d.valueUsd)}
         </span>
-        <span className="text-mute sm:text-right" title="Unclaimed fees">
-          <span className="mr-1 font-sans text-[12px] sm:sr-only">Fees</span>
+        <span className="text-up sm:text-right" title="Unclaimed fees">
+          <span className="mr-1 text-sm text-mute sm:sr-only">Fees</span>
           {fmtUsd(d.unclaimedFeesUsd)}
         </span>
         <span className="ml-auto sm:ml-0 sm:text-right">
@@ -426,8 +443,8 @@ function PositionRow({ d, scale, unit }: { d: OpenPositionDetail; scale: PriceSc
 function Stat({ label, children, className = "" }: { label: string; children: ReactNode; className?: string }) {
   return (
     <div className={`shrink-0 ${className}`}>
-      <div className="text-[12px] text-mute">{label}</div>
-      <div className={`${NUM} mt-0.5 whitespace-nowrap text-[15px] font-semibold leading-tight`}>{children}</div>
+      <div className="text-sm text-mute">{label}</div>
+      <div className={`${NUM} mt-0.5 whitespace-nowrap text-md font-semibold leading-tight`}>{children}</div>
     </div>
   );
 }
@@ -440,7 +457,7 @@ function hasPositionRows(pool: OpenPool): boolean {
 function PositionCard({ pool, open, panelId }: { pool: OpenPool; open: boolean; panelId: string }) {
   const count = pool.positionCount || 1;
   const details = pool.positions ?? [];
-  const pair = `${pool.tokenX}/${pool.tokenY}`;
+  const pair = `${pool.tokenX}-${pool.tokenY}`;
   const unit = `${pool.tokenY} per ${pool.tokenX}`;
   const totals = poolTotals(pool);
   const scale = priceScale(details);
@@ -448,22 +465,22 @@ function PositionCard({ pool, open, panelId }: { pool: OpenPool; open: boolean; 
   // Pools with several positions list a row each; a single position shows its range bar inline.
   const expandable = hasPositionRows(pool);
   return (
-    <div className="relative rounded-2xl border border-border bg-surface-raised p-4 transition hover:border-border-strong" data-testid="open-position-row">
+    <div className="tile relative p-4 transition hover:border-border-strong" data-testid="open-position-row">
       {/* Whole-card overlay (not a wrapper) so the token links aren't nested in it. */}
-      <Link href={`/pools/${pool.poolAddress}`} aria-label={`${pair} pool, ${fmtPositions(count)}`} className="absolute inset-0 rounded-2xl" />
+      <Link href={`/pools/${pool.poolAddress}`} aria-label={`${pair} pool, ${fmtPositions(count)}`} className="absolute inset-0 rounded-tile" />
 
       <div className="flex items-center gap-3 pr-16">
         <PoolIcons pool={pool} size="md" />
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <span className="truncate text-[16px] font-semibold leading-tight">
+            <span className="truncate text-md font-semibold leading-tight">
               <PoolName pool={pool} />
             </span>
             {pool.binStep != null && (
-              <span className="shrink-0 rounded-full border border-border px-2 py-px text-[11px] leading-4 text-mute" title="DLMM bin step">{pool.binStep}bp</span>
+              <span className="chip" title="DLMM bin step">{binLabel(pool.binStep)}</span>
             )}
           </div>
-          <div className="num mt-1 flex items-center gap-1.5 whitespace-nowrap text-[12px] text-mute">
+          <div className="num mt-1 flex items-center gap-1.5 whitespace-nowrap text-sm text-mute">
             <span data-testid="pool-position-count">{fmtPositions(count)}</span>
             {totals && (
               <>
@@ -486,7 +503,7 @@ function PositionCard({ pool, open, panelId }: { pool: OpenPool; open: boolean; 
           {totals && (
             <>
               <Stat label="Fees">
-                <span className="text-fg-secondary">{fmtUsd(totals.fees)}</span>
+                <span className="text-up">{fmtUsd(totals.fees)}</span>
               </Stat>
               <Stat label="PnL">
                 <PnL usd={totals.pnl} pct={totals.pct} />
@@ -506,14 +523,14 @@ function PositionCard({ pool, open, panelId }: { pool: OpenPool; open: boolean; 
         // Above the overlay so clicks inside the list don't open the pool page.
         <div id={panelId} hidden={!open} className="relative z-10 mt-4 border-t border-border pt-3" data-testid="open-position-details">
           {price != null && scale && (
-            <div className="flex items-center gap-1.5 text-[12px] text-mute">
+            <div className="flex items-center gap-1.5 text-sm text-mute">
               <span className="h-2.5 w-0.5 rounded-full bg-fg" aria-hidden="true" />
               <span>
                 Current price <span className={`${NUM} text-fg-secondary`}>{fmtPrice(price)}</span> {unit}
               </span>
             </div>
           )}
-          <div className={`mt-3 hidden text-[12px] text-mute ${COLS}`} aria-hidden="true">
+          <div className={`mt-3 hidden text-sm text-mute ${COLS}`} aria-hidden="true">
             <span>Range</span>
             <span className="text-right">Value</span>
             <span className="text-right">Fees</span>
@@ -528,11 +545,11 @@ function PositionCard({ pool, open, panelId }: { pool: OpenPool; open: boolean; 
             ))}
           </ul>
           {details.length !== count && (
-            <p className="pt-1 text-[12px] text-mute">
+            <p className="pt-1 text-sm text-mute">
               Details for {details.length} of {fmtPositions(count)}; the rest appear after the next sync.
             </p>
           )}
-          <Link href={`/pools/${pool.poolAddress}`} className="mt-2 inline-block whitespace-nowrap rounded text-[12px] font-semibold text-mute transition hover:text-fg">
+          <Link href={`/pools/${pool.poolAddress}`} className="mt-2 inline-block whitespace-nowrap rounded-tag text-sm font-semibold text-mute transition hover:text-fg">
             View pool →
           </Link>
         </div>
@@ -546,15 +563,15 @@ function PositionCard({ pool, open, panelId }: { pool: OpenPool; open: boolean; 
 function PositionCardCompact({ pool }: { pool: OpenPool }) {
   const count = pool.positionCount || 1;
   return (
-    <div className="relative flex items-center justify-between gap-2 rounded-xl border border-border bg-bg p-3 transition hover:border-border-strong">
-      <Link href={`/pools/${pool.poolAddress}`} aria-label={`${pool.tokenX}/${pool.tokenY} pool, ${fmtPositions(count)}`} className="absolute inset-0 rounded-xl" />
+    <div className="tile relative flex items-center justify-between gap-2 p-3 transition hover:border-border-strong">
+      <Link href={`/pools/${pool.poolAddress}`} aria-label={`${pool.tokenX}-${pool.tokenY} pool, ${fmtPositions(count)}`} className="absolute inset-0 rounded-tile" />
       <div className="flex min-w-0 flex-1 items-center gap-2">
         <PoolIcons pool={pool} size="sm" />
         <div className="ml-1 min-w-0">
-          <div className="truncate text-[13px] font-semibold">
+          <div className="truncate text-base font-semibold">
             <PoolName pool={pool} />
           </div>
-          <div className={`${NUM} text-[11px] text-mute`}>
+          <div className={`${NUM} text-xs text-mute`}>
             {fmtUsd(pool.valueUsd ?? 0)} · {fmtPositions(count)}
           </div>
         </div>

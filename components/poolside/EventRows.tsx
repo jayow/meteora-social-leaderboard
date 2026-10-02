@@ -24,7 +24,7 @@ function profileHref(p: ActivityPerson): string {
 
 function PersonLink({ person }: { person: ActivityPerson }) {
   return (
-    <Link href={profileHref(person)} className="font-semibold text-fg-secondary hover:text-fg hover:underline">
+    <Link href={profileHref(person)} className="font-semibold text-fg-secondary transition hover:text-fg">
       {displayName(person)}
     </Link>
   );
@@ -62,7 +62,7 @@ function BadgeLine({ item, badge }: { item: ActivityItem; badge: NonNullable<Act
   const tier = tierLabel(badge.id, badge.tier)?.split(" · ")[0] ?? null;
   return (
     <p
-      className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1 whitespace-nowrap text-[12.5px] text-mute min-[375px]:flex-nowrap"
+      className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1 whitespace-nowrap text-base text-mute min-[375px]:flex-nowrap"
       data-testid="badge-line"
     >
       <span className="min-w-0 max-w-full truncate min-[375px]:min-w-[2.5rem]">
@@ -84,7 +84,7 @@ function BadgeLine({ item, badge }: { item: ActivityItem; badge: NonNullable<Act
 
 function RowTime({ iso }: { iso: string }) {
   return (
-    <time dateTime={iso} title={new Date(iso).toLocaleString()} className="shrink-0 text-[11.5px] text-mute">
+    <time dateTime={iso} title={new Date(iso).toLocaleString()} className="shrink-0 text-sm text-mute">
       {timeAgo(iso)}
     </time>
   );
@@ -103,7 +103,7 @@ function PositionRow({ item }: { item: ActivityItem }) {
       <Link href={profileHref(item.actor)} className="shrink-0" tabIndex={-1} aria-hidden>
         <Avatar user={{ id: item.actor.id, xAvatarUrl: item.actor.xAvatarUrl }} size={32} />
       </Link>
-      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 gap-y-1 pt-1 text-[13.5px] leading-5">
+      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 gap-y-1 pt-1 text-base">
         <span className="min-w-0 max-w-full truncate">
           <PersonLink person={item.actor} />
         </span>
@@ -127,10 +127,10 @@ function PositionRow({ item }: { item: ActivityItem }) {
           </span>
         )}
         {item.kind === "big_win" && (
-          <span className="shrink-0 rounded-full border border-border px-1.5 text-[11px] font-semibold leading-[18px] text-up">Big win</span>
+          <span className="chip text-up">Big win</span>
         )}
       </div>
-      <span className="pt-1.5">
+      <span className="pt-1">
         <RowTime iso={item.occurredAt} />
       </span>
     </li>
@@ -140,14 +140,14 @@ function PositionRow({ item }: { item: ActivityItem }) {
 export function EventRow({ item }: { item: ActivityItem }) {
   if (isPositionKind(item.kind)) return <PositionRow item={item} />;
   return (
-    <li className="flex items-center gap-2.5 py-1.5" data-testid="activity-row" data-kind={item.kind}>
-      <Link href={profileHref(item.actor)} className="shrink-0" tabIndex={-1} aria-hidden>
+    <li className="flex items-center gap-3 py-2" data-testid="activity-row" data-kind={item.kind}>
+      <Link href={profileHref(item.actor)} className="flex w-8 shrink-0 justify-center" tabIndex={-1} aria-hidden>
         <Avatar user={{ id: item.actor.id, xAvatarUrl: item.actor.xAvatarUrl }} size={20} />
       </Link>
       {item.kind === "badge" && item.badge ? (
         <BadgeLine item={item} badge={item.badge} />
       ) : (
-        <p className="min-w-0 flex-1 truncate text-[12.5px] text-mute">
+        <p className="min-w-0 flex-1 truncate text-base text-mute">
           <PersonLink person={item.actor} /> <Action item={item} />
         </p>
       )}
@@ -180,7 +180,7 @@ function Burst({ items }: { items: ActivityItem[] }) {
       ))}
       {hidden > 0 && (
         <li className="pb-1 pl-11">
-          <button type="button" onClick={() => setOpen(true)} className="btn-ghost -ml-2 h-7 px-2 text-[12px]" data-testid="activity-run-more">
+          <button type="button" onClick={() => setOpen(true)} className="btn-ghost -ml-3 h-8 px-3" data-testid="activity-run-more">
             Show {hidden} more from {displayName(items[0].actor)}
           </button>
         </li>
@@ -196,7 +196,7 @@ function Burst({ items }: { items: ActivityItem[] }) {
 export function EventRun({ items }: { items: ActivityItem[] }) {
   const bursts = toBursts(items);
   return (
-    <div className="px-4 py-1.5" data-testid="activity-run">
+    <div className="px-4 py-1.5 sm:px-5" data-testid="activity-run">
       <ul>
         {bursts.map((b) => (
           <Burst key={b[0].id} items={b} />
