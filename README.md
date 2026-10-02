@@ -64,12 +64,27 @@ No environment secrets required - Meteora Data API is public.
 Live: https://web-production-c8f29.up.railway.app  
 Repo: `jayow/meteora-social-leaderboard`
 
-## Coming Soon
+## Roadmap
 
-- X (Twitter) OAuth integration for real profiles
-- Social leaderboard rankings by live PnL
-- Position analytics and optimization tips
-- NFT badges for top performers
+Not built yet, roughly in priority order.
+
+- **DAMM v2 support** (scoped). Profile stats already include DAMM v2 (Meteora's portfolio API
+  combines protocols), but Open positions only list DLMM, so DAMM v2 LPs see PnL without the
+  positions behind it. Plan: sync and wallet lookup also pull DAMM v2 open positions
+  (`damm-v2.datapi.meteora.ag/wallets/{wallet}/open_positions`) into `open_positions` with
+  `protocol = 'damm_v2'` (the column exists); protocol tag and range bar per pool (no liquidity
+  shape, DAMM has no bins); DAMM v2 pools in search and pool pages; Pool Hopper and Pool Builder
+  count DAMM pools (check that DAMM v2 pools record their creator on-chain). About 2-3 extra Meteora
+  calls per member per sync. Decide first: combined stats (as now, recommended) or per protocol;
+  whether to show DBC launchpad pools. Est. 2-3 days.
+- **Wallet removal** (parked until multi-wallet is a real feature). Rules: never remove an account's
+  last sign-in method; resync on removal (past daily snapshots keep the old combined numbers);
+  record which wallet created each pool so a removed wallet's pools stop counting; keep earned
+  badges; cooldown on link/unlink. The existing `DELETE /api/wallets/[address]` is unused and only
+  looks at `user_wallets`. Until then, wrong-wallet fixes are done by hand in the database.
+- **Multi-wallet UI** (backend exists: `user_wallets`, link/add APIs, syncs merge all wallets).
+- Competition page, streaks, notifications.
+- In-app LP trading (the Terms already mention it), with in-app price charts.
 
 ## Pool Party v2 (database-backed leaderboard)
 
