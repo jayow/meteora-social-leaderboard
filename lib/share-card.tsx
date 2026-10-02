@@ -43,10 +43,11 @@ export function interFonts() {
 export function Wordmark({ origin }: { origin: string }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-      <img src={`${origin}/logo-mark.svg`} width="40" height="35" alt="" />
+      {/* Sizes match each artwork's own proportions (the image renderer stretches rather than letterboxes). */}
+      <img src={`${origin}/logo-mark.svg`} width="46" height="40" alt="" />
       <svg
-        width="162"
-        height="44"
+        width="196"
+        height="40"
         viewBox="84 14 216 44"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
