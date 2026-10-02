@@ -68,7 +68,7 @@ export default function InvitesPage() {
       <main className="mx-auto max-w-[640px] px-4 pb-16 pt-6">
         <span className="skeleton block h-8 w-40" />
         <span className="skeleton mt-2 block h-4 w-56" />
-        <div className="mt-6 divide-y divide-border border-y border-border" aria-busy="true" aria-label="Loading invites">
+        <div className="mt-4 space-y-1" aria-busy="true" aria-label="Loading invites">
           {[0, 1, 2].map((i) => (
             <div key={i} className="flex h-[60px] items-center justify-between">
               <div className="space-y-1.5">
@@ -111,7 +111,7 @@ export default function InvitesPage() {
         {codes.length === 0 ? (
           <p className="py-6 text-center text-base text-mute">No invite codes yet.</p>
         ) : (
-          <div className="divide-y divide-border border-y border-border">
+          <div className="space-y-1">
             {/* Unused codes first; a used code is just a quiet row with a "Used" chip. */}
             {[...codes].sort((a, b) => Number(a.uses >= a.maxUses) - Number(b.uses >= b.maxUses)).map((code) => {
               const usedUp = code.uses >= code.maxUses;

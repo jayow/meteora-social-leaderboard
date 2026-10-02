@@ -146,7 +146,7 @@ export function OpenPositions({ userId, compact, mine = false, refreshKey }: { u
     return (
       <section data-testid="open-positions">
         {header}
-        <div className="divide-y divide-border border-t border-border" aria-busy="true" aria-label="Loading open positions">
+        <div className="space-y-1" aria-busy="true" aria-label="Loading open positions">
           {[0, 1].map((i) => (
             <div key={i} className="h-[84px] py-4">
               <div className="flex items-center gap-3">
@@ -189,11 +189,9 @@ export function OpenPositions({ userId, compact, mine = false, refreshKey }: { u
     return (
       <section data-testid="open-positions">
         {header}
-        <div className="divide-y divide-border border-y border-border">
+        <div className="space-y-1">
           {data.pools.slice(0, 3).map((pool) => (
-            <div key={pool.poolAddress}>
-              <PositionCardCompact pool={pool} />
-            </div>
+            <PositionCardCompact key={pool.poolAddress} pool={pool} />
           ))}
         </div>
         {data.pools.length > 3 && (
@@ -208,12 +206,9 @@ export function OpenPositions({ userId, compact, mine = false, refreshKey }: { u
   return (
     <section data-testid="open-positions">
       {header}
-      <div className="divide-y divide-border border-y border-border">
+      <div className="space-y-1">
         {visible.map((pool) => (
-          // Dividers sit on this wrapper so the row's hover fill can bleed past them.
-          <div key={pool.poolAddress}>
-            <PositionCard pool={pool} open={open} panelId={`${panelBase}-${pool.poolAddress}`} />
-          </div>
+          <PositionCard key={pool.poolAddress} pool={pool} open={open} panelId={`${panelBase}-${pool.poolAddress}`} />
         ))}
       </div>
       {data.pools.length > INITIAL_POOLS && (
@@ -237,15 +232,15 @@ function PoolIcons({ pool, size }: { pool: OpenPool; size: "sm" | "md" }) {
     <div className="flex shrink-0 items-center">
       {pool.tokenXIcon ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={pool.tokenXIcon} alt={pool.tokenX} className={`${dim} rounded-full border border-surface bg-surface-raised object-cover`} />
+        <img src={pool.tokenXIcon} alt={pool.tokenX} className={`${dim} rounded-full border border-bg bg-surface-raised transition group-hover:border-accent-tint object-cover`} />
       ) : (
-        <div className={`${dim} rounded-full border border-surface bg-surface-raised`} />
+        <div className={`${dim} rounded-full border border-bg bg-surface-raised transition group-hover:border-accent-tint`} />
       )}
       {pool.tokenYIcon ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={pool.tokenYIcon} alt={pool.tokenY} className={`${overlap} ${dim} rounded-full border border-surface bg-surface-raised object-cover`} />
+        <img src={pool.tokenYIcon} alt={pool.tokenY} className={`${overlap} ${dim} rounded-full border border-bg bg-surface-raised transition group-hover:border-accent-tint object-cover`} />
       ) : (
-        <div className={`${overlap} ${dim} rounded-full border border-surface bg-surface-raised`} />
+        <div className={`${overlap} ${dim} rounded-full border border-bg bg-surface-raised transition group-hover:border-accent-tint`} />
       )}
     </div>
   );
@@ -279,7 +274,14 @@ function fmtPrice(n: number | null): string {
   if (n === 0) return "0";
   const a = Math.abs(n);
   if (a >= 1000) return n.toLocaleString("en-US", { maximumFractionDigits: 0 });
-  if (a < 1e-6) return n.toExponential(2);
+  // Tiny prices: count the zeros as a subscript (0.0₆103), the way traders read memecoin prices.
+  if (a < 1e-4) {
+    const [mant, exp] = a.toExponential(2).split("e");
+    const zeros = -Number(exp) - 1;
+    const digits = mant.replace(".", "").replace(/0+$/, "");
+    const sub = String(zeros).replace(/\d/g, (c) => "₀₁₂₃₄₅₆₇₈₉"[Number(c)]);
+    return `${n < 0 ? "-" : ""}0.0${sub}${digits}`;
+  }
   return String(Number(n.toPrecision(4)));
 }
 
@@ -398,6 +400,39 @@ function RangeBar({ d, scale, unit }: { d: OpenPositionDetail; scale: PriceScale
   );
 }
 
+/**
+ * Compact range strip for a pool row: one thin line per position on the pool's shared log scale, plus a
+ * tick at the current price, and the overall bounds underneath. Reads as where (and how spread) the
+ * liquidity sits without opening the per-position list.
+ */
+function MiniRange({ details, scale, unit, className = "" }: { details: OpenPositionDetail[]; scale: PriceScale; unit: string; className?: string }) {
+  const price = poolPriceOf(details);
+  const p = price != null ? at(scale, price) : null;
+  const lo = Math.min(...details.map((d) => d.minPrice ?? Infinity));
+  const hi = Math.max(...details.map((d) => d.maxPrice ?? -Infinity));
+  const label = `${details.length === 1 ? "Range" : `${details.length} ranges`} ${fmtPrice(lo)} to ${fmtPrice(hi)} ${unit}${price != null ? `, current ${fmtPrice(price)}` : ""}`;
+  return (
+    <div role="img" aria-label={label} title={label} className={`min-w-0 ${className}`}>
+      <div className="relative flex flex-col justify-center gap-[3px] py-1" style={{ minHeight: 14 }}>
+        {details.map((d, i) => {
+          const a = at(scale, d.minPrice ?? 0);
+          const b = at(scale, d.maxPrice ?? 0);
+          return (
+            <div key={i} className="relative h-[3px] rounded-full bg-border">
+              <div className={`absolute inset-y-0 rounded-full ${d.inRange ? "bg-up/70" : "bg-mute/50"}`} style={{ left: `${a}%`, width: `${Math.max(b - a, 2)}%` }} />
+            </div>
+          );
+        })}
+        {p != null && <div className="absolute inset-y-0 w-0.5 -translate-x-1/2 rounded-full bg-fg" style={{ left: `${p}%` }} />}
+      </div>
+      <div className={`${NUM} mt-0.5 flex justify-between text-xs leading-none text-mute`} aria-hidden="true">
+        <span>{fmtPrice(lo)}</span>
+        <span>{fmtPrice(hi)}</span>
+      </div>
+    </div>
+  );
+}
+
 /* ------------------------------------------------------------------------------------------------ */
 /* Pool card                                                                                         */
 /* ------------------------------------------------------------------------------------------------ */
@@ -489,8 +524,8 @@ function PositionCard({ pool, open, panelId }: { pool: OpenPool; open: boolean; 
   // Pools with several positions list a row each; a single position shows its range bar inline.
   const expandable = hasPositionRows(pool);
   return (
-    // A divided row, not a box: hover fills it so the whole row reads as one link.
-    <div className="group relative -mx-3 rounded-tile px-3 py-4 transition hover:bg-surface" data-testid="open-position-row">
+    // Not a box: spacing separates rows, and hover fills the whole row so it reads as one link.
+    <div className="group relative -mx-3 rounded-tile px-3 py-3.5 transition hover:bg-accent-tint" data-testid="open-position-row">
       {/* Whole-card overlay (not a wrapper) so the token links aren't nested in it. */}
       <Link href={`/pools/${pool.poolAddress}`} aria-label={`${pair} pool, ${fmtPositions(count)}`} className="absolute inset-0 rounded-tile" />
 
@@ -523,6 +558,7 @@ function PositionCard({ pool, open, panelId }: { pool: OpenPool; open: boolean; 
       </div>
 
       <div className="mt-4 flex items-end gap-5 sm:mt-0 sm:shrink-0 sm:gap-8 sm:text-right">
+        {scale && details.length > 0 && <MiniRange details={details} scale={scale} unit={unit} className="order-last ml-auto w-24 sm:order-first sm:ml-0 sm:w-36" />}
         <Stat label="Value">
           <span className="text-fg">{fmtUsd(pool.valueUsd ?? 0)}</span>
         </Stat>
@@ -539,15 +575,9 @@ function PositionCard({ pool, open, panelId }: { pool: OpenPool; open: boolean; 
       </div>
       </div>
 
-      {count === 1 && details.length === 1 && scale && (
-        <div className="mt-4 border-t border-border pt-3">
-          <RangeBar d={details[0]} scale={scale} unit={unit} />
-        </div>
-      )}
-
       {expandable && (
         // Above the overlay so clicks inside the list don't open the pool page.
-        <div id={panelId} hidden={!open} className="relative z-10 mt-4 border-t border-border pt-3" data-testid="open-position-details">
+        <div id={panelId} hidden={!open} className="relative z-10 mt-4 pt-1" data-testid="open-position-details">
           {price != null && scale && (
             <div className="flex items-center gap-1.5 text-sm text-mute">
               <span className="h-2.5 w-0.5 rounded-full bg-fg" aria-hidden="true" />
@@ -589,7 +619,7 @@ function PositionCard({ pool, open, panelId }: { pool: OpenPool; open: boolean; 
 function PositionCardCompact({ pool }: { pool: OpenPool }) {
   const count = pool.positionCount || 1;
   return (
-    <div className="relative -mx-3 flex items-center justify-between gap-2 rounded-tile px-3 py-3 transition hover:bg-surface">
+    <div className="relative -mx-3 flex items-center justify-between gap-2 rounded-tile px-3 py-3 transition hover:bg-accent-tint">
       <Link href={`/pools/${pool.poolAddress}`} aria-label={`${pool.tokenX}-${pool.tokenY} pool, ${fmtPositions(count)}`} className="absolute inset-0 rounded-tile" />
       <div className="flex min-w-0 flex-1 items-center gap-2">
         <PoolIcons pool={pool} size="sm" />

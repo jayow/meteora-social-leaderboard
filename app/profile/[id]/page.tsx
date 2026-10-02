@@ -257,16 +257,11 @@ function Profile() {
     <main className="mx-auto max-w-[1320px] px-4 pb-10 pt-6 lg:px-6">
       <div className="mb-4 flex min-h-8 items-center justify-between gap-3">
         <Link href="/" className="shrink-0 text-base font-medium text-mute transition hover:text-fg">← Leaderboard</Link>
-        <div className="flex min-w-0 items-center gap-3 text-sm text-mute">
-          {syncing || syncNote ? (
-            <span className="truncate" title={syncNote ?? undefined}>{syncing ? "Syncing with Meteora…" : syncNote}</span>
-          ) : (
-            <span className="truncate">
-              <span className="hidden sm:inline">Stats updated </span>
-              <span className="sm:hidden">Updated </span>
-              {timeAgo(snap?.updatedAt)}
-            </span>
-          )}
+        {/* Quiet status: a short line, with the full sync note in its tooltip, and a small icon refresh. */}
+        <div className="flex min-w-0 items-center gap-1.5 text-sm text-mute">
+          <span className="truncate" title={syncNote ?? undefined}>
+            {syncing ? "Syncing…" : syncNote ? "Showing last saved stats" : <>Updated {timeAgo(snap?.updatedAt)}</>}
+          </span>
           {/* Shown only when a refresh can run: a disabled "Refresh in 4m" next to "Updated 1m ago" said the same thing twice. */}
           {canRefresh && (syncing || !coolingDown) && (
             <button
@@ -276,11 +271,14 @@ function Profile() {
                 if (user?.wallet) void sync(user.wallet, user.id);
               }}
               disabled={syncing}
-              title="Pull fresh stats from Meteora"
-              className="btn-secondary h-8 shrink-0 px-3"
+              title="Refresh stats from Meteora"
+              aria-label={syncing ? "Refreshing stats" : "Refresh stats"}
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-mute transition hover:bg-surface-raised hover:text-fg disabled:opacity-45"
               data-testid="profile-refresh"
             >
-              {syncing ? "Refreshing…" : "Refresh"}
+              <svg viewBox="0 0 16 16" className={`h-4 w-4 ${syncing ? "animate-spin motion-reduce:animate-none" : ""}`} fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 2.5v3h-3" />
+              </svg>
             </button>
           )}
         </div>
@@ -371,7 +369,7 @@ function Profile() {
         <div className="min-w-0 space-y-12">
           <section>
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-lg font-semibold">Meteora stats</h2>
+              <h2 className="text-lg font-semibold">Portfolio</h2>
               <Pills value={range} onChange={setRange} options={[{ value: "7d", label: "7D" }, { value: "30d", label: "30D" }, { value: "all", label: "All" }]} />
             </div>
             {!hasActivity(snap) && (mine || !snap) && !syncing ? (
@@ -461,14 +459,14 @@ function CalendarCard({ userId }: { userId: number }) {
   );
 }
 
-/** Open row of figures under the hero PnL: a hairline above, thin rules between, no boxes. */
+/** Open row of figures under the hero PnL: aligned columns and space, no boxes or rules. */
 function StatStrip({ children }: { children: React.ReactNode }) {
-  return <dl className="mt-5 grid grid-cols-2 gap-y-4 border-t border-border pt-4 sm:grid-cols-4">{children}</dl>;
+  return <dl className="mt-6 grid grid-cols-2 gap-x-8 gap-y-5 sm:grid-cols-4">{children}</dl>;
 }
 
 function StatFigure({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: "up" }) {
   return (
-    <div className="min-w-0 border-border even:border-l even:pl-4 sm:border-l sm:pl-5 sm:first:border-l-0 sm:first:pl-0">
+    <div className="min-w-0">
       <dt className="truncate text-sm text-mute">{label}</dt>
       <dd className={`num mt-0.5 text-lg font-semibold ${tone === "up" ? "text-up" : "text-fg"}`}>{value}</dd>
       {sub && <dd className="truncate text-xs text-mute">{sub}</dd>}
@@ -514,7 +512,7 @@ function OwnEmptyProfile() {
           <Link href="/join" className="btn-primary mt-4">Join the beta</Link>
         </section>
         <section>
-          <h2 className="mb-4 text-lg font-semibold">Meteora stats</h2>
+          <h2 className="mb-4 text-lg font-semibold">Portfolio</h2>
           <NoActivityStats mine />
         </section>
       </div>
@@ -1122,7 +1120,7 @@ function RecentTheses({ userId }: { userId: number }) {
   return (
     <section data-testid="profile-theses">
       {heading}
-      <ul className="mt-3 divide-y divide-border border-t border-border">
+      <ul className="mt-2 space-y-1">
         {shown.map((thesis) => (
           <li key={thesis.id}>
             <ThesisCompact post={thesis} />
@@ -1171,7 +1169,7 @@ function ProfileSkeleton({ note = null }: { note?: string | null }) {
               <div className="skeleton h-9 w-36 rounded-full" />
             </div>
             <div className="skeleton mt-5 h-10 w-56" />
-            <div className="mt-5 grid grid-cols-2 gap-4 border-t border-border pt-4 sm:grid-cols-4">
+            <div className="mt-6 grid grid-cols-2 gap-x-8 gap-y-5 sm:grid-cols-4">
               {Array.from({ length: 4 }, (_, i) => (
                 <div key={i} className="skeleton h-[52px] rounded-tile" />
               ))}

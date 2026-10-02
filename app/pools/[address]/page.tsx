@@ -225,7 +225,7 @@ export default function PoolDetailPage() {
 
   return (
     <main className="mx-auto max-w-[1120px] px-4 pb-10 pt-6 lg:px-6">
-      <div className="border-b border-border pb-6">
+      <div>
         {/* Mobile: pair + badges on one line, Dip button below. sm+: button on the right. */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
           <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
@@ -297,11 +297,11 @@ export default function PoolDetailPage() {
             )}
 
             {comments && comments.comments.length === 0 ? (
-              <p className="border-t border-border pt-5 text-base text-mute">
+              <p className="pt-2 text-base text-mute">
                 No theses yet.{user ? " Be the first to share yours." : ""}
               </p>
             ) : (
-              <div className="divide-y divide-border border-t border-border">
+              <div className="space-y-2">
                 {comments?.comments.map((comment) => (
                   <div key={comment.id} className="py-4">
                     <ThesisCard post={comment} onDelete={comment.isOwn ? () => deleteComment(comment.id) : undefined} />
@@ -325,7 +325,7 @@ function LpList({ lps }: { lps: LP[] }) {
   const [showAll, setShowAll] = useState(false);
   const shown = showAll ? lps : lps.slice(0, LP_PREVIEW);
   return (
-    <aside className="lg:sticky lg:top-[84px] lg:border-l lg:border-border lg:pl-8">
+    <aside className="lg:sticky lg:top-[84px]">
       <h2 className="text-md font-semibold">
         LPs in this pool <span className="num font-medium text-mute">{lps.length}</span>
       </h2>
@@ -354,7 +354,7 @@ function LPRow({ lp }: { lp: LP }) {
   return (
     <Link
       href={`/profile/${lp.xHandle || lp.id}`}
-      className="-mx-2 flex items-center gap-2.5 rounded-tile px-2 py-2 transition hover:bg-surface"
+      className="-mx-2 flex items-center gap-2.5 rounded-tile px-2 py-2 transition hover:bg-accent-tint"
       title={(lp.positionCount ?? 1) > 1 ? fmtPositions(lp.positionCount ?? 1) : undefined}
     >
       <Avatar user={lp} size={28} />
@@ -440,26 +440,30 @@ function CommentComposer({
           className="hidden h-10 w-10 shrink-0 rounded-full border border-border bg-surface-raised object-cover sm:block"
         />
         <div className="min-w-0 flex-1">
-          <textarea
-            value={commentText}
-            onChange={(e) => setCommentText(e.target.value)}
-            maxLength={500}
-            rows={3}
-            placeholder={`Share your ${tokenSymbol} thesis…`}
-            disabled={posting || hasPosition === null}
-            className="field block h-auto resize-y py-2.5"
-          />
-          <div className="mt-2 flex items-center justify-between">
-            {/* The counter appears only near the limit. */}
-            <span className="num text-sm text-mute">{commentText.length >= 400 ? `${commentText.length}/500` : ""}</span>
-            <button
-              type="button"
-              onClick={onPost}
-              disabled={!commentText.trim() || posting || hasPosition === null}
-              className="btn-primary"
-            >
-              {posting ? "Posting…" : "Post"}
-            </button>
+          {/* One bubble: the text and its Post button share the field, so the action sits with the words. */}
+          <div className="rounded-tile border border-border bg-surface-raised transition hover:border-border-strong focus-within:border-transparent focus-within:outline focus-within:outline-2 focus-within:outline-accent">
+            <textarea
+              value={commentText}
+              onChange={(e) => setCommentText(e.target.value)}
+              maxLength={500}
+              rows={2}
+              placeholder={`Share your ${tokenSymbol} thesis…`}
+              disabled={posting || hasPosition === null}
+              aria-label={`Your ${tokenSymbol} thesis`}
+              className="block w-full resize-none bg-transparent px-3.5 pt-2.5 text-base text-fg outline-none placeholder:text-mute"
+            />
+            <div className="flex items-center justify-end gap-3 px-2 pb-2">
+              {/* The counter appears only near the limit. */}
+              <span className="num text-sm text-mute">{commentText.length >= 400 ? `${commentText.length}/500` : ""}</span>
+              <button
+                type="button"
+                onClick={onPost}
+                disabled={!commentText.trim() || posting || hasPosition === null}
+                className="btn-primary h-8 px-3"
+              >
+                {posting ? "Posting…" : "Post"}
+              </button>
+            </div>
           </div>
           {error && <p className="mt-2 text-base text-dn">{error}</p>}
         </div>

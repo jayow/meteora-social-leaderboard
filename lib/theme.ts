@@ -15,6 +15,7 @@ export const THEME = {
   mute: "#9b99ab",
   accent: "#ff5c1a",
   accentHover: "#ff7a3d",
+  accentTint: "#2b1713",
   accentFg: "#170b05",
   up: "#22c98a",
   dn: "#f2546b",

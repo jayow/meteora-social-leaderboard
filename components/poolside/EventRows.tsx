@@ -52,11 +52,28 @@ function Action({ item }: { item: ActivityItem }) {
   }
 }
 
+/**
+ * Subtle colour per kind (a faint tint behind a coloured glyph): opens in accent, closes in the colour of
+ * their PnL, big wins in gold, social events (joined, followed) stay neutral. Enough to scan, not to shout.
+ */
+function kindTone(item: ActivityItem): string {
+  switch (item.kind) {
+    case "opened":
+      return "bg-accent/10 text-accent";
+    case "closed":
+      return (item.amountUsd ?? 0) < 0 ? "bg-dn/10 text-dn" : "bg-up/10 text-up";
+    case "big_win":
+      return "bg-gold/10 text-gold";
+    default:
+      return "bg-surface-raised text-mute";
+  }
+}
+
 /** One small glyph per event kind, so a run of events scans by type before anyone reads it. */
 function KindIcon({ item }: { item: ActivityItem }) {
   if (item.kind === "badge" && item.badge) {
     return (
-      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-border bg-surface-raised" aria-hidden="true">
+      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-surface-raised" aria-hidden="true">
         <BadgeGlyph id={item.badge.id} size={12} className={badgeTone(item.badge.id, item.badge.tier)} />
       </span>
     );
@@ -69,7 +86,7 @@ function KindIcon({ item }: { item: ActivityItem }) {
     followed: "M6 7.25a2.25 2.25 0 1 0 0-4.5 2.25 2.25 0 0 0 0 4.5zM2 13.5c0-2.2 1.8-3.75 4-3.75s4 1.55 4 3.75M12.5 5v5M10 7.5h5",
   };
   return (
-    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-border bg-surface-raised text-mute" aria-hidden="true">
+    <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${kindTone(item)}`} aria-hidden="true">
       <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
         <path d={paths[item.kind as Exclude<ActivityItem["kind"], "badge">]} />
       </svg>

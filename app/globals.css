@@ -55,6 +55,8 @@
   /* The one brand accent: primary actions and the active state only */
   --color-accent: #ff5c1a;
   --color-accent-hover: #ff7a3d;
+  /* Hover fill for list rows: 12% accent over bg, solid so overlapping avatar rings can match it. */
+  --color-accent-tint: #2b1713;
   /* Text on a solid accent background (white on this orange is only 3.1:1) */
   --color-accent-fg: #170b05;
 
