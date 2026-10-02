@@ -56,8 +56,14 @@ export function OpenPositions({
   refreshKey,
   syncing = false,
   thesesByPool,
+  sourceUrl,
+  showIdeas = true,
 }: {
   userId?: number;
+  /** Fetch from here instead of a member's stored rows (e.g. a wallet lookup); same response shape. */
+  sourceUrl?: string;
+  /** The LP idea column beside each pool (members' profiles). Off for wallet lookups. */
+  showIdeas?: boolean;
   compact?: boolean;
   mine?: boolean;
   refreshKey?: string | null;
@@ -75,7 +81,7 @@ export function OpenPositions({
   const panelBase = useId();
 
   useEffect(() => {
-    if (!userId) {
+    if (!userId && !sourceUrl) {
       setData(null);
       setError(null);
       return;
@@ -86,7 +92,7 @@ export function OpenPositions({
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch(`/api/users/${userId}/open-positions`, { cache: "no-store" });
+        const res = await fetch(sourceUrl ?? `/api/users/${userId}/open-positions`, { cache: "no-store" });
         if (!res.ok) throw new Error("Failed to fetch open positions");
         const json = (await res.json()) as OpenPositionsResponse;
         if (cancelled) return;
@@ -106,9 +112,9 @@ export function OpenPositions({
     return () => {
       cancelled = true;
     };
-  }, [userId, refreshKey]);
+  }, [userId, sourceUrl, refreshKey]);
 
-  if (!userId) return null;
+  if (!userId && !sourceUrl) return null;
 
   const total = data?.totalPositions ?? 0;
   const poolCount = data?.pools.length ?? 0;
@@ -225,7 +231,7 @@ export function OpenPositions({
       {header}
       <div className="space-y-1">
         {visible.map((pool) => (
-          <PositionCard key={pool.poolAddress} pool={pool} open={open} panelId={`${panelBase}-${pool.poolAddress}`} syncing={syncing} thesis={thesesByPool?.get(pool.poolAddress) ?? null} />
+          <PositionCard key={pool.poolAddress} pool={pool} open={open} panelId={`${panelBase}-${pool.poolAddress}`} syncing={syncing} thesis={thesesByPool?.get(pool.poolAddress) ?? null} showIdeas={showIdeas} />
         ))}
       </div>
       {data.pools.length > INITIAL_POOLS && (
@@ -571,7 +577,21 @@ function hasPositionRows(pool: OpenPool): boolean {
   return (pool.positionCount || 1) > 1 && (pool.positions ?? []).length > 0;
 }
 
-function PositionCard({ pool, open, panelId, syncing = false, thesis = null }: { pool: OpenPool; open: boolean; panelId: string; syncing?: boolean; thesis?: ThesisPost | null }) {
+function PositionCard({
+  pool,
+  open,
+  panelId,
+  syncing = false,
+  thesis = null,
+  showIdeas = true,
+}: {
+  pool: OpenPool;
+  open: boolean;
+  panelId: string;
+  syncing?: boolean;
+  thesis?: ThesisPost | null;
+  showIdeas?: boolean;
+}) {
   const count = pool.positionCount || 1;
   const details = pool.positions ?? [];
   const pair = `${pool.tokenX}-${pool.tokenY}`;
@@ -592,7 +612,7 @@ function PositionCard({ pool, open, panelId, syncing = false, thesis = null }: {
   ) : null;
   return (
     // Desktop: the position on the left, its latest thesis in a side column. Phones: thesis under the row.
-    <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_14rem] lg:items-start lg:gap-10">
+    <div className={showIdeas ? "lg:grid lg:grid-cols-[minmax(0,1fr)_14rem] lg:items-start lg:gap-10" : ""}>
     {/* Not a box: spacing separates rows, and hover fills the whole row so it reads as one link. */}
     <div className="group relative -mx-3 rounded-tile px-3 py-3.5 transition hover:bg-accent-tint" data-testid="open-position-row">
       {/* Whole-row overlay (not a wrapper, so the token links aren't nested in it). Several positions: the
@@ -714,6 +734,7 @@ function PositionCard({ pool, open, panelId, syncing = false, thesis = null }: {
       <DipLink poolAddress={pool.poolAddress} protocol={pool.protocol} className="!absolute right-3 top-4" />
     </div>
 
+    {showIdeas && (
     <aside className="hidden pt-3.5 lg:block" data-testid="position-thesis-side">
       {thesis ? (
         <>
@@ -726,6 +747,7 @@ function PositionCard({ pool, open, panelId, syncing = false, thesis = null }: {
         <p className="text-sm text-mute">No LP idea on this pool yet</p>
       )}
     </aside>
+    )}
     </div>
   );
 }

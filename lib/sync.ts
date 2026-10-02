@@ -27,7 +27,7 @@ function mintOf(t: unknown): string {
   return t && typeof t === "object" && typeof (t as Json).address === "string" ? ((t as Json).address as string) : "";
 }
 
-async function enrichPoolsWithMints(pools: PortfolioPool[]): Promise<void> {
+export async function enrichPoolsWithMints(pools: PortfolioPool[]): Promise<void> {
   // Fetch pool details to get token mints
   const poolsNeedingMints = pools.filter((p) => p.poolAddress && (!p.tokenXMint || !p.tokenYMint));
   

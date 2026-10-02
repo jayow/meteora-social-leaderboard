@@ -31,6 +31,7 @@ export type ServerEvent =
   | "wallet_remove"
   | "stats_refresh"
   | "search"
+  | "wallet_lookup"
   | "admin_invite_codes"
   | "admin_invite_toggle";
 

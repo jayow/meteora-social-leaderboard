@@ -1,6 +1,7 @@
 import { getPool } from "@/lib/db";
 import { fetchMeteoraOrNull } from "@/lib/meteora-limiter";
 import { METEORA_POOL_DISCOVERY_API } from "@/lib/meteora-endpoints";
+import { isValidWallet } from "@/lib/wallet";
 
 /**
  * Universal search (header): members, tokens and DLMM pools. Members come from our DB by X handle,
@@ -39,6 +40,8 @@ export interface SearchPool {
 
 export interface SearchResults {
   query: string;
+  /** A pasted wallet address: look up its Meteora positions (never which account owns it). */
+  wallet: { address: string; href: string } | null;
   users: SearchUser[];
   tokens: SearchToken[];
   pools: SearchPool[];
@@ -148,7 +151,8 @@ async function searchMeteora(q: string): Promise<{ tokens: SearchToken[]; pools:
 
 export async function search(raw: string): Promise<SearchResults> {
   const q = raw.trim().slice(0, 64);
-  if (q.length < SEARCH_MIN_LENGTH) return { query: q, users: [], tokens: [], pools: [] };
+  if (q.length < SEARCH_MIN_LENGTH) return { query: q, wallet: null, users: [], tokens: [], pools: [] };
+  const wallet = isValidWallet(q) ? { address: q, href: `/wallet/${q}` } : null;
   const [users, meteora] = await Promise.all([searchUsers(q).catch(() => []), searchMeteora(q)]);
-  return { query: q, users, ...meteora };
+  return { query: q, wallet, users, ...meteora };
 }

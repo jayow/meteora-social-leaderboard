@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { Avatar } from "@/components/ui";
 import { fmtUsd } from "@/lib/format";
 import type { SearchResults } from "@/lib/search";
+import { WalletIcon } from "@/components/SignInModal";
+import { shortAddr } from "@/lib/format";
 
 /**
  * Header search across members, tokens and pools (/api/search). Desktop: a field beside the nav;
@@ -13,7 +15,7 @@ import type { SearchResults } from "@/lib/search";
  * result; Esc closes. Members only (rendered by AppShell for members).
  */
 
-type Item = { key: string; href: string; group: "Members" | "Tokens" | "Pools"; render: () => React.ReactNode };
+type Item = { key: string; href: string; group: "Wallet" | "Members" | "Tokens" | "Pools"; render: () => React.ReactNode };
 
 const DEBOUNCE_MS = 200;
 const MIN = 2;
@@ -73,6 +75,24 @@ function useSearch(query: string) {
 function toItems(r: SearchResults | null): Item[] {
   if (!r) return [];
   return [
+    ...(r.wallet
+      ? [
+          {
+            key: `w${r.wallet.address}`,
+            href: r.wallet.href,
+            group: "Wallet" as const,
+            render: () => (
+              <>
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-surface-raised text-mute">
+                  <WalletIcon />
+                </span>
+                <span className="min-w-0 flex-1 truncate text-fg">Look up wallet</span>
+                <span className="num shrink-0 text-sm text-mute">{shortAddr(r.wallet!.address)}</span>
+              </>
+            ),
+          },
+        ]
+      : []),
     ...r.users.map((u) => ({
       key: `u${u.id}`,
       href: u.href,
