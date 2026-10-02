@@ -26,7 +26,7 @@ export function getCachedProfile(): CachedProfile {
     const legacy = localStorage.getItem("meteora_user");
     if (legacy) {
       const u = JSON.parse(legacy) as { walletAddress?: string; xHandle?: string; xAvatarUrl?: string; thesis?: string };
-      const thesis = u.thesis && u.thesis !== "Write your trading thesis here..." ? u.thesis : null;
+      const thesis = u.thesis && u.thesis !== "Write your LP idea here..." ? u.thesis : null;
       const migrated: CachedProfile = { wallet: u.walletAddress, xHandle: u.xHandle ?? null, xAvatarUrl: u.xAvatarUrl ?? null, thesis };
       saveCachedProfile(migrated);
       return migrated;

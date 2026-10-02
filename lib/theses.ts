@@ -60,7 +60,7 @@ export type PostCheck = { ok: true; pool: ComposerPool } | { ok: false; status: 
 
 /** The posting rule, used by the comments API (and mirrored in the composer via heldPools). */
 export async function checkCanPost(user: Pick<UserRow, "id" | "joinedAt">, mint: string, poolAddress: string | null | undefined): Promise<PostCheck> {
-  if (!user.joinedAt) return { ok: false, status: 403, error: "Join the beta to post a thesis" };
+  if (!user.joinedAt) return { ok: false, status: 403, error: "Join the beta to post an LP idea" };
   if (!poolAddress) return { ok: false, status: 400, error: "Pick the pool you're posting on" };
   const [pool] = await heldPools(user.id, { mint, poolAddress });
   if (!pool) return { ok: false, status: 403, error: "You need an open position in this pool to post on it" };
@@ -211,7 +211,7 @@ export type LikeResult = { ok: true; liked: boolean; likeCount: number } | { ok:
 
 /** Like or unlike a public thesis. Joined members only; own theses can't be liked. Idempotent. */
 export async function setThesisLike(user: Pick<UserRow, "id" | "joinedAt">, commentId: number, like: boolean): Promise<LikeResult> {
-  if (!user.joinedAt) return { ok: false, status: 403, error: "Join the beta to like theses" };
+  if (!user.joinedAt) return { ok: false, status: 403, error: "Join the beta to like LP ideas" };
   const pool = getPool();
   const { rows } = await pool.query<{ user_id: number }>(
     `SELECT tc.user_id FROM token_comments tc JOIN users u ON u.id = tc.user_id
@@ -219,8 +219,8 @@ export async function setThesisLike(user: Pick<UserRow, "id" | "joinedAt">, comm
     [commentId]
   );
   const target = rows[0];
-  if (!target) return { ok: false, status: 404, error: "Thesis not found" };
-  if (target.user_id === user.id) return { ok: false, status: 400, error: "You can't like your own thesis" };
+  if (!target) return { ok: false, status: 404, error: "LP idea not found" };
+  if (target.user_id === user.id) return { ok: false, status: 400, error: "You can't like your own LP idea" };
   if (like) {
     await pool.query(
       `INSERT INTO thesis_likes (comment_id, user_id) VALUES ($1, $2) ON CONFLICT (comment_id, user_id) DO NOTHING`,

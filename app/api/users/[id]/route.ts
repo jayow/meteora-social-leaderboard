@@ -68,7 +68,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   const set: Partial<typeof users.$inferInsert> = {};
   if (body.thesis !== undefined) {
     const t = (body.thesis || "").trim();
-    if (t.length > 1000) return NextResponse.json({ error: "Thesis too long (max 1000 chars)" }, { status: 400 });
+    if (t.length > 1000) return NextResponse.json({ error: "LP idea too long (max 1000 chars)" }, { status: 400 });
     set.thesis = t || null;
   }
   if (body.country !== undefined) {

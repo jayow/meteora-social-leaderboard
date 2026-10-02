@@ -11,7 +11,7 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ id: string }> }
   if (!hasDb()) return NextResponse.json({ error: "Service unavailable" }, { status: 503 });
   const { id } = await ctx.params;
   const commentId = Number(id);
-  if (!Number.isInteger(commentId) || commentId <= 0) return NextResponse.json({ error: "Invalid thesis id" }, { status: 400 });
+  if (!Number.isInteger(commentId) || commentId <= 0) return NextResponse.json({ error: "Invalid LP idea id" }, { status: 400 });
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
   const result = await setThesisLike(user, commentId, like);
