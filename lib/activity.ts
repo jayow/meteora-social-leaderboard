@@ -1,6 +1,9 @@
 import { getPool } from "@/lib/db";
 import { listTheses } from "@/lib/theses";
 import { parseBadgeActivityKey } from "@/lib/badges/config";
+import { fetchMeteoraOrNull } from "@/lib/meteora-limiter";
+import { meteoraUrls } from "@/lib/meteora-endpoints";
+import type { ActivityPoolDetail, OpenPositionDetail } from "@/lib/db/schema";
 import type {
   ActivityItem,
   ActivityKind,
@@ -47,6 +50,7 @@ export interface RecordActivityInput {
   commentId?: number | null;
   amountUsd?: number | null;
   occurredAt?: Date | null;
+  detail?: ActivityPoolDetail | null;
 }
 
 /**
@@ -65,8 +69,8 @@ export async function recordActivities(inputs: RecordActivityInput[]): Promise<v
       await pool.query(
         `INSERT INTO activity (actor_user_id, kind, target_user_id, pool_address, pool_name, protocol, bin_step,
                                token_x_icon, token_y_icon, token_mint, token_symbol, comment_id, amount_usd,
-                               dedupe_key, occurred_at)
-         SELECT u.id, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, coalesce($15::timestamptz, now())
+                               dedupe_key, occurred_at, detail)
+         SELECT u.id, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, coalesce($15::timestamptz, now()), $16::jsonb
          FROM users u
          WHERE u.id = $1 AND u.joined_at IS NOT NULL
          ON CONFLICT (dedupe_key) DO NOTHING`,
@@ -86,6 +90,7 @@ export async function recordActivities(inputs: RecordActivityInput[]): Promise<v
           a.amountUsd != null && Number.isFinite(a.amountUsd) ? a.amountUsd : null,
           a.dedupeKey.slice(0, 160),
           a.occurredAt ? a.occurredAt.toISOString() : null,
+          a.detail ? JSON.stringify(a.detail) : null,
         ]
       );
     }
@@ -110,6 +115,42 @@ export interface SyncedPosition {
   binStep: number | null;
   protocol: string | null;
   createdAt: Date;
+  /** Per-position details from open_positions (range bounds), when the sync had them. */
+  positions?: OpenPositionDetail[] | null;
+}
+
+/** Bins a range spans: DLMM prices step by (1 + binStep / 10000) per bin. */
+function binsInRange(minPrice: number, maxPrice: number, binStep: number): number | null {
+  if (!(minPrice > 0) || !(maxPrice >= minPrice) || !(binStep > 0)) return null;
+  return Math.round(Math.log(maxPrice / minPrice) / Math.log(1 + binStep / 10000)) + 1;
+}
+
+/** Position snapshot for an activity row: counts, bins and bounds from the stored details. */
+function positionDetail(p: SyncedPosition, baseFeePct: number | null): ActivityPoolDetail {
+  const ds = (p.positions ?? []).filter((d) => d.minPrice != null && d.maxPrice != null);
+  let bins: number | null = ds.length && p.binStep ? 0 : null;
+  for (const d of ds) {
+    const b = binsInRange(d.minPrice ?? 0, d.maxPrice ?? 0, p.binStep ?? 0);
+    bins = b == null || bins == null ? null : bins + b;
+  }
+  return {
+    positions: p.positions?.length || null,
+    bins,
+    minPrice: ds.length ? Math.min(...ds.map((d) => d.minPrice ?? Infinity)) : null,
+    maxPrice: ds.length ? Math.max(...ds.map((d) => d.maxPrice ?? -Infinity)) : null,
+    baseFeePct,
+  };
+}
+
+/** Pool base fee (percent) from Meteora, cached for hours: it's set at pool creation. Null if unknown. */
+async function poolBaseFeePct(poolAddress: string): Promise<number | null> {
+  try {
+    const pool = await fetchMeteoraOrNull<{ pool_config?: { base_fee_pct?: number } }>(meteoraUrls.pool(poolAddress), 6 * 60 * 60 * 1000);
+    const v = pool?.pool_config?.base_fee_pct;
+    return typeof v === "number" && Number.isFinite(v) ? v : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Minimal shape of a Meteora portfolio pool entry (closed-position history per pool). */
@@ -172,10 +213,13 @@ export async function recordSyncActivity(
     }
   }
 
+  const fees = new Map<string, number | null>();
+  for (const addr of new Set([...opened, ...closed].map((p) => p.poolAddress))) fees.set(addr, await poolBaseFeePct(addr));
+
   const events: RecordActivityInput[] = [];
   for (const p of opened) {
     if (lastKind.get(p.poolAddress) === "opened") continue;
-    events.push({ ...base(p), kind: "opened", dedupeKey: `opened:${p.id}` });
+    events.push({ ...base(p), kind: "opened", dedupeKey: `opened:${p.id}`, detail: positionDetail(p, fees.get(p.poolAddress) ?? null) });
   }
   for (const p of closed) {
     const s = stats.get(p.poolAddress);
@@ -189,6 +233,7 @@ export async function recordSyncActivity(
       amountUsd: pnl,
       occurredAt,
       dedupeKey: `closed:${p.id}`,
+      detail: positionDetail(p, fees.get(p.poolAddress) ?? null),
     });
   }
   await recordActivities(events);
@@ -212,6 +257,7 @@ interface EventRow {
   token_symbol: string | null;
   amount_usd: number | null;
   dedupe_key: string;
+  detail: ActivityPoolDetail | null;
   a_id: number;
   a_x_handle: string | null;
   a_x_avatar_url: string | null;
@@ -279,7 +325,7 @@ async function getEvents(ids: number[]): Promise<Map<number, ActivityItem>> {
   if (ids.length === 0) return out;
   const { rows } = await getPool().query<EventRow>(
     `SELECT a.id, a.kind, a.occurred_at, a.pool_address, a.pool_name, a.protocol, a.bin_step, a.token_x_icon,
-            a.token_y_icon, a.token_mint, a.token_symbol, a.amount_usd, a.dedupe_key,
+            a.token_y_icon, a.token_mint, a.token_symbol, a.amount_usd, a.dedupe_key, a.detail,
             u.id AS a_id, u.x_handle AS a_x_handle, u.x_avatar_url AS a_x_avatar_url, u.anon_name AS a_anon_name,
             t.id AS t_id, t.x_handle AS t_x_handle, t.x_avatar_url AS t_x_avatar_url, t.anon_name AS t_anon_name
      FROM activity a
@@ -306,6 +352,7 @@ async function getEvents(ids: number[]): Promise<Map<number, ActivityItem>> {
       token: r.token_mint ? { mint: r.token_mint, symbol: r.token_symbol } : null,
       amountUsd: r.kind === "closed" || r.kind === "big_win" ? r.amount_usd : null,
       badge: r.kind === "badge" ? parseBadgeActivityKey(r.dedupe_key) : null,
+      detail: r.kind === "opened" || r.kind === "closed" || r.kind === "big_win" ? r.detail : null,
     });
   }
   return out;

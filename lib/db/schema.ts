@@ -173,6 +173,19 @@ export const follows = pgTable(
   ]
 );
 
+/** Snapshot of a pool event's position, stored on the activity row (closed positions leave no other trace). */
+export interface ActivityPoolDetail {
+  /** Positions in the pool the event covers. */
+  positions: number | null;
+  /** Bins across those positions (each position's range, in bins, summed). */
+  bins: number | null;
+  /** Lowest / highest bound across the positions, quote per base. */
+  minPrice: number | null;
+  maxPrice: number | null;
+  /** Pool base fee, percent (0.04 = 0.04%). */
+  baseFeePct: number | null;
+}
+
 /** One open position inside an open_positions pool row (public, non-wallet fields only). */
 export interface OpenPositionDetail {
   /** Range bounds, quote (token Y) per base (token X). */
@@ -277,6 +290,8 @@ export const activity = pgTable(
     tokenSymbol: text("token_symbol"),
     commentId: integer("comment_id").references(() => tokenComments.id, { onDelete: "cascade" }),
     amountUsd: doublePrecision("amount_usd"),
+    /** Opened / closed / big win: the position's bins, range and the pool's base fee at sync time. Never addresses. */
+    detail: jsonb("detail").$type<ActivityPoolDetail>(),
     dedupeKey: varchar("dedupe_key", { length: 160 }).notNull(),
     occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull().defaultNow(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

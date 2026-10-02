@@ -1,6 +1,9 @@
 /** Client-safe types for the Poolside API (`GET /api/activity`). No wallet fields, ever. */
 import type { ThesisPost } from "@/lib/thesis-types";
 import type { BadgeId, BadgeTier } from "@/lib/badges/config";
+import type { ActivityPoolDetail } from "@/lib/db/schema";
+
+export type { ActivityPoolDetail };
 
 /** Every kind stored in the activity table. "thesis" rows exist but Poolside renders theses as posts. */
 export type ActivityKind = "joined" | "followed" | "thesis" | "opened" | "closed" | "big_win" | "badge";
@@ -64,6 +67,8 @@ export interface ActivityItem {
   amountUsd: number | null;
   /** "badge" events: the badge and tier earned. */
   badge: { id: BadgeId; tier: BadgeTier } | null;
+  /** Opened / closed / big win: bins, range and pool fee at sync time (null on older events). */
+  detail: ActivityPoolDetail | null;
 }
 
 export type FeedItem =

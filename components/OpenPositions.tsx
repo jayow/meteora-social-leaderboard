@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { fmtPct, fmtPositions, fmtUsd, pnlClass, timeAgo } from "@/lib/format";
+import { fmtPct, fmtPositions, fmtPrice, fmtUsd, pnlClass, timeAgo } from "@/lib/format";
 import { DipLink } from "@/components/DipLink";
 import { binLabel } from "@/components/ui";
 import type { OpenPositionDetail } from "@/lib/db/schema";
@@ -266,23 +266,6 @@ function PoolName({ pool }: { pool: OpenPool }) {
       )}
     </>
   );
-}
-
-/** Range bound, quote per base: 4 significant digits without exponent noise for normal sizes. */
-function fmtPrice(n: number | null): string {
-  if (n == null || !Number.isFinite(n)) return "—";
-  if (n === 0) return "0";
-  const a = Math.abs(n);
-  if (a >= 1000) return n.toLocaleString("en-US", { maximumFractionDigits: 0 });
-  // Tiny prices: count the zeros as a subscript (0.0₆103), the way traders read memecoin prices.
-  if (a < 1e-4) {
-    const [mant, exp] = a.toExponential(2).split("e");
-    const zeros = -Number(exp) - 1;
-    const digits = mant.replace(".", "").replace(/0+$/, "");
-    const sub = String(zeros).replace(/\d/g, (c) => "₀₁₂₃₄₅₆₇₈₉"[Number(c)]);
-    return `${n < 0 ? "-" : ""}0.0${sub}${digits}`;
-  }
-  return String(Number(n.toPrecision(4)));
 }
 
 /* ------------------------------------------------------------------------------------------------ */

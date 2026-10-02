@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { displayName, fmtUsd, timeAgo } from "@/lib/format";
+import { useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { displayName, fmtPrice, fmtUsd, timeAgo } from "@/lib/format";
 import type { ActivityItem, ActivityPerson } from "@/lib/activity-types";
 import { BadgeGlyph, badgeTone } from "@/components/Badges";
 import { BADGES, tierLabel } from "@/lib/badges/config";
+import { binLabel } from "@/components/ui";
 
 /**
  * Rows from one member's burst (same actor, back to back, each within BURST_GAP_MS of the next, e.g.
@@ -102,18 +104,86 @@ function RowTime({ iso }: { iso: string }) {
   );
 }
 
+/**
+ * Pool name in a trade row: a link to the pool page with a small preview on hover / keyboard focus
+ * (bin step, base fee, the position's bins and range when the sync recorded them). Portaled, since the
+ * row clips its text.
+ */
+function PoolLink({ item }: { item: ActivityItem }) {
+  const pool = item.pool;
+  const anchor = useRef<HTMLAnchorElement>(null);
+  const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
+  const [open, setOpen] = useState(false);
+  useLayoutEffect(() => {
+    if (!open || !anchor.current) return;
+    const r = anchor.current.getBoundingClientRect();
+    const W = 232;
+    setPos({ left: Math.max(8, Math.min(r.left, window.innerWidth - W - 8)), top: r.bottom + 6 });
+  }, [open]);
+  if (!pool) return <>a position</>;
+  const d = item.detail;
+  const facts: { label: string; value: string }[] = [];
+  if (d?.baseFeePct != null) facts.push({ label: "Base fee", value: `${Number(d.baseFeePct.toFixed(4))}%` });
+  if (pool.binStep != null) facts.push({ label: "Bin step", value: String(pool.binStep) });
+  if (d?.bins != null) facts.push({ label: d.positions && d.positions > 1 ? `Bins (${d.positions} positions)` : "Bins", value: d.bins.toLocaleString("en-US") });
+  if (d?.minPrice != null && d.maxPrice != null) facts.push({ label: "Range", value: `${fmtPrice(d.minPrice)} – ${fmtPrice(d.maxPrice)}` });
+  return (
+    <>
+      <Link
+        ref={anchor}
+        href={`/pools/${pool.address}`}
+        onMouseEnter={() => setOpen(true)}
+        onMouseLeave={() => setOpen(false)}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setOpen(false)}
+        className="whitespace-nowrap font-medium text-fg-secondary underline-offset-2 transition hover:text-fg hover:underline"
+        data-testid="position-pool"
+      >
+        {pool.name}
+      </Link>
+      {open &&
+        pos &&
+        createPortal(
+          <div
+            role="tooltip"
+            className="pointer-events-none fixed z-50 w-[232px] rounded-tile border border-border-strong bg-surface-raised p-3 text-sm shadow-lg shadow-black/40"
+            style={{ left: pos.left, top: pos.top }}
+            data-testid="pool-preview"
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-base font-semibold text-fg">{pool.name}</span>
+              {pool.binStep != null && <span className="chip">{binLabel(pool.binStep)}</span>}
+            </div>
+            {facts.length > 0 && (
+              <dl className="mt-2 space-y-1">
+                {facts.map((f) => (
+                  <div key={f.label} className="flex justify-between gap-3">
+                    <dt className="text-mute">{f.label}</dt>
+                    <dd className="num font-medium text-fg">{f.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            )}
+            <p className="mt-2 text-xs text-mute">Click to open the pool</p>
+          </div>,
+          document.body,
+        )}
+    </>
+  );
+}
+
 /** What happened, in words: "closed SOL-USDC", "earned Podium · Silver", "followed @x". */
 function Sentence({ item }: { item: ActivityItem }) {
   if (isPositionKind(item.kind)) {
     return (
       <>
-        {item.kind === "opened" ? "opened" : "closed"}{" "}
-        {item.pool ? (
-          <Link href={`/pools/${item.pool.address}`} className="whitespace-nowrap font-medium text-fg-secondary transition hover:text-fg" data-testid="position-pool">
-            {item.pool.name}
-          </Link>
-        ) : (
-          "a position"
+        {item.kind === "opened" ? "opened" : "closed"} <PoolLink item={item} />
+        {/* Bins and fee at a glance; the hover preview has the range too. */}
+        {(item.detail?.bins != null || item.detail?.baseFeePct != null) && (
+          <span className="num whitespace-nowrap text-sm text-mute">
+            {item.detail?.bins != null && <> · {item.detail.bins.toLocaleString("en-US")} bins</>}
+            {item.detail?.baseFeePct != null && <> · {Number(item.detail.baseFeePct.toFixed(4))}% fee</>}
+          </span>
         )}
       </>
     );

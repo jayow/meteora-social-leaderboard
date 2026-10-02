@@ -61,3 +61,20 @@ export function timeAgo(iso: string | null | undefined): string {
 export function fmtPositions(n: number): string {
   return `${n} position${n === 1 ? "" : "s"}`;
 }
+
+/** Range bound, quote per base: 4 significant digits without exponent noise for normal sizes. */
+export function fmtPrice(n: number | null): string {
+  if (n == null || !Number.isFinite(n)) return "—";
+  if (n === 0) return "0";
+  const a = Math.abs(n);
+  if (a >= 1000) return n.toLocaleString("en-US", { maximumFractionDigits: 0 });
+  // Tiny prices: count the zeros as a subscript (0.0₆103), the way traders read memecoin prices.
+  if (a < 1e-4) {
+    const [mant, exp] = a.toExponential(2).split("e");
+    const zeros = -Number(exp) - 1;
+    const digits = mant.replace(".", "").replace(/0+$/, "");
+    const sub = String(zeros).replace(/\d/g, (c) => "₀₁₂₃₄₅₆₇₈₉"[Number(c)]);
+    return `${n < 0 ? "-" : ""}0.0${sub}${digits}`;
+  }
+  return String(Number(n.toPrecision(4)));
+}

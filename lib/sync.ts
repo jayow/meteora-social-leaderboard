@@ -441,6 +441,7 @@ export async function syncUser(user: UserRow): Promise<SyncResult> {
           binStep: openPositions.binStep,
           protocol: openPositions.protocol,
           createdAt: openPositions.createdAt,
+          positions: openPositions.positions,
           inserted: sql<boolean>`(xmax = 0)`,
         });
       if (upserted?.inserted) openedRows.push(upserted);

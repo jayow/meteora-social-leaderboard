@@ -148,6 +148,13 @@
       "when": 1790920659378,
       "tag": "0020_session_revocation",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1790930791036,
+      "tag": "0021_activity_detail",
+      "breakpoints": true
     }
   ]
 }
