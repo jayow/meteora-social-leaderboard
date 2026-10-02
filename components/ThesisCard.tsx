@@ -28,7 +28,7 @@ function TokenDot({ icon, label, className = "" }: { icon: string | null; label:
 }
 
 /** Tag for the pool a thesis was posted on; links to that pool's page in the app. */
-export function ThesisPoolTag({ pool, token }: { pool: ThesisPool | null; token: ThesisPost["token"] }) {
+export function ThesisPoolTag({ pool, token, showBinStep = true }: { pool: ThesisPool | null; token: ThesisPost["token"]; showBinStep?: boolean }) {
   const cls =
     "inline-flex h-6 max-w-full items-center gap-1.5 rounded-full border border-border bg-surface-raised pl-1 pr-2 text-sm font-semibold text-fg transition hover:border-border-strong";
   if (pool) {
@@ -40,7 +40,7 @@ export function ThesisPoolTag({ pool, token }: { pool: ThesisPool | null; token:
           <TokenDot icon={pool.yIcon} label={y} className="-ml-1.5" />
         </span>
         <span className="truncate">{pool.name}</span>
-        {pool.binStep != null && <span className="hidden shrink-0 font-medium text-mute sm:inline">{binLabel(pool.binStep)}</span>}
+        {showBinStep && pool.binStep != null && <span className="hidden shrink-0 font-medium text-mute sm:inline">{binLabel(pool.binStep)}</span>}
       </Link>
     );
   }
@@ -52,7 +52,7 @@ export function ThesisPoolTag({ pool, token }: { pool: ThesisPool | null; token:
   );
 }
 
-function AuthorName({ author }: { author: ThesisAuthor }) {
+function AuthorName({ author, showHandle = true }: { author: ThesisAuthor; showHandle?: boolean }) {
   const href = thesisAuthorHref(author);
   const primary = author.xHandle ? author.xName || `@${author.xHandle}` : author.anonName || "Pool Partier";
   const secondary = author.xHandle && author.xName ? `@${author.xHandle}` : null;
@@ -66,7 +66,7 @@ function AuthorName({ author }: { author: ThesisAuthor }) {
   return (
     <span className="flex min-w-0 items-baseline gap-1.5">
       {name}
-      {secondary && <span className="hidden truncate text-mute sm:inline">{secondary}</span>}
+      {showHandle && secondary && <span className="hidden truncate text-mute sm:inline">{secondary}</span>}
     </span>
   );
 }
@@ -123,12 +123,21 @@ export function ThesisCard({ post, onDelete, size = "md" }: { post: ThesisPost; 
         <span className="shrink-0">{avatar}</span>
       )}
       <div className="min-w-0 flex-1">
-        <div className="flex min-w-0 items-baseline gap-1.5 text-base">
-          <AuthorName author={post.author} />
+        {/* Who, on which pool (with the position's bins and the pool's base fee), and when. */}
+        <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-base">
+          <AuthorName author={post.author} showHandle={!post.pool} />
+          <ThesisPoolTag pool={post.pool} token={post.token} showBinStep={false} />
+          {(post.authorBins != null || post.poolBaseFeePct != null) && (
+            <span className="num whitespace-nowrap text-sm text-mute" title={post.pool?.binStep != null ? `Bin step ${post.pool.binStep}` : undefined}>
+              {post.authorBins != null && <>{post.authorBins.toLocaleString("en-US")} bins</>}
+              {post.authorBins != null && post.poolBaseFeePct != null && " · "}
+              {post.poolBaseFeePct != null && <>{Number(post.poolBaseFeePct.toFixed(4))}% fee</>}
+            </span>
+          )}
           <span className="shrink-0 text-mute" aria-hidden>
             ·
           </span>
-          <time dateTime={post.createdAt} title={new Date(post.createdAt).toLocaleString()} className="shrink-0 text-mute">
+          <time dateTime={post.createdAt} title={new Date(post.createdAt).toLocaleString()} className="shrink-0 text-sm text-mute">
             {timeAgo(post.createdAt)}
           </time>
         </div>
@@ -136,8 +145,7 @@ export function ThesisCard({ post, onDelete, size = "md" }: { post: ThesisPost; 
           <ThesisBody body={post.body} size={size} />
         </div>
         {/* Context after the text: pool and the author's PnL in it on the left, actions on the right. */}
-        <div className="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-1.5">
-          <ThesisPoolTag pool={post.pool} token={post.token} />
+        <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1.5">
           <AuthorPoolPnl pnl={post.authorPoolPnl} />
           {/* "In this pool" is the default (the PnL beside it says so); only an exit is worth a word. */}
           {post.pool && !post.authorInPool && (

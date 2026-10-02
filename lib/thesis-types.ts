@@ -35,6 +35,10 @@ export interface ThesisPost {
   authorInPool: boolean;
   /** PnL of the author's open position(s) in that pool (last sync); null when exited or not fully known. */
   authorPoolPnl: { usd: number; pct: number | null } | null;
+  /** Bins the author's open position(s) in that pool span (last sync); null when exited or unknown. */
+  authorBins: number | null;
+  /** The pool's base fee, percent (0.1 = 0.1%); null when unknown. */
+  poolBaseFeePct: number | null;
   likeCount: number;
   likedByViewer: boolean;
   /** Viewer wrote it (own posts can't be liked). */

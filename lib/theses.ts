@@ -1,6 +1,7 @@
 import { getPool } from "@/lib/db";
 import type { OpenPositionDetail, UserRow } from "@/lib/db/schema";
 import type { ComposerPool, ThesisPost } from "@/lib/thesis-types";
+import { poolBaseFeePct, totalBins } from "@/lib/pool-facts";
 
 /**
  * Theses = token_comments. One place for the posting rule and the public shape, so Poolside, the
@@ -150,7 +151,10 @@ export async function listTheses(f: ThesisFilter & { viewerId: number | null; li
      LIMIT $${params.length}`,
     params
   );
-  return rows.map((r) => toThesisPost(r, f.viewerId));
+  // Base fee per pool on this page (Meteora, cached for hours), looked up in parallel.
+  const pools = [...new Set(rows.map((r) => r.pool_address).filter((a): a is string => Boolean(a)))];
+  const fees = new Map(await Promise.all(pools.map(async (a) => [a, await poolBaseFeePct(a)] as const)));
+  return rows.map((r) => toThesisPost(r, f.viewerId, r.pool_address ? fees.get(r.pool_address) ?? null : null));
 }
 
 export async function countTheses(f: ThesisFilter): Promise<number> {
@@ -173,7 +177,7 @@ function authorPoolPnl(r: ThesisRow): ThesisPost["authorPoolPnl"] {
   return { usd, pct: deposit ? usd / deposit : details.length === 1 ? details[0].pnlPct : null };
 }
 
-function toThesisPost(r: ThesisRow, viewerId: number | null): ThesisPost {
+function toThesisPost(r: ThesisRow, viewerId: number | null, baseFeePct: number | null): ThesisPost {
   const poolSymbol = r.pool_name ? r.pool_name.split("-")[0] : null;
   return {
     id: r.id,
@@ -201,6 +205,8 @@ function toThesisPost(r: ThesisRow, viewerId: number | null): ThesisPost {
         : null,
     authorInPool: Boolean(r.in_pool),
     authorPoolPnl: r.in_pool ? authorPoolPnl(r) : null,
+    authorBins: r.in_pool ? totalBins(r.ap_positions, r.p_bin_step) : null,
+    poolBaseFeePct: baseFeePct,
     likeCount: r.like_count,
     likedByViewer: Boolean(r.liked),
     isOwn: viewerId != null && viewerId === r.user_id,

@@ -1,8 +1,7 @@
 import { getPool } from "@/lib/db";
 import { listTheses } from "@/lib/theses";
 import { parseBadgeActivityKey } from "@/lib/badges/config";
-import { fetchMeteoraOrNull } from "@/lib/meteora-limiter";
-import { meteoraUrls } from "@/lib/meteora-endpoints";
+import { poolBaseFeePct, totalBins } from "@/lib/pool-facts";
 import type { ActivityPoolDetail, OpenPositionDetail } from "@/lib/db/schema";
 import type {
   ActivityItem,
@@ -119,38 +118,16 @@ export interface SyncedPosition {
   positions?: OpenPositionDetail[] | null;
 }
 
-/** Bins a range spans: DLMM prices step by (1 + binStep / 10000) per bin. */
-function binsInRange(minPrice: number, maxPrice: number, binStep: number): number | null {
-  if (!(minPrice > 0) || !(maxPrice >= minPrice) || !(binStep > 0)) return null;
-  return Math.round(Math.log(maxPrice / minPrice) / Math.log(1 + binStep / 10000)) + 1;
-}
-
 /** Position snapshot for an activity row: counts, bins and bounds from the stored details. */
 function positionDetail(p: SyncedPosition, baseFeePct: number | null): ActivityPoolDetail {
   const ds = (p.positions ?? []).filter((d) => d.minPrice != null && d.maxPrice != null);
-  let bins: number | null = ds.length && p.binStep ? 0 : null;
-  for (const d of ds) {
-    const b = binsInRange(d.minPrice ?? 0, d.maxPrice ?? 0, p.binStep ?? 0);
-    bins = b == null || bins == null ? null : bins + b;
-  }
   return {
     positions: p.positions?.length || null,
-    bins,
+    bins: totalBins(ds, p.binStep),
     minPrice: ds.length ? Math.min(...ds.map((d) => d.minPrice ?? Infinity)) : null,
     maxPrice: ds.length ? Math.max(...ds.map((d) => d.maxPrice ?? -Infinity)) : null,
     baseFeePct,
   };
-}
-
-/** Pool base fee (percent) from Meteora, cached for hours: it's set at pool creation. Null if unknown. */
-async function poolBaseFeePct(poolAddress: string): Promise<number | null> {
-  try {
-    const pool = await fetchMeteoraOrNull<{ pool_config?: { base_fee_pct?: number } }>(meteoraUrls.pool(poolAddress), 6 * 60 * 60 * 1000);
-    const v = pool?.pool_config?.base_fee_pct;
-    return typeof v === "number" && Number.isFinite(v) ? v : null;
-  } catch {
-    return null;
-  }
 }
 
 /** Minimal shape of a Meteora portfolio pool entry (closed-position history per pool). */
