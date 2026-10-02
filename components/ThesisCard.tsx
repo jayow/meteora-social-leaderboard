@@ -28,7 +28,18 @@ function TokenDot({ icon, label, className = "" }: { icon: string | null; label:
 }
 
 /** Tag for the pool a thesis was posted on; links to that pool's page in the app. */
-export function ThesisPoolTag({ pool, token, showBinStep = true }: { pool: ThesisPool | null; token: ThesisPost["token"]; showBinStep?: boolean }) {
+export function ThesisPoolTag({
+  pool,
+  token,
+  showBinStep = true,
+  pnl = null,
+}: {
+  pool: ThesisPool | null;
+  token: ThesisPost["token"];
+  showBinStep?: boolean;
+  /** The author's PnL in this pool, shown inside the pill after the pair. */
+  pnl?: ThesisPost["authorPoolPnl"];
+}) {
   const cls =
     "inline-flex h-6 max-w-full items-center gap-1.5 rounded-full border border-border bg-surface-raised pl-1 pr-2 text-sm font-semibold text-fg transition hover:border-border-strong";
   if (pool) {
@@ -41,6 +52,7 @@ export function ThesisPoolTag({ pool, token, showBinStep = true }: { pool: Thesi
         </span>
         <span className="truncate">{pool.name}</span>
         {showBinStep && pool.binStep != null && <span className="hidden shrink-0 font-medium text-mute sm:inline">{binLabel(pool.binStep)}</span>}
+        <AuthorPoolPnl pnl={pnl} />
       </Link>
     );
   }
@@ -126,7 +138,8 @@ export function ThesisCard({ post, onDelete, size = "md" }: { post: ThesisPost; 
         {/* Who, on which pool (with the position's bins and the pool's base fee), and when. */}
         <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-base">
           <AuthorName author={post.author} showHandle={!post.pool} />
-          <ThesisPoolTag pool={post.pool} token={post.token} showBinStep={false} />
+          {/* The pool pill carries the author's PnL in it. */}
+          <ThesisPoolTag pool={post.pool} token={post.token} showBinStep={false} pnl={post.authorPoolPnl} />
           {(post.authorBins != null || post.poolBaseFeePct != null) && (
             <span className="num whitespace-nowrap text-sm text-mute" title={post.pool?.binStep != null ? `Bin step ${post.pool.binStep}` : undefined}>
               {post.authorBins != null && <>{post.authorBins.toLocaleString("en-US")} bins</>}
@@ -146,7 +159,6 @@ export function ThesisCard({ post, onDelete, size = "md" }: { post: ThesisPost; 
         </div>
         {/* Context after the text: pool and the author's PnL in it on the left, actions on the right. */}
         <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1.5">
-          <AuthorPoolPnl pnl={post.authorPoolPnl} />
           {/* "In this pool" is the default (the PnL beside it says so); only an exit is worth a word. */}
           {post.pool && !post.authorInPool && (
             <span className="text-sm text-mute" title="From the author's last sync">
