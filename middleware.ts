@@ -54,5 +54,8 @@ export async function middleware(req: NextRequest) {
 
 export const config = {
   runtime: "nodejs",
-  matcher: ["/((?!_next/|favicon.ico).*)"],
+  // Banner uploads skip middleware: with Node-runtime middleware, Next.js locks multipart request
+  // bodies ("Response body object should not be disturbed or locked"). The route does its own
+  // session + membership checks for every method.
+  matcher: ["/((?!_next/|favicon.ico|api/users/[^/]+/banner).*)"],
 };

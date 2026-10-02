@@ -16,7 +16,12 @@ const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 // GET /api/users/[id]/banner?v=timestamp - serve banner image
 export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }): Promise<NextResponse> {
   if (!hasDb()) return NextResponse.json({ error: "Database not configured" }, { status: 503 });
-  
+
+  // This route skips the beta-gate middleware (multipart uploads break under it), so apply the gate
+  // here: banners are for members' eyes only, like the profiles that show them.
+  const viewer = await getSessionUser();
+  if (!viewer?.joinedAt) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
   const { id } = await ctx.params;
   const user = await findUser(decodeURIComponent(id));
   
