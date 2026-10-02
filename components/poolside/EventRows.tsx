@@ -54,43 +54,47 @@ function Action({ item }: { item: ActivityItem }) {
   }
 }
 
+/** Water line shared by the trade glyphs, so opens, closes and big wins read as one family. */
+const WATER = "M1.75 12.75c1.05-.9 2.1-.9 3.15 0s2.1.9 3.1 0 2.1-.9 3.15 0 2.05.9 3.1 0";
+
 /**
- * Subtle colour per kind (a faint tint behind a coloured glyph): opens in accent, closes in the colour of
- * their PnL, big wins in gold, social events (joined, followed) stay neutral. Enough to scan, not to shout.
+ * Event glyphs, drawn for Poolside rather than taken from a stock set: a drop into the water (opened,
+ * "dip in"), stepping out of it (closed), a splash (big win), a pool float (joined), a person plus
+ * (followed). One line weight, no backgrounds; colour only where it means something.
  */
-function kindTone(item: ActivityItem): string {
-  switch (item.kind) {
-    case "opened":
-      return "bg-accent/10 text-accent";
-    case "closed":
-      return (item.amountUsd ?? 0) < 0 ? "bg-dn/10 text-dn" : "bg-up/10 text-up";
-    case "big_win":
-      return "bg-gold/10 text-gold";
-    default:
-      return "bg-surface-raised text-mute";
-  }
+const GLYPHS: Record<Exclude<ActivityItem["kind"], "badge">, string[]> = {
+  opened: [WATER, "M8 2.25c-1.35 1.85-2.15 3.05-2.15 4.1a2.15 2.15 0 0 0 4.3 0c0-1.05-.8-2.25-2.15-4.1z"],
+  closed: [WATER, "M8 9.75V3M5.75 5.25 8 3l2.25 2.25"],
+  big_win: [WATER, "M8 9.25V4.5M5 9.75 3.75 7M11 9.75 12.25 7M8 2.25v.01"],
+  joined: [
+    "M8 2.5a5.5 5.5 0 1 1 0 11 5.5 5.5 0 0 1 0-11z",
+    "M8 5.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5z",
+    "M4.1 4.1l2.15 2.15M9.75 9.75l2.15 2.15M11.9 4.1 9.75 6.25M6.25 9.75 4.1 11.9",
+  ],
+  followed: ["M6.5 7.25a2.25 2.25 0 1 0 0-4.5 2.25 2.25 0 0 0 0 4.5z", "M2.25 13.25c.35-2.25 2.05-3.6 4.25-3.6s3.9 1.35 4.25 3.6", "M12.75 5.25v3.5M11 7h3.5"],
+};
+
+/** Opens in accent, big wins in gold, badges in their metal; everything else stays quiet. */
+function glyphTone(kind: ActivityItem["kind"]): string {
+  if (kind === "opened") return "text-accent";
+  if (kind === "big_win") return "text-gold";
+  return "text-mute";
 }
 
-/** One small glyph per event kind, so a run of events scans by type before anyone reads it. */
 function KindIcon({ item }: { item: ActivityItem }) {
   if (item.kind === "badge" && item.badge) {
     return (
-      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-surface-raised" aria-hidden="true">
-        <BadgeGlyph id={item.badge.id} size={12} className={badgeTone(item.badge.id, item.badge.tier)} />
+      <span className="flex h-5 w-5 shrink-0 items-center justify-center" aria-hidden="true">
+        <BadgeGlyph id={item.badge.id} size={14} className={badgeTone(item.badge.id, item.badge.tier)} />
       </span>
     );
   }
-  const paths: Record<Exclude<ActivityItem["kind"], "badge">, string> = {
-    opened: "M8 3.5v9M3.5 8h9",
-    closed: "M3.5 8.5l3 3 6-6.5",
-    big_win: "M4.5 11.5l7-7M6 4.5h5.5V10",
-    joined: "M2 9.5c1.5-1.5 3-1.5 4 0s2.5 1.5 4 0 2.5-1.5 4 0M2 6.5c1.5-1.5 3-1.5 4 0s2.5 1.5 4 0 2.5-1.5 4 0",
-    followed: "M6 7.25a2.25 2.25 0 1 0 0-4.5 2.25 2.25 0 0 0 0 4.5zM2 13.5c0-2.2 1.8-3.75 4-3.75s4 1.55 4 3.75M12.5 5v5M10 7.5h5",
-  };
   return (
-    <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${kindTone(item)}`} aria-hidden="true">
-      <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
-        <path d={paths[item.kind as Exclude<ActivityItem["kind"], "badge">]} />
+    <span className={`flex h-5 w-5 shrink-0 items-center justify-center ${glyphTone(item.kind)}`} aria-hidden="true">
+      <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+        {GLYPHS[item.kind as Exclude<ActivityItem["kind"], "badge">].map((d) => (
+          <path key={d} d={d} />
+        ))}
       </svg>
     </span>
   );

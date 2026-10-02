@@ -98,7 +98,7 @@ Don't override font size, radius or colours with `!` classes.
 - Stat: label `text-sm text-mute` above value `text-md`-`text-lg font-semibold`, in an open row with thin dividers (profile `StatStrip`), never boxed tiles.
 - Small text (11-12px): `text-mute` or brighter, never `text-white/40`, `opacity-50` etc.
 - Icons: inline SVG at `h-4 w-4` (stroke 1.75), no emoji as icons.
-- Poolside events: a 24px round glyph chip per kind with a faint `/10` tint: opened `accent`, closed `up`/`dn` by its PnL, big win `gold`, badge in its tier metal, joined/followed neutral (`surface-raised` + `mute`).
+- Poolside events: one custom 16px line glyph per kind, no chip or background (`components/poolside/EventRows.tsx`): drop into water (opened, `accent`), stepping out (closed), splash (big win, `gold`), pool float (joined), person plus (followed), badge glyph in its tier metal. Everything else `mute`; the PnL figure carries gain or loss.
 - Shadows: none, or a neutral `shadow-black/40` for floating menus only.
 
 ## Medals (leaderboard top 3)
