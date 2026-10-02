@@ -7,6 +7,8 @@ import { BadgeGlyph, badgeTone } from "@/components/Badges";
 import { BADGES, BADGE_GUIDE, BADGE_IDS, BADGE_THRESHOLDS, sortBadges, type ApiBadge, type BadgeId, type BadgeTier } from "@/lib/badges/config";
 import { fmtPct, fmtUsd } from "@/lib/format";
 import type { BadgesResponse } from "@/app/api/badges/route";
+import { ShareBadgeModal } from "@/components/ShareBadgeModal";
+import { useMe } from "@/components/MeProvider";
 
 type Metrics = NonNullable<BadgesResponse["mine"]>["metrics"];
 
@@ -62,6 +64,9 @@ function progress(id: BadgeId, m: Metrics, have: BadgeTier | 0): { label: string
 export default function BadgesPage() {
   const [data, setData] = useState<BadgesResponse | null>(null);
   const [error, setError] = useState(false);
+  const [sharing, setSharing] = useState<ApiBadge | null>(null);
+  const me = useMe();
+  const slug = me.user?.xHandle || (me.userId != null ? String(me.userId) : null);
 
   useEffect(() => {
     fetch("/api/badges", { cache: "no-store" })
@@ -145,6 +150,12 @@ export default function BadgesPage() {
                         )}
                       </>
                     )}
+                    {/* Badges you hold can be shared as a card. */}
+                    {own && slug && (
+                      <button type="button" onClick={() => setSharing(own)} className="btn-ghost h-8 self-center px-3" data-testid="share-badge">
+                        Share
+                      </button>
+                    )}
                   </div>
                   <p className="mt-1 text-base text-fg-secondary">{guide.blurb}</p>
 
@@ -172,6 +183,7 @@ export default function BadgesPage() {
           })}
         </ul>
       )}
+      {sharing && slug && <ShareBadgeModal badge={sharing} slug={slug} onClose={() => setSharing(null)} />}
     </main>
   );
 }
