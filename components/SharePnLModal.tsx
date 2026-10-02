@@ -6,9 +6,9 @@ import { displayName, fmtUsd } from "@/lib/format";
 import { Modal, ModalClose } from "@/components/Modal";
 import { useMe } from "@/components/MeProvider";
 
-type Range = "7d" | "30d" | "all";
+type Range = "1d" | "7d" | "30d" | "all";
 
-const RANGE_LABEL: Record<Range, string> = { "7d": "7D", "30d": "30D", all: "All-time" };
+const RANGE_LABEL: Record<Range, string> = { "1d": "1D", "7d": "7D", "30d": "30D", all: "All-time" };
 
 /** What can go on the card besides the PnL (the route's `show` param). Defaults match the route's. */
 const PARTS = [
@@ -59,6 +59,7 @@ function ShareDialog({ user, snap, initialRange = "30d", onClose }: Omit<SharePn
   const slug = user.xHandle || String(user.id);
 
   const pnlMap: Record<Range, number | null> = {
+    "1d": snap.pnl1d,
     "7d": snap.pnl7d,
     "30d": snap.pnl30d,
     all: snap.totalPnlUsd,
@@ -126,7 +127,7 @@ function ShareDialog({ user, snap, initialRange = "30d", onClose }: Omit<SharePn
       {!mine && <p className="mt-1 truncate pr-10 text-base text-mute">{name}&apos;s Meteora LP stats</p>}
 
       <div className="seg mb-4 mt-4" role="group" aria-label="Range">
-        {(["7d", "30d", "all"] as Range[]).map((r) => (
+        {(["1d", "7d", "30d", "all"] as Range[]).map((r) => (
           <button key={r} type="button" onClick={() => setRange(r)} aria-pressed={range === r} className="seg-item">
             {RANGE_LABEL[r]}
           </button>

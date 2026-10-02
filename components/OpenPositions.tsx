@@ -581,6 +581,9 @@ function PositionCard({ pool, open, panelId, syncing = false, thesis = null }: {
   const price = poolPriceOf(details);
   // Pools with several positions list a row each; a single position shows its range bar inline.
   const expandable = hasPositionRows(pool);
+  // Each pool opens on its own; the section header's toggle still opens or closes them all.
+  const [expanded, setExpanded] = useState(open);
+  useEffect(() => setExpanded(open), [open]);
   const thesisMeta = thesis ? (
     <>
       <span className="text-sm font-semibold text-accent">LP idea</span>
@@ -592,8 +595,21 @@ function PositionCard({ pool, open, panelId, syncing = false, thesis = null }: {
     <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_14rem] lg:items-start lg:gap-10">
     {/* Not a box: spacing separates rows, and hover fills the whole row so it reads as one link. */}
     <div className="group relative -mx-3 rounded-tile px-3 py-3.5 transition hover:bg-accent-tint" data-testid="open-position-row">
-      {/* Whole-card overlay (not a wrapper) so the token links aren't nested in it. */}
-      <Link href={`/pools/${pool.poolAddress}`} aria-label={`${pair} pool, ${fmtPositions(count)}`} className="absolute inset-0 rounded-tile" />
+      {/* Whole-row overlay (not a wrapper, so the token links aren't nested in it). Several positions: the
+          row expands them in place (the panel links to the pool). One position: the row opens the pool. */}
+      {expandable ? (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          aria-expanded={expanded}
+          aria-controls={panelId}
+          aria-label={`${pair}: ${expanded ? "hide" : "show"} ${fmtPositions(count)}`}
+          className="absolute inset-0 cursor-pointer rounded-tile"
+          data-testid="open-position-expand"
+        />
+      ) : (
+        <Link href={`/pools/${pool.poolAddress}`} aria-label={`${pair} pool, ${fmtPositions(count)}`} className="absolute inset-0 rounded-tile" />
+      )}
 
       {/* Pool and status on top, then its figures and liquidity profile (lined up past the token icons). */}
       <div>
@@ -609,7 +625,14 @@ function PositionCard({ pool, open, panelId, syncing = false, thesis = null }: {
             )}
           </div>
           <div className="num mt-1 flex items-center gap-1.5 whitespace-nowrap text-sm text-mute">
-            <span data-testid="pool-position-count">{fmtPositions(count)}</span>
+            <span data-testid="pool-position-count" className="inline-flex items-center gap-1">
+              {fmtPositions(count)}
+              {expandable && (
+                <svg viewBox="0 0 20 20" className={`h-3.5 w-3.5 transition-transform ${expanded ? "rotate-180" : ""}`} fill="none" stroke="currentColor" strokeWidth={1.75} aria-hidden="true">
+                  <path d="M5 7.5l5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              )}
+            </span>
             {totals && (
               <>
                 <span aria-hidden="true">·</span>
@@ -654,7 +677,7 @@ function PositionCard({ pool, open, panelId, syncing = false, thesis = null }: {
 
       {expandable && (
         // Above the overlay so clicks inside the list don't open the pool page.
-        <div id={panelId} hidden={!open} className="relative z-10 mt-4 pt-1" data-testid="open-position-details">
+        <div id={panelId} hidden={!expanded} className="relative z-10 mt-4 pt-1" data-testid="open-position-details">
           {price != null && scale && (
             <div className="flex items-center gap-1.5 text-sm text-mute">
               <span className="h-2.5 w-0.5 rounded-full bg-fg" aria-hidden="true" />

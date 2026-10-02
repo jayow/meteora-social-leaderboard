@@ -119,7 +119,7 @@ export async function GET(
   try {
     const { id } = await ctx.params;
     const range = req.nextUrl.searchParams.get("range") || "30d";
-    if (!["7d", "30d", "all"].includes(range)) {
+    if (!["1d", "7d", "30d", "all"].includes(range)) {
       return new Response("Invalid range", { status: 400 });
     }
     const parts = parseParts(req.nextUrl.searchParams.get("show"));
@@ -137,23 +137,23 @@ export async function GET(
     const snap = toPublicSnapshot(snapRow);
 
     // Same values and formatting as the profile page's Portfolio section, so the two always agree.
-    const pnl = ({ "7d": snap.pnl7d, "30d": snap.pnl30d, all: snap.totalPnlUsd } as Record<string, number | null>)[range] ?? 0;
-    const winRate = ({ "7d": snap.winRate7d, "30d": snap.winRate30d, all: snap.winRate } as Record<string, number | null>)[range];
-    const volume = ({ "7d": snap.volume7dUsd, "30d": snap.volume30dUsd, all: snap.volumeUsd } as Record<string, number | null>)[range];
-    // Fees: lifetime on "All", 30 days otherwise (7-day fees aren't tracked per snapshot).
-    const fees = range === "all" ? snap.feesUsd : snap.fees30dUsd;
-    const feesLabel = range === "7d" ? "Fees, 30 days" : "Fees earned";
+    const pnl = ({ "1d": snap.pnl1d, "7d": snap.pnl7d, "30d": snap.pnl30d, all: snap.totalPnlUsd } as Record<string, number | null>)[range] ?? 0;
+    const winRate = ({ "1d": snap.winRate1d, "7d": snap.winRate7d, "30d": snap.winRate30d, all: snap.winRate } as Record<string, number | null>)[range];
+    const volume = ({ "1d": snap.volume1dUsd, "7d": snap.volume7dUsd, "30d": snap.volume30dUsd, all: snap.volumeUsd } as Record<string, number | null>)[range];
+    const fees = ({ "1d": snap.fees1dUsd, "7d": snap.fees7dUsd, "30d": snap.fees30dUsd, all: snap.feesUsd } as Record<string, number | null>)[range];
+    const feesLabel = "Fees earned";
     const topPool = snap.topPool;
 
     const origin = requestOrigin(req);
     const [rank, bars, fonts, photo] = await Promise.all([
-      has("rank") ? getUserRank(user.id, range as LeaderboardRange) : Promise.resolve(null),
+      // The leaderboard has no 1-day board, so a 1D card shows no rank.
+      has("rank") && range !== "1d" ? getUserRank(user.id, range as LeaderboardRange) : Promise.resolve(null),
       bg === "shape" ? poolBackdrop(user.id) : Promise.resolve(null),
       interFonts(),
       bg === "photo" ? poolPhoto() : Promise.resolve(null),
     ]);
 
-    const rangeLabel = range === "7d" ? "7-day PnL" : range === "30d" ? "30-day PnL" : "All-time PnL";
+    const rangeLabel = range === "1d" ? "1-day PnL" : range === "7d" ? "7-day PnL" : range === "30d" ? "30-day PnL" : "All-time PnL";
     const handle = displayName(user);
     // X photo when there is one; otherwise the name's initial (remote SVG avatars don't render here).
     const avatar = user.xAvatarUrl ? user.xAvatarUrl.replace("_normal", "_400x400") : null;

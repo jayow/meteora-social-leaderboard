@@ -72,14 +72,19 @@ export async function latestSnapshot(userId: number): Promise<SnapshotRow | null
 export interface PublicSnapshot {
   date: string;
   totalPnlUsd: number | null;
+  pnl1d: number | null;
   pnl7d: number | null;
   pnl30d: number | null;
   volumeUsd: number | null;
+  volume1dUsd: number | null;
   volume7dUsd: number | null;
   volume30dUsd: number | null;
   feesUsd: number | null;
+  fees1dUsd: number | null;
+  fees7dUsd: number | null;
   fees30dUsd: number | null;
   winRate: number | null;
+  winRate1d: number | null;
   winRate7d: number | null;
   winRate30d: number | null;
   positionsOpen: number | null;
@@ -154,14 +159,19 @@ export function toPublicSnapshot(s: SnapshotRow): PublicSnapshot {
   return {
     date: s.date,
     totalPnlUsd: s.totalPnlUsd,
+    pnl1d: s.pnl1d,
     pnl7d: s.pnl7d,
     pnl30d: s.pnl30d,
     volumeUsd: s.volumeUsd,
+    volume1dUsd: s.volume1dUsd,
     volume7dUsd: s.volume7dUsd,
     volume30dUsd: s.volume30dUsd,
     feesUsd: s.feesUsd,
+    fees1dUsd: s.fees1dUsd,
+    fees7dUsd: s.fees7dUsd,
     fees30dUsd: s.fees30dUsd,
     winRate: s.winRate,
+    winRate1d: s.winRate1d,
     winRate7d: s.winRate7d,
     winRate30d: s.winRate30d,
     positionsOpen: s.positionsOpen,

@@ -26,7 +26,7 @@ import { meteoraHomeUrl } from "@/lib/meteora-links";
 import { applyFollowChange, onFollowChanged, onSessionChanged, requestSignIn } from "@/lib/session-events";
 import { SYNC_COOLDOWN_MS } from "@/lib/sync-limits";
 
-type Range = "7d" | "30d" | "all";
+type Range = "1d" | "7d" | "30d" | "all";
 type LoadStatus = "idle" | "loading" | "notfound" | "error" | "timeout";
 /** Give up on skeletons after this long and show a retry state instead. */
 const LOAD_TIMEOUT_MS = 15000;
@@ -42,7 +42,7 @@ function hasActivity(s: ApiSnapshot | null): boolean {
   );
 }
 
-const RANGE_LABEL: Record<Range, string> = { "7d": "7D", "30d": "30D", all: "All-time" };
+const RANGE_LABEL: Record<Range, string> = { "1d": "1D", "7d": "7D", "30d": "30D", all: "All-time" };
 
 export default function ProfilePage() {
   return (
@@ -270,9 +270,10 @@ function Profile() {
 
   if (!user) return <ProfileSkeleton note={syncing ? "Pulling stats from Meteora…" : null} />;
 
-  const pnlBy: Record<Range, number | null> = { "7d": snap?.pnl7d ?? null, "30d": snap?.pnl30d ?? null, all: snap?.totalPnlUsd ?? null };
-  const volBy: Record<Range, number | null> = { "7d": snap?.volume7dUsd ?? null, "30d": snap?.volume30dUsd ?? null, all: snap?.volumeUsd ?? null };
-  const winBy: Record<Range, number | null> = { "7d": snap?.winRate7d ?? null, "30d": snap?.winRate30d ?? null, all: snap?.winRate ?? null };
+  const pnlBy: Record<Range, number | null> = { "1d": snap?.pnl1d ?? null, "7d": snap?.pnl7d ?? null, "30d": snap?.pnl30d ?? null, all: snap?.totalPnlUsd ?? null };
+  const volBy: Record<Range, number | null> = { "1d": snap?.volume1dUsd ?? null, "7d": snap?.volume7dUsd ?? null, "30d": snap?.volume30dUsd ?? null, all: snap?.volumeUsd ?? null };
+  const winBy: Record<Range, number | null> = { "1d": snap?.winRate1d ?? null, "7d": snap?.winRate7d ?? null, "30d": snap?.winRate30d ?? null, all: snap?.winRate ?? null };
+  const feesBy: Record<Range, number | null> = { "1d": snap?.fees1dUsd ?? null, "7d": snap?.fees7dUsd ?? null, "30d": snap?.fees30dUsd ?? null, all: snap?.feesUsd ?? null };
 
   return (
     <main className="mx-auto max-w-[1320px] px-4 pb-10 pt-6 lg:px-6">
@@ -427,7 +428,7 @@ function Profile() {
           <section>
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-lg font-semibold">Portfolio</h2>
-              <Pills value={range} onChange={setRange} options={[{ value: "7d", label: "7D" }, { value: "30d", label: "30D" }, { value: "all", label: "All" }]} />
+              <Pills value={range} onChange={setRange} options={[{ value: "1d", label: "1D" }, { value: "7d", label: "7D" }, { value: "30d", label: "30D" }, { value: "all", label: "All" }]} />
             </div>
             {!hasActivity(snap) && (mine || !snap) && !syncing ? (
               <NoActivityStats mine={mine} />
@@ -449,7 +450,7 @@ function Profile() {
                   <StatFigure label="Total value" value={fmtUsd(snap.portfolioValueUsd)} sub="in open positions" />
                   <StatFigure label="Win rate" value={fmtPct(winBy[range], 1)} />
                   <StatFigure label="Volume" value={fmtUsd(volBy[range])} sub="deposited" />
-                  <StatFigure label="Fees earned" value={fmtUsd(range === "all" ? snap.feesUsd : snap.fees30dUsd)} sub={range === "7d" ? "last 30 days" : undefined} tone="up" />
+                  <StatFigure label="Fees earned" value={fmtUsd(feesBy[range])} tone="up" />
                 </StatStrip>
                 {user.walletCount !== undefined && user.walletCount > 1 && (
                   <div className="mt-3 text-sm text-mute">Combined across {user.walletCount} wallets</div>

@@ -9,9 +9,9 @@ export const METEORA_PORTFOLIO_API = "https://portfolio.datapi.meteora.ag";
 /** Pool discovery API: what app.meteora.ag uses for pool lists/search (smaller records, token icons). */
 export const METEORA_POOL_DISCOVERY_API = "https://pool-discovery-api.datapi.meteora.ag";
 
-export type MeteoraTimeRange = "7d" | "30d" | "all";
+export type MeteoraTimeRange = "1d" | "7d" | "30d" | "all";
 
-export const METEORA_TIME_RANGES: readonly MeteoraTimeRange[] = ["7d", "30d", "all"];
+export const METEORA_TIME_RANGES: readonly MeteoraTimeRange[] = ["1d", "7d", "30d", "all"];
 
 export function isMeteoraTimeRange(v: string): v is MeteoraTimeRange {
   return (METEORA_TIME_RANGES as readonly string[]).includes(v);

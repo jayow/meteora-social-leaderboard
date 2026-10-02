@@ -159,6 +159,7 @@ interface WalletData {
   /** Every open pool across Meteora's pages; null when any page failed. */
   open: WalletOpenPositions | null;
   portfolio: Json | null;
+  perf1: Json | null;
   perf7: Json | null;
   perf30: Json | null;
   perfAll: Json | null;
@@ -166,15 +167,16 @@ interface WalletData {
 
 /** Pull Meteora data for a single wallet. */
 async function fetchWalletData(wallet: string): Promise<WalletData> {
-  const [total, open, portfolio, perf7, perf30, perfAll] = await Promise.all([
+  const [total, open, portfolio, perf1, perf7, perf30, perfAll] = await Promise.all([
     getJson(meteoraUrls.portfolioTotal(wallet)),
     fetchWalletOpenPositions(wallet),
     getJson(meteoraUrls.portfolio(wallet, 100)),
+    getJson(meteoraUrls.performance(wallet, "1d")),
     getJson(meteoraUrls.performance(wallet, "7d")),
     getJson(meteoraUrls.performance(wallet, "30d")),
     getJson(meteoraUrls.performance(wallet, "all")),
   ]);
-  return { wallet, total, open, portfolio, perf7, perf30, perfAll };
+  return { wallet, total, open, portfolio, perf1, perf7, perf30, perfAll };
 }
 
 /** Aggregate performance metrics across all user wallets and upsert today's snapshot. */
@@ -228,6 +230,11 @@ export async function syncUser(user: UserRow): Promise<SyncResult> {
 
   // Aggregate performance data across all wallets
   let totalPnlUsd = 0;
+  let pnl1d = 0;
+  let volume1dUsd = 0;
+  let fees1dUsd = 0;
+  let totalWinCount1d = 0;
+  let totalLossCount1d = 0;
   let pnl7d = 0;
   let pnl30d = 0;
   let volumeUsd = 0;
@@ -264,6 +271,15 @@ export async function syncUser(user: UserRow): Promise<SyncResult> {
     // Closed positions
     if (wd.total) {
       positionsClosed += Math.round(num(wd.total.totalClosedPositions));
+    }
+
+    // 1d metrics
+    if (wd.perf1) {
+      pnl1d += num(wd.perf1.pnl_usd);
+      volume1dUsd += num(wd.perf1.total_deposit_usd);
+      fees1dUsd += num(wd.perf1.realized_fee_earned_usd) + num(wd.perf1.unrealized_fee_earned_usd);
+      totalWinCount1d += num(wd.perf1.win_count_usd);
+      totalLossCount1d += num(wd.perf1.loss_count_usd);
     }
 
     // 7d metrics
@@ -309,10 +325,12 @@ export async function syncUser(user: UserRow): Promise<SyncResult> {
 
   // Calculate combined win rates (never an average of averages)
   const totalTradesAll = totalWinCountAll + totalLossCountAll;
+  const totalTrades1d = totalWinCount1d + totalLossCount1d;
   const totalTrades7d = totalWinCount7d + totalLossCount7d;
   const totalTrades30d = totalWinCount30d + totalLossCount30d;
   
   const winRate = totalTradesAll > 0 ? totalWinCountAll / totalTradesAll : null;
+  const winRate1d = totalTrades1d > 0 ? totalWinCount1d / totalTrades1d : null;
   const winRate7d = totalTrades7d > 0 ? totalWinCount7d / totalTrades7d : null;
   const winRate30d = totalTrades30d > 0 ? totalWinCount30d / totalTrades30d : null;
 
@@ -331,15 +349,19 @@ export async function syncUser(user: UserRow): Promise<SyncResult> {
     userId: user.id,
     date,
     totalPnlUsd: totalPnlUsd || null,
+    pnl1d: pnl1d || null,
     pnl7d: pnl7d || null,
     pnl30d: pnl30d || null,
     volumeUsd: volumeUsd || null,
+    volume1dUsd: volume1dUsd || null,
     volume7dUsd: volume7dUsd || null,
     volume30dUsd: volume30dUsd || null,
     feesUsd: feesUsd || null,
+    fees1dUsd: fees1dUsd || null,
     fees7dUsd: fees7dUsd || null,
     fees30dUsd: fees30dUsd || null,
     winRate,
+    winRate1d,
     winRate7d,
     winRate30d,
     positionsOpen: totalOpenPositions,
@@ -358,6 +380,7 @@ export async function syncUser(user: UserRow): Promise<SyncResult> {
         wallet: wd.wallet,
         total: wd.total,
         openTotals: wd.open ? { totalPositions: wd.open.reportedPositions, pools: wd.open.pools.length } : null,
+        perf1: wd.perf1 ? stripNested(wd.perf1) : null,
         perf7: wd.perf7 ? stripNested(wd.perf7) : null,
         perf30: wd.perf30 ? stripNested(wd.perf30) : null,
         perfAll: wd.perfAll ? stripNested(wd.perfAll) : null,

@@ -102,14 +102,19 @@ export interface ApiUser {
 export interface ApiSnapshot {
   date: string;
   totalPnlUsd: number | null;
+  pnl1d: number | null;
   pnl7d: number | null;
   pnl30d: number | null;
   volumeUsd: number | null;
+  volume1dUsd: number | null;
   volume7dUsd: number | null;
   volume30dUsd: number | null;
   feesUsd: number | null;
+  fees1dUsd: number | null;
+  fees7dUsd: number | null;
   fees30dUsd: number | null;
   winRate: number | null;
+  winRate1d: number | null;
   winRate7d: number | null;
   winRate30d: number | null;
   positionsOpen: number | null;
