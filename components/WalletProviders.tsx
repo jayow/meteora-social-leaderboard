@@ -27,7 +27,8 @@ export function WalletProviders({ children }: { children: React.ReactNode }) {
 
   return (
     <ConnectionProvider endpoint={endpoint}>
-      <WalletProvider wallets={wallets} autoConnect onError={onError}>
+      {/* No autoConnect: a wallet is only connected during sign-in (SignInModal), then disconnected. */}
+      <WalletProvider wallets={wallets} onError={onError}>
         {/* No stock wallet modal: the app's Sign in modal (WalletPicker) is the only wallet UI. */}
         <MeProvider>{children}</MeProvider>
       </WalletProvider>

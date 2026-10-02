@@ -9,6 +9,7 @@ import { WalletPicker } from "@/components/WalletPicker";
 import { proveWallet } from "@/lib/wallet-proof-client";
 import { TermsCheckbox } from "@/components/TermsCheckbox";
 import { TERMS_VERSION } from "@/lib/legal";
+import { forgetRememberedWallet } from "@/lib/wallet-session";
 
 function errorMessage(err: unknown, fallback: string): string {
   if (err instanceof Error && err.message) return err.message;
@@ -26,7 +27,7 @@ interface SignInModalProps {
 }
 
 export function SignInModal({ open, onClose, onSuccess, initialStep = "methods" }: SignInModalProps) {
-  const { wallet, select, connect, connected, connecting, publicKey, signMessage, signIn: walletSignIn } = useWallet();
+  const { wallet, select, connect, disconnect, connected, connecting, publicKey, signMessage, signIn: walletSignIn } = useWallet();
   const [step, setStep] = useState<SignInStep>(initialStep);
   const [pending, setPending] = useState<WalletName | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -67,10 +68,20 @@ export function SignInModal({ open, onClose, onSuccess, initialStep = "methods" 
       const data = (await res.json().catch(() => ({}))) as { error?: string };
       throw new Error(data.error || "Sign in failed");
     }
+    // The session cookie identifies the user from here on: don't leave the wallet connected to the site.
+    await disconnect().catch(() => undefined);
+    forgetRememberedWallet();
     onSuccess?.();
     onClose();
     window.location.reload();
-  }, [publicKey, signMessage, walletSignIn, onSuccess, onClose, termsAccepted]);
+  }, [publicKey, signMessage, walletSignIn, disconnect, onSuccess, onClose, termsAccepted]);
+
+  // Closing without signing in also drops any connection made in this modal.
+  const close = useCallback(() => {
+    if (connected) void disconnect().catch(() => undefined);
+    forgetRememberedWallet();
+    onClose();
+  }, [connected, disconnect, onClose]);
 
   // Drive the explicitly picked wallet: select -> connect -> sign. Nothing happens until the user picks.
   useEffect(() => {
@@ -126,7 +137,7 @@ export function SignInModal({ open, onClose, onSuccess, initialStep = "methods" 
   if (!open) return null;
 
   return (
-    <Modal onClose={onClose} labelledBy="signin-title" className="max-w-md p-6">
+    <Modal onClose={close} labelledBy="signin-title" className="max-w-md p-6">
       {step === "methods" ? (
         <>
           <div className="mb-6 text-center">
@@ -157,6 +168,10 @@ export function SignInModal({ open, onClose, onSuccess, initialStep = "methods" 
             </button>
           </div>
 
+          <p className="mt-4 text-center text-sm text-mute">
+            Pool Party only asks your wallet to sign a free message. We will never ask you to approve a transaction.
+          </p>
+
           <div className="tile mt-5 p-3">
             <TermsCheckbox checked={termsAccepted} onChange={setTermsAccepted} id="signin-terms-consent" />
           </div>
@@ -184,7 +199,7 @@ export function SignInModal({ open, onClose, onSuccess, initialStep = "methods" 
               <h2 id="signin-title" className="text-xl font-semibold tracking-tight text-fg">
                 {initialStep === "wallets" ? "Change wallet" : "Connect a wallet"}
               </h2>
-              <p className="mt-0.5 text-base text-mute">Pick a wallet, then sign a free message to verify.</p>
+              <p className="mt-0.5 text-base text-mute">Pick a wallet, then sign a free message to verify. We never ask you to approve a transaction.</p>
             </div>
           </div>
           <WalletPicker busyName={pending} onPick={handlePick} />
@@ -200,7 +215,7 @@ export function SignInModal({ open, onClose, onSuccess, initialStep = "methods" 
         </p>
       )}
 
-      <button type="button" onClick={onClose} className="btn-ghost mt-4 w-full">
+      <button type="button" onClick={close} className="btn-ghost mt-4 w-full">
         Cancel
       </button>
     </Modal>
