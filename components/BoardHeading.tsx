@@ -255,15 +255,22 @@ interface HeadingProps {
 }
 
 /**
- * The heading. The control line comes first and is fixed: range (width reserved for its longest option),
- * then "ranked by" and the metric, which ends the line so its length moves nothing. Menus open under
- * their word, so each one always opens in the same place. The headline below can change freely.
+ * The heading. The playful headline comes first (fixed height, two lines reserved on phones), then the
+ * control line: range (width reserved for its longest option), "ranked by" and the metric, which ends the
+ * line so its length moves nothing. Menus open under their word, so each always opens in the same place.
  */
 export function BoardHeading(p: HeadingProps) {
   const rangeLabel = RANGE_OPTIONS.find((o) => o.value === p.range)?.label ?? "30 days";
   return (
     <div>
-      <div className="flex items-baseline gap-2 text-md font-semibold" data-testid="board-controls">
+      {/* Phones reserve two lines so the controls below don't jump between metrics. */}
+      <h1 className="min-h-[2.3em] text-2xl font-bold leading-[1.15] tracking-tight text-fg [text-wrap:balance] sm:min-h-0 md:text-3xl" data-testid={p.testId}>
+        {PLAYFUL[p.view][p.metric]}
+        <span className="sr-only">
+          , {rangeLabel.toLowerCase()}, ranked by {METRIC_WORD[p.metric]}
+        </span>
+      </h1>
+      <div className="mt-2 flex items-baseline gap-2 text-md font-semibold" data-testid="board-controls">
         <WordMenu value={p.range} options={RANGE_OPTIONS} onChange={p.onRange} menuLabel="Time range" reserve={RANGE_OPTIONS.map((o) => o.label)} testId="range-word">
           {rangeLabel}
         </WordMenu>
@@ -275,13 +282,6 @@ export function BoardHeading(p: HeadingProps) {
           {METRIC_WORD[p.metric]}
         </WordMenu>
       </div>
-      {/* Phones reserve two lines so the status and filters below don't jump between metrics. */}
-      <h1 className="mt-2 min-h-[2.3em] text-2xl font-bold leading-[1.15] tracking-tight text-fg [text-wrap:balance] sm:min-h-0 md:text-3xl" data-testid={p.testId}>
-        {PLAYFUL[p.view][p.metric]}
-        <span className="sr-only">
-          , {rangeLabel.toLowerCase()}, ranked by {METRIC_WORD[p.metric]}
-        </span>
-      </h1>
       <div className="mt-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
         <LiveStatus updatedAt={p.updatedAt} />
         {/* Members / Countries is anchored (right end on desktop, first on its own row on phones), so the
