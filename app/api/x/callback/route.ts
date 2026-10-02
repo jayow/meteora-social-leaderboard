@@ -80,8 +80,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       
       const xHandle = profile.username.replace(/^@/, "");
       
-      // Check if we already have a session user (e.g., during join flow)
-      const currentUserId = await getSessionUserId();
+      // Check if we already have a session user (e.g., during join flow). A session for an account
+      // that no longer exists (deleted) is ignored, so it can't block signing in with X.
+      const sessionUserId = await getSessionUserId();
+      const [sessionUser] = sessionUserId ? await db.select({ id: users.id }).from(users).where(eq(users.id, sessionUserId)).limit(1) : [];
+      const currentUserId = sessionUser?.id ?? null;
       
       if (currentUserId) {
         // We're in a join flow or linking X to an existing session
