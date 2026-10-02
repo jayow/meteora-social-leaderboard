@@ -77,6 +77,8 @@ export const users = pgTable(
     bannerUpdatedAt: timestamp("banner_updated_at", { withTimezone: true }),
     lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
     lastAttemptedAt: timestamp("last_attempted_at", { withTimezone: true }),
+    /** Sessions issued before this are rejected (set on sign-out: signs out every device). */
+    sessionsValidAfter: timestamp("sessions_valid_after", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

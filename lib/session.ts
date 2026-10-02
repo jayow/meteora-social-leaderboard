@@ -24,6 +24,11 @@ export function makeUserSessionToken(userId: number): string {
   return `${payload}.${sign(payload)}`;
 }
 
+/** When a token with expiry `expSec` was issued (tokens live MAX_AGE seconds), in ms. */
+function issuedAtMs(token: string): number {
+  return (Number(token.split(".")[1]) - MAX_AGE) * 1000;
+}
+
 export function readUserSessionToken(token: string | undefined | null): number | null {
   if (!token) return null;
   const parts = token.split(".");
@@ -60,25 +65,37 @@ export function readSessionToken(token: string | undefined | null): string | nul
   return wallet;
 }
 
-// Get session user ID (supports both user-ID and wallet sessions)
+// Get session user ID (supports both user-ID and wallet sessions). The account must still exist
+// and the token must postdate its sessionsValidAfter (sign-out revokes every session).
 export async function getSessionUserId(): Promise<number | null> {
   const store = await cookies();
   try {
     const token = store.get(SESSION_COOKIE)?.value;
+    if (!token) return null;
     const userId = readUserSessionToken(token);
-    if (userId) return userId;
-    
-    // Upgrade legacy wallet session to user ID if DB available
-    const wallet = readSessionToken(token);
-    if (wallet && hasDb()) {
-      const db = getDb();
-      const [user] = await db.select().from(users).where(eq(users.wallet, wallet)).limit(1);
-      if (user) return user.id;
-    }
-    return null;
+    const wallet = userId ? null : readSessionToken(token);
+    if (!userId && !wallet) return null;
+    if (!hasDb()) return userId;
+
+    const db = getDb();
+    const cols = { id: users.id, sessionsValidAfter: users.sessionsValidAfter };
+    // Legacy wallet sessions are upgraded to the wallet's user.
+    const [user] = userId
+      ? await db.select(cols).from(users).where(eq(users.id, userId)).limit(1)
+      : await db.select(cols).from(users).where(eq(users.wallet, wallet as string)).limit(1);
+    if (!user) return null;
+    if (user.sessionsValidAfter && issuedAtMs(token) < user.sessionsValidAfter.getTime()) return null;
+    return user.id;
   } catch {
     return null;
   }
+}
+
+/** Sign out everywhere: every session issued so far for this user stops working. */
+export async function revokeUserSessions(userId: number): Promise<void> {
+  // Tokens carry whole seconds, so any token issued up to this instant reads as earlier and is
+  // rejected (a brand-new sign-in within the same second as sign-out just needs a retry).
+  await getDb().update(users).set({ sessionsValidAfter: new Date() }).where(eq(users.id, userId));
 }
 
 // Get full user record from session (supports both user-ID and wallet sessions)
