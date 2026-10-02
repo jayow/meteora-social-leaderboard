@@ -13,26 +13,24 @@ const monthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).pad
 /** Meteora zero-fills every day, so "has data" means any non-zero PnL or a closed position. */
 const hasData = (days: DailyPnL[]) => days.some((d) => d.pnl !== 0 || d.positions > 0);
 /**
- * Short day value for narrow cells (phones, compact): at most four figures and no "$" or sign (the
- * cell's green / red tint carries it): 2.97, 10.05, 559, 2.34K, 12.3K, 100K, 1.2M. The full signed
- * value is in the cell's title and in the sm+ layout.
+ * Short day value for narrow cells (phones, compact): "$" plus at most four characters, no sign (the
+ * cell's green / red tint carries it), rounding more as values grow: $2.97, $10.1, $72, $559, $2.3K,
+ * $12K, $100K, $1.2M, $26M. The exact signed value is in the cell's title and in the sm+ layout.
  */
 export function formatCell(n: number): string {
   const abs = Math.abs(n);
   const trim = (v: number, digits: number) => String(Number(v.toFixed(digits)));
   let body: string;
-  if (abs < 100) body = abs.toFixed(2);
+  if (abs < 9.995) body = abs.toFixed(2);
+  else if (abs < 99.95) body = trim(abs, 1);
   else if (abs < 999.5) body = String(Math.round(abs));
-  else if (abs < 1e6) {
-    const k = abs / 1000;
-    // Rounding can carry into the next unit (999.6K -> 1M).
-    body = k >= 999.5 ? "1M" : `${trim(k, k < 10 ? 2 : k < 100 ? 1 : 0)}K`;
-  } else {
-    const m = abs / 1e6;
-    body = `${trim(m, m < 10 ? 2 : m < 100 ? 1 : 0)}M`;
-  }
-  return body;
+  else if (abs < 9_950) body = `${trim(abs / 1000, 1)}K`;
+  else if (abs < 999_500) body = `${Math.round(abs / 1000)}K`;
+  else if (abs < 9_950_000) body = `${trim(abs / 1e6, 1)}M`;
+  else body = `${Math.round(abs / 1e6)}M`;
+  return `$${body}`;
 }
+
 /** formatUsd with a true minus sign: same width as "+" in tabular figures (a hyphen is narrower). */
 const signed = (n: number) => formatUsd(n, true).replace("-", "\u2212");
 
@@ -191,7 +189,7 @@ export function PnLCalendar({ userId, compact = false }: { userId?: number | nul
                 {e && pnl !== 0 ? (
                   <>
                     {compact ? (
-                      <div className="max-w-full truncate text-xs font-semibold leading-tight tabular-nums">{formatCell(pnl)}</div>
+                      <div className="max-w-full truncate text-xs font-semibold leading-tight tracking-[-0.02em] tabular-nums">{formatCell(pnl)}</div>
                     ) : (
                       <>
                         <div className="max-w-full truncate text-xs font-semibold leading-tight tracking-[-0.02em] tabular-nums sm:hidden">{formatCell(pnl)}</div>

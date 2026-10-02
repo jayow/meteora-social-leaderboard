@@ -277,8 +277,8 @@ function Profile() {
 
   return (
     <main className="mx-auto max-w-[1320px] px-4 pb-10 pt-6 lg:px-6">
-      <div className="mb-4 flex min-h-8 items-center justify-between gap-3">
-        <Link href="/" className="shrink-0 text-base font-medium text-mute transition hover:text-fg">← Leaderboard</Link>
+      {/* No back link: profiles are reached from everywhere (nav, Poolside, pools, badges), so the browser's back does that job. */}
+      <div className="mb-4 flex min-h-8 items-center justify-end gap-3">
         {/* Quiet status: a short line, with the full sync note in its tooltip, and a small icon refresh. */}
         <div className="flex min-w-0 items-center gap-1.5 text-sm text-mute">
           <span className="truncate" title={syncNote ?? undefined}>
@@ -550,9 +550,6 @@ function NoActivityStats({ mine }: { mine: boolean }) {
 function OwnEmptyProfile() {
   return (
     <main className="mx-auto max-w-[1320px] px-4 pb-10 pt-6 lg:px-6" data-testid="own-empty-profile">
-      <div className="mb-4 flex min-h-8 items-center">
-        <Link href="/" className="text-base font-medium text-mute transition hover:text-fg">← Leaderboard</Link>
-      </div>
       <div className="grid grid-cols-[minmax(0,1fr)] gap-x-12 gap-y-10 lg:grid-cols-[340px_minmax(0,1fr)]">
         <section className="h-fit">
           <Avatar user={{}} size={80} ring />
