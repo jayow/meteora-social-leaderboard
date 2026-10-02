@@ -366,7 +366,11 @@ export function MetricsDashboard() {
         </Panel>
         <Panel title="Sync health" note={h.lastSyncAt ? `last sync ${timeAgo(h.lastSyncAt)}` : "no sync yet"}>
           <div className="space-y-2">
-            <Status ok={h.syncedRecently === g.members} label="Fresh data" detail={`${h.syncedRecently} of ${g.members} members synced in the last 30 min`} />
+            <Status
+              ok={h.syncedRecently >= g.members - h.withoutWallet}
+              label="Fresh data"
+              detail={`${h.syncedRecently} of ${g.members - h.withoutWallet} members with a wallet synced in 30 min${h.withoutWallet ? ` · ${h.withoutWallet} without a wallet` : ""}`}
+            />
             <Status ok={h.stale === 0} label="Stale members" detail={`${h.stale} not synced for over 2 hours`} />
             <Status ok={h.failing === 0} label="Failing syncs" detail={`${h.failing} members whose last sync failed`} />
             <Status

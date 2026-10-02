@@ -122,7 +122,10 @@ async function runBatch(): Promise<RunSummary> {
       .select()
       .from(users)
       .where(
-        sql`${users.joinedAt} IS NOT NULL AND (${users.lastAttemptedAt} IS NULL OR ${users.lastAttemptedAt} < ${staleThreshold})`
+        // Skip members with no wallet yet (X sign-ups before Connect wallet): nothing to sync, and
+        // they'd only show up as failures. Linking a wallet clears lastAttemptedAt, so they join the next run.
+        sql`${users.joinedAt} IS NOT NULL AND (${users.lastAttemptedAt} IS NULL OR ${users.lastAttemptedAt} < ${staleThreshold})
+            AND (${users.wallet} NOT LIKE 'temp\_%' OR EXISTS (SELECT 1 FROM user_wallets w WHERE w.user_id = ${users.id}))`
       )
       .orderBy(sql`COALESCE(${users.lastAttemptedAt}, ${users.lastSyncedAt}) ASC NULLS FIRST`)
       .limit(MAX_USERS_PER_RUN);

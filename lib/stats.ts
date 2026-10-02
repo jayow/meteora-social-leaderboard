@@ -33,6 +33,8 @@ export interface AdminStats {
     stale: number;
     /** Members whose last attempt failed (attempted after their last success). */
     failing: number;
+    /** Members with no wallet yet (X sign-ups): not synced, so not counted as stale or failing. */
+    withoutWallet: number;
     openPools: number;
     openPositions: number;
     openValueUsd: number;
@@ -43,7 +45,9 @@ export interface AdminStats {
 
 export async function getAdminStats(): Promise<AdminStats> {
   const { rows } = await getPool().query<Record<string, string | number | null>>(`
-    WITH m AS (SELECT * FROM users WHERE joined_at IS NOT NULL AND NOT seeded)
+    WITH m AS (SELECT * FROM users WHERE joined_at IS NOT NULL AND NOT seeded),
+    -- Members the sync can actually sync (have a real wallet).
+    mw AS (SELECT * FROM m WHERE wallet NOT LIKE 'temp\_%' OR EXISTS (SELECT 1 FROM user_wallets w WHERE w.user_id = m.id))
     SELECT
       (SELECT count(*) FROM m)::int AS members,
       (SELECT count(*) FROM users WHERE joined_at IS NOT NULL AND seeded)::int AS seeded_members,
@@ -59,9 +63,10 @@ export async function getAdminStats(): Promise<AdminStats> {
       (SELECT count(*) FROM thesis_likes l JOIN m ON m.id = l.user_id)::int AS likes,
       (SELECT count(*) FROM follows f JOIN m ON m.id = f.follower_user_id)::int AS follows,
       (SELECT max(last_synced_at) FROM m) AS last_sync_at,
-      (SELECT count(*) FROM m WHERE last_synced_at > now() - interval '30 minutes')::int AS synced_recently,
-      (SELECT count(*) FROM m WHERE last_synced_at IS NULL OR last_synced_at < now() - interval '2 hours')::int AS stale,
-      (SELECT count(*) FROM m WHERE last_attempted_at IS NOT NULL
+      (SELECT count(*) FROM mw WHERE last_synced_at > now() - interval '30 minutes')::int AS synced_recently,
+      (SELECT count(*) FROM mw WHERE last_synced_at IS NULL OR last_synced_at < now() - interval '2 hours')::int AS stale,
+      (SELECT count(*) FROM m) - (SELECT count(*) FROM mw) AS without_wallet,
+      (SELECT count(*) FROM mw WHERE last_attempted_at IS NOT NULL
          AND (last_synced_at IS NULL OR last_attempted_at > last_synced_at + interval '1 minute'))::int AS failing,
       (SELECT count(*) FROM open_positions o JOIN m ON m.id = o.user_id)::int AS open_pools,
       (SELECT coalesce(sum(coalesce(o.position_count, 1)), 0) FROM open_positions o JOIN m ON m.id = o.user_id)::int AS open_positions,
@@ -94,6 +99,7 @@ export async function getAdminStats(): Promise<AdminStats> {
     health: {
       lastSyncAt: r.last_sync_at ? new Date(r.last_sync_at).toISOString() : null,
       syncedRecently: n("synced_recently"),
+      withoutWallet: n("without_wallet"),
       stale: n("stale"),
       failing: n("failing"),
       openPools: n("open_pools"),
