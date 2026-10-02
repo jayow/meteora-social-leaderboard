@@ -44,9 +44,7 @@
   },
   "overrides": {
     "postcss": "^8.5.28",
-    "jayson": {
-      "uuid": "^11.1.1"
-    },
+    "jayson": "^5.0.0",
     "@solflare-wallet/sdk": {
       "uuid": "^11.1.1"
     },
