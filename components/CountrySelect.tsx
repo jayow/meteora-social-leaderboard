@@ -8,7 +8,7 @@ interface CountryOption {
   name: string;
 }
 
-export function CountrySelect({ value, onChange, allLabel = "All countries", disabled = false, membersOnly = false, className = "shrink-0" }: { value: string; onChange: (v: string) => void; allLabel?: string; disabled?: boolean; membersOnly?: boolean; className?: string }) {
+export function CountrySelect({ value, onChange, allLabel = "All countries", disabled = false, membersOnly = false, plain = false, className = "shrink-0" }: { value: string; onChange: (v: string) => void; allLabel?: string; disabled?: boolean; membersOnly?: boolean; plain?: boolean; className?: string }) {
   const [apiOptions, setApiOptions] = useState<CountryOption[] | null>(null);
   const allOptions = useMemo(() => countryOptions(), []);
   
@@ -23,7 +23,12 @@ export function CountrySelect({ value, onChange, allLabel = "All countries", dis
   const options = membersOnly ? (apiOptions ?? []) : allOptions;
 
   return (
-    <label className={`relative flex h-9 items-center gap-2 rounded-full border border-border bg-surface pl-3 pr-8 text-base font-semibold transition has-[select:focus-visible]:outline-2 has-[select:focus-visible]:outline-offset-2 has-[select:focus-visible]:outline-accent has-[select:focus-visible]:outline-solid hover:border-border-strong ${disabled ? "opacity-60" : ""} ${className}`}>
+    <label
+      className={`relative flex items-center gap-2 text-base font-semibold transition has-[select:focus-visible]:outline-2 has-[select:focus-visible]:outline-offset-2 has-[select:focus-visible]:outline-accent has-[select:focus-visible]:outline-solid ${
+        // plain: a text control (leaderboard filters); default: the bordered pill used in forms and owner controls.
+        plain ? "h-7 rounded-tag pr-5 text-fg-secondary hover:text-fg" : "h-9 rounded-full border border-border bg-surface pl-3 pr-8 hover:border-border-strong"
+      } ${disabled ? "opacity-60" : ""} ${className}`}
+    >
       {value ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={flagUrl(value, 40)} alt="" className="h-[12px] w-[17px] shrink-0 rounded-[2px] object-cover" />
@@ -48,7 +53,7 @@ export function CountrySelect({ value, onChange, allLabel = "All countries", dis
         ))}
       </select>
       <span className="pointer-events-none min-w-0 truncate">{value ? options.find((o) => o.code === value)?.name : allLabel}</span>
-      <svg viewBox="0 0 20 20" className="pointer-events-none absolute right-3 h-3.5 w-3.5 text-mute" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+      <svg viewBox="0 0 20 20" className={`pointer-events-none absolute h-3.5 w-3.5 text-mute ${plain ? "right-0" : "right-3"}`} fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">
         <path d="M5 7.5l5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     </label>

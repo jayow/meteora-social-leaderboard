@@ -25,7 +25,7 @@ No secondary accent. X/Twitter, badges and chips are neutral (`surface-raised` +
 
 ## Type
 
-One typeface: **Inter** (`--font-sans`; `font-numeric` and `font-mono` are aliases of it). Figures are tabular app-wide (`font-variant-numeric: tabular-nums` on `body`), so every number column lines up like the calendar. `.num` is kept for explicitness on number elements.
+One typeface: **Inter** (`--font-sans`; `font-numeric` and `font-mono` are aliases of it). Figures are tabular via `.num` (`font-variant-numeric: tabular-nums`) on every number element, so number columns line up like the calendar. It isn't set on `body` because Inter's tabular set also widens hyphens in prose and pair names.
 
 Fixed scale. Tailwind's default `text-*` sizes are cleared, so only these exist (no `text-[Npx]`):
 
@@ -57,12 +57,13 @@ Sentence case everywhere. No `uppercase` or tracked-out labels (acronyms like DL
 | `tile` | Something on a card: `surface-raised` + `border` + `rounded-tile`. |
 | `field` | Text input / textarea / select: h-10, `surface-raised`, border, hover `border-strong`, accent focus ring. Use `h-9` in toolbars, `h-11` in forms, `h-auto py-2.5` for textareas. |
 | `chip` | 20px neutral pill (bin step, "You", status). |
-| `seg` + `seg-item` | Segmented toggle (nav, Members/Countries, range). Active item via `aria-pressed` / `aria-selected` / `aria-current`. |
+| `seg` + `seg-item` | Segmented toggle for compact in-card switches. Not for page-level nav or leaderboard controls (use `tgl`). Active item via `aria-pressed` / `aria-selected` / `aria-current`. |
+| `tgl` + `tgl-item` | Plain text toggle (Members/Countries, 7D/30D/All): 13px semibold `mute`, active item `fg` with a 2px accent underline. Active via `aria-pressed` / `aria-selected`. Separate groups with a 1px `h-4 w-px bg-border` rule. |
 | `tab` | Underline tab with an accent bar when `aria-selected` / `aria-pressed`. Sits on a `border-b` row. |
 | `link` | Inline link in body copy: `fg`, semibold, quiet underline that brightens on hover. |
 | `skeleton` | Loading block (`surface-raised`, gentle pulse, off under reduced motion). Give it the final element's size so nothing jumps. |
 
-Components: `PageHeader` and `EmptyState` (`components/EmptyState.tsx`) for page titles and empty/error/signed-out states; `Tag`, `binLabel()` ("Bin 80"), `Pills`, `StatTile` (`components/ui.tsx`); `Modal` + `ModalClose` (`components/Modal.tsx`) for every modal.
+Components: `CountrySelect` (`plain` renders a borderless text control for filter rows), `PageHeader` and `EmptyState` (`components/EmptyState.tsx`) for page titles and empty/error/signed-out states; `Tag`, `binLabel()` ("Bin 80"), `Pills`, `StatTile` (`components/ui.tsx`); `Modal` + `ModalClose` (`components/Modal.tsx`) for every modal.
 
 ## Buttons
 
@@ -86,7 +87,9 @@ Don't override font size, radius or colours with `!` classes.
 
 ## Patterns
 
-- List row (leaderboard, pools, LPs, countries): `rounded-tile border border-border bg-surface px-3 py-2.5 sm:px-4 hover:border-border-strong`, whole row clickable via an overlay link.
+- Header: flush, `sticky top-0 border-b border-border bg-bg`, 60px. Wordmark left, plain text nav links (`text-mute hover:text-fg`; active `text-fg` with a 2px accent bar sitting on the hairline), account avatar + chevron right (name from lg). No pill containers. Phones keep the bottom tab bar.
+- Leaderboard list (members, countries): open list with hairline dividers (`LIST_ROW` in `components/RankMedal.tsx`: `border-b border-border hover:bg-surface`), no per-row boxes. Rank `text-sm text-mute`, name `font-medium text-fg`, metric `font-bold num` flush right. Own row: `bg-surface` + 2px accent left bar.
+- Other list rows (pools, LPs): `rounded-tile border border-border bg-surface px-3 py-2.5 sm:px-4 hover:border-border-strong`, whole row clickable via an overlay link.
 - Section header: `text-lg font-semibold`, optional count in `num font-medium text-mute` after the title.
 - Stat: label `text-sm text-mute` above value `text-md`-`text-lg font-semibold` (`StatTile`).
 - Small text (11-12px): `text-mute` or brighter, never `text-white/40`, `opacity-50` etc.
@@ -99,7 +102,7 @@ The one place colour is used for celebration. Ranks 1, 2 and 3 get `gold`, `silv
 
 - Rank mark: `components/RankMedal.tsx` (inline SVG medal, solid metal, number in `text-bg`). Use it wherever a top-3 rank is shown, and nowhere else.
 - Avatar ring: a solid 2px metal border around the avatar (`border-2 border-gold p-[3px] rounded-full`).
-- Card: a light tint and border, e.g. `bg-gold/[.07] border-gold/50`. Keep the stat in its own semantic colour (`up`/`dn`/`fg`), not the metal.
+- Podium: open columns, no cards or tints (`PODIUM_SLOT` / `PODIUM_LIFT`). Presence comes from size: 112px avatar for #1, 84px for #2/#3, metric `text-3xl` / `text-2xl` bold. Metal appears only on the avatar ring and the pinned medal (`MedalPin`); the stat keeps its semantic colour (`up`/`dn`/`fg`). On phones the podium becomes divided rows.
 - Badge tiers (`components/Badges.tsx`): tier 1 / 2 / 3 = `bronze` / `silver` / `gold` glyph on a `/[.08]` tint with a `/40` border. Podium's tier is the best finish (1st = gold). Untiered badges stay neutral.
 - Flat only: no metallic gradients, sheen, glow or animation.
 - Contrast on the dark theme: metal on `bg` is 10.5:1 (gold), 10.8:1 (silver) and 6.8:1 (bronze), and `bg` text on a solid metal gives the same ratios. A `/50` border is 3:1 or more against `surface`. `fg`, `mute` and `up` keep 14:1, 5.6:1 and 7.3:1 on a `/[.07]` tint.

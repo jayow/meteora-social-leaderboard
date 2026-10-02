@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { CountryLeaderboardEntry, CountryLeaderboardResponse } from "@/lib/api-types";
 import { Avatar } from "@/components/ui";
-import { MEDAL, PODIUM_GRID, PODIUM_STACK_ORDER, PodiumSkeleton, RankMedal, isMedalRank, type MedalRank } from "@/components/RankMedal";
+import { LIST_ROW, MEDAL, MedalPin, PODIUM_GRID, PODIUM_LIFT, PODIUM_SLOT, PODIUM_STACK_ORDER, PODIUM_WRAP, PodiumSkeleton, isMedalRank, listWrap, type MedalRank } from "@/components/RankMedal";
 import { countryName, flagUrl } from "@/lib/countries";
 import { displayName, fmtPct, fmtUsd } from "@/lib/format";
 
@@ -93,7 +93,7 @@ export function CountryBoard({
     };
   }, [range, metric]);
 
-  if (loading && !data) return <PodiumSkeleton testId="country-skeleton" heights={{ first: "h-[128px] sm:h-[308px]", other: "h-[117px] sm:h-[275px]" }} />;
+  if (loading && !data) return <PodiumSkeleton testId="country-skeleton" />;
   const entries = data?.entries ?? [];
   const podium = entries.filter((e): e is Ranked => isMedalRank(e.rank));
   const rest = entries.filter((e) => !isMedalRank(e.rank));
@@ -112,7 +112,7 @@ export function CountryBoard({
       ) : (
         <>
           {podium.length > 0 && (
-            <div className={`mx-auto mt-6 grid gap-2.5 sm:items-end sm:gap-4 ${PODIUM_GRID[podium.length]}`} data-testid="country-podium">
+            <div className={`${PODIUM_WRAP} ${PODIUM_GRID[podium.length]}`} data-testid="country-podium">
               {order.map((e) => (
                 <CountryPodiumCard key={e.country} e={e} metric={metric} caption={caption} onPick={onPick} />
               ))}
@@ -120,7 +120,7 @@ export function CountryBoard({
           )}
           {rest.length > 0 && (
             <div
-              className={`grid gap-2 ${twoCols ? "lg:grid-flow-col lg:grid-cols-2 lg:gap-x-4" : "mx-auto max-w-[660px]"} ${podium.length ? "mt-6" : "mt-5"}`}
+              className={listWrap(twoCols, podium.length > 0)}
               style={twoCols ? { gridTemplateRows: `repeat(${rowsPerCol}, minmax(0, auto))` } : undefined}
               data-testid="country-rows"
             >
@@ -146,31 +146,29 @@ function CountryPodiumCard({ e, metric, caption, onPick }: { e: Ranked; metric: 
   const first = e.rank === 1;
   const medal = MEDAL[e.rank];
   return (
-    <div
-      className={`relative flex min-w-0 items-center gap-3 rounded-card border px-3.5 transition sm:flex-col sm:gap-0 sm:px-5 sm:pb-5 sm:text-center ${medal.card} ${PODIUM_STACK_ORDER[e.rank]} ${first ? "py-4 sm:pt-10" : "py-3 sm:pt-8"}`}
-      data-testid="country-podium-card"
-      data-rank={e.rank}
-    >
-      <button type="button" onClick={() => onPick(e.country)} aria-label={`Show LPs from ${name}`} className="absolute inset-0 rounded-card" />
-      <RankMedal rank={e.rank} size={first ? 30 : 26} className={`pointer-events-none sm:absolute sm:left-4 sm:top-4 ${first ? "sm:h-10 sm:w-[34px]" : "sm:h-8 sm:w-[27px]"}`} />
-      {/* Flag in a metal frame, standing in for the avatar ring. */}
-      <span className={`pointer-events-none inline-flex shrink-0 rounded-[9px] border-2 p-[3px] ${medal.ring}`}>
-        <FlagImg code={e.country} className={first ? "h-[34px] w-12 sm:h-[54px] sm:w-[78px]" : "h-[30px] w-[42px] sm:h-[44px] sm:w-16"} />
+    <div className={`${PODIUM_SLOT} ${PODIUM_STACK_ORDER[e.rank]} ${PODIUM_LIFT[e.rank]}`} data-testid="country-podium-card" data-rank={e.rank}>
+      <button type="button" onClick={() => onPick(e.country)} aria-label={`Show LPs from ${name}`} className="absolute inset-0 sm:rounded-card" />
+      {/* Flag in a metal frame, standing in for the avatar ring; the medal pinned underneath. */}
+      <span className="pointer-events-none relative shrink-0">
+        <span className={`inline-flex rounded-[9px] border-2 p-[3px] ${medal.ring}`}>
+          <FlagImg code={e.country} className={first ? "h-[34px] w-12 sm:h-[64px] sm:w-[92px]" : "h-[30px] w-[42px] sm:h-[50px] sm:w-[72px]"} />
+        </span>
+        <MedalPin rank={e.rank} first={first} />
       </span>
-      <div className="min-w-0 flex-1 sm:mt-3 sm:w-full sm:flex-none">
+      <div className="min-w-0 flex-1 sm:mt-6 sm:w-full sm:flex-none">
         <div className={`pointer-events-none truncate font-semibold ${first ? "text-md sm:text-lg" : "text-md"}`} title={name} data-testid="country-name">
           {name}
         </div>
         <div
-          className={`num pointer-events-none mt-0.5 text-xl font-bold tracking-tight sm:mt-2 ${first ? "sm:text-3xl" : "sm:text-2xl"} ${valueTone(e.value, metric)}`}
+          className={`num pointer-events-none mt-0.5 text-xl font-bold tracking-tight sm:mt-1.5 ${first ? "sm:text-3xl" : "sm:text-2xl"} ${valueTone(e.value, metric)}`}
           data-testid="country-value"
         >
           {valueText(e.value, metric)}
         </div>
-        <div className="pointer-events-none mt-0.5 hidden text-sm text-mute sm:block">{caption}</div>
+        <div className="pointer-events-none mt-1 hidden text-sm text-mute sm:block">{caption}</div>
         <div className="pointer-events-none mt-0.5 text-sm text-mute sm:mt-1">{membersText(e, metric)}</div>
         {e.topLp && (
-          <div className="mt-1.5 flex min-w-0 items-center gap-1.5 text-sm sm:mt-4 sm:justify-center sm:border-t sm:border-border sm:pt-3">
+          <div className="mt-1.5 flex min-w-0 items-center gap-1.5 text-sm sm:mt-3 sm:justify-center">
             <span className="pointer-events-none shrink-0 text-mute">Top LP</span>
             <TopLp lp={e.topLp} size={20} className="font-semibold" />
           </div>
@@ -183,14 +181,14 @@ function CountryPodiumCard({ e, metric, caption, onPick }: { e: Ranked; metric: 
 function CountryRow({ e, metric, onPick }: { e: CountryLeaderboardEntry; metric: Metric; onPick: (code: string) => void }) {
   const name = countryName(e.country);
   return (
-    <div className="relative flex min-w-0 items-center gap-3 rounded-tile border border-border bg-surface px-3 py-2.5 transition hover:border-border-strong sm:px-4" data-testid="country-row">
-      <button type="button" onClick={() => onPick(e.country)} aria-label={`Show LPs from ${name}`} className="absolute inset-0 rounded-tile" />
-      <span className="num pointer-events-none w-7 shrink-0 text-center text-sm font-medium text-mute" title={e.rank === null ? "No members with closed positions" : undefined}>
+    <div className={LIST_ROW} data-testid="country-row">
+      <button type="button" onClick={() => onPick(e.country)} aria-label={`Show LPs from ${name}`} className="absolute inset-0" />
+      <span className="num pointer-events-none w-6 shrink-0 text-right text-sm text-mute" title={e.rank === null ? "No members with closed positions" : undefined}>
         {e.rank ?? "–"}
       </span>
       <FlagImg code={e.country} className="pointer-events-none h-[22px] w-8" />
       <div className="min-w-0 flex-1">
-        <div className="pointer-events-none truncate text-md font-semibold" title={name}>
+        <div className="pointer-events-none truncate text-md font-medium text-fg" title={name}>
           {name}
         </div>
         <div className="flex min-w-0 items-center gap-1.5 text-sm text-mute">
@@ -205,7 +203,7 @@ function CountryRow({ e, metric, onPick }: { e: CountryLeaderboardEntry; metric:
           )}
         </div>
       </div>
-      <div className={`num pointer-events-none shrink-0 text-right text-md font-semibold ${valueTone(e.value, metric)}`} data-testid="country-row-value">
+      <div className={`num pointer-events-none shrink-0 text-right text-md font-bold ${valueTone(e.value, metric)}`} data-testid="country-row-value">
         {valueText(e.value, metric)}
       </div>
     </div>

@@ -5,7 +5,7 @@
  * Flat colours only: no gradients, glows or coloured shadows.
  */
 @theme {
-  /* One typeface everywhere: Inter. Figures are tabular app-wide (see `body`). */
+  /* One typeface everywhere: Inter. Tabular figures via `.num` (see below). */
   --font-sans: var(--font-inter), "Inter", ui-sans-serif, system-ui, sans-serif;
   /* Kept as an alias so existing `font-numeric` classes resolve to the same face. */
   --font-numeric: var(--font-inter), "Inter", ui-sans-serif, system-ui, sans-serif;
@@ -259,6 +259,39 @@ body {
   &[aria-current="page"] {
     background-color: var(--color-border);
     color: var(--color-fg);
+  }
+}
+
+/*
+ * Plain text toggle group (leaderboard view and range): no container. Active item is `fg` with a thin
+ * accent underline; mark it with aria-pressed / aria-selected.
+ */
+@utility tgl {
+  display: inline-flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+@utility tgl-item {
+  display: inline-flex;
+  align-items: center;
+  height: 1.75rem;
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--color-mute);
+  white-space: nowrap;
+  text-decoration-line: underline;
+  text-decoration-color: transparent;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 7px;
+  transition: color 150ms, text-decoration-color 150ms;
+  &:hover {
+    color: var(--color-fg);
+  }
+  &[aria-pressed="true"],
+  &[aria-selected="true"] {
+    color: var(--color-fg);
+    text-decoration-color: var(--color-accent);
   }
 }
 
