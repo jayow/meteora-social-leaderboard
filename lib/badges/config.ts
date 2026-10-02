@@ -8,6 +8,7 @@
  * - Sharpshooter   lifetime win_rate with a minimum number of closed positions
  * - In the Green   total_pnl_usd > 0 with a minimum number of closed positions
  * - Pool Hopper    distinct pools LP'd (Meteora portfolio pool count + pools we've seen, tiers)
+ * - Pool Builder   DLMM pools created by the member's wallets (on-chain creator, lib/created-pools.ts, tiers)
  * - Podium         top 3 on a 30D leaderboard tab (our server-side ranks, evaluated in the hourly cron)
  *
  * Tiers are 1-based and only ever go up. Tiered badges use bronze / silver / gold for tiers 1 / 2 / 3.
@@ -21,6 +22,7 @@ export const BADGE_IDS = [
   "sharpshooter",
   "in_the_green",
   "pool_hopper",
+  "pool_builder",
   "first_splash",
 ] as const;
 
@@ -49,6 +51,8 @@ export const BADGE_THRESHOLDS = {
   inTheGreen: { minClosed: 10 },
   /** Distinct pools LP'd, tiers 1..3. */
   poolHopperPools: [10, 25, 50],
+  /** DLMM pools created, tiers 1..3. */
+  poolBuilderPools: [1, 5, 20],
   /** Finish at or above this rank on a 30D tab. */
   podium: { maxRank: 3 },
 } as const;
@@ -66,6 +70,7 @@ export const BADGES: Record<BadgeId, BadgeDef> = {
   sharpshooter: { id: "sharpshooter", name: "Sharpshooter", tiered: false },
   in_the_green: { id: "in_the_green", name: "In the Green", tiered: false },
   pool_hopper: { id: "pool_hopper", name: "Pool Hopper", tiered: true },
+  pool_builder: { id: "pool_builder", name: "Pool Builder", tiered: true },
   first_splash: { id: "first_splash", name: "First Splash", tiered: false },
 };
 
@@ -123,6 +128,8 @@ export function howEarned(b: Pick<ApiBadge, "id" | "tier" | "podium">): string {
       return `Positive all-time PnL over ${t.inTheGreen.minClosed}+ closed positions`;
     case "pool_hopper":
       return `LP'd in ${t.poolHopperPools[i]}+ different pools`;
+    case "pool_builder":
+      return t.poolBuilderPools[i] === 1 ? "Created a DLMM pool" : `Created ${t.poolBuilderPools[i]}+ DLMM pools`;
     case "podium":
       return b.podium
         ? `Finished ${RANK_WORD[b.podium.rank] ?? `#${b.podium.rank}`} on the 30D ${PODIUM_TAB_LABEL[b.podium.tab]} leaderboard`
@@ -139,6 +146,10 @@ export const BADGE_GUIDE: Record<BadgeId, { blurb: string; steps: string[] }> = 
   fee_farmer: { blurb: "Lifetime fees earned across your positions.", steps: BADGE_THRESHOLDS.feeFarmerUsd.map((v) => `${usdShort(v)} in fees`) },
   whale_volume: { blurb: "Lifetime volume you've deposited into pools.", steps: BADGE_THRESHOLDS.whaleVolumeUsd.map((v) => `${usdShort(v)} volume`) },
   pool_hopper: { blurb: "LP in many different pools.", steps: BADGE_THRESHOLDS.poolHopperPools.map((v) => `${v} pools`) },
+  pool_builder: {
+    blurb: "Create DLMM pools on Meteora.",
+    steps: BADGE_THRESHOLDS.poolBuilderPools.map((v) => (v === 1 ? "1 pool created" : `${v} pools created`)),
+  },
   sharpshooter: {
     blurb: `Keep a ${Math.round(BADGE_THRESHOLDS.sharpshooter.minWinRate * 100)}%+ win rate over ${BADGE_THRESHOLDS.sharpshooter.minClosed}+ closed positions.`,
     steps: [],

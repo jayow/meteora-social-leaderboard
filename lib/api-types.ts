@@ -97,6 +97,8 @@ export interface ApiUser {
   followingCount?: number;
   isFollowing?: boolean;
   walletCount?: number;
+  /** DLMM pools this member created, per profile range (counts only). */
+  poolsCreated?: { "1d": number; "7d": number; "30d": number; all: number };
 }
 
 export interface ApiSnapshot {

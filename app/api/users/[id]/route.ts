@@ -7,6 +7,7 @@ import { getSessionUserId } from "@/lib/session";
 import { isCountryCode } from "@/lib/countries";
 import { listBadges } from "@/lib/badges/compute";
 import { trackEvent } from "@/lib/events";
+import { poolsCreatedCounts } from "@/lib/created-pools";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +29,8 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
   const isFollowing = await isUserFollowing(currentUserId, user.id);
   // Members only (listBadges skips unjoined users), so an owner who hasn't joined gets [].
   const badges = (await listBadges([user.id])).get(user.id) ?? [];
+  // Counts only: the pool list would reveal the creator wallet.
+  const poolsCreated = await poolsCreatedCounts(user.id);
   
   const publicUser = {
     ...toPublicUser(user, isOwnProfile),
@@ -35,6 +38,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
     followingCount: counts.followingCount,
     isFollowing,
     walletCount,
+    poolsCreated,
   };
   
   // Owner responses include private fields (wallet, own counts): never cache.

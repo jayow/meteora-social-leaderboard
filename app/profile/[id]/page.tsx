@@ -42,7 +42,6 @@ function hasActivity(s: ApiSnapshot | null): boolean {
   );
 }
 
-const RANGE_LABEL: Record<Range, string> = { "1d": "1D", "7d": "7D", "30d": "30D", all: "All-time" };
 
 export default function ProfilePage() {
   return (
@@ -434,23 +433,15 @@ function Profile() {
               <NoActivityStats mine={mine} />
             ) : snap ? (
               <>
-                <div className="flex flex-wrap items-end gap-x-6 gap-y-1">
-                  <div>
-                    <div className="text-sm text-mute">{RANGE_LABEL[range]} PnL</div>
-                    <div className={`num mt-1 text-3xl font-bold tracking-tight ${(pnlBy[range] ?? 0) >= 0 ? "text-up" : "text-dn"}`}>{fmtUsd(pnlBy[range], { signed: true, compact: false })}</div>
-                  </div>
-                  {range !== "all" && (
-                    <div className="pb-1.5 text-base text-mute">
-                      All time <span className={`num font-semibold ${(snap.totalPnlUsd ?? 0) >= 0 ? "text-up" : "text-dn"}`}>{fmtUsd(snap.totalPnlUsd, { signed: true })}</span>
-                    </div>
-                  )}
-                </div>
+                {/* PnL for the range picked on the toggle above (no repeated range label, no all-time aside). */}
+                <div className={`num text-3xl font-bold tracking-tight ${(pnlBy[range] ?? 0) >= 0 ? "text-up" : "text-dn"}`}>{fmtUsd(pnlBy[range], { signed: true, compact: false })}</div>
                 {/* Open / closed counts live with Open positions below; the range label sits on the toggle. */}
                 <StatStrip>
                   <StatFigure label="Total value" value={fmtUsd(snap.portfolioValueUsd)} sub="in open positions" />
                   <StatFigure label="Win rate" value={fmtPct(winBy[range], 1)} />
                   <StatFigure label="Volume" value={fmtUsd(volBy[range])} sub="deposited" />
                   <StatFigure label="Fees earned" value={fmtUsd(feesBy[range])} tone="up" />
+                  <StatFigure label="Pools created" value={String(user.poolsCreated?.[range] ?? 0)} sub="DLMM" />
                 </StatStrip>
                 {user.walletCount !== undefined && user.walletCount > 1 && (
                   <div className="mt-3 text-sm text-mute">Combined across {user.walletCount} wallets</div>
@@ -510,7 +501,7 @@ function CalendarCard({ userId }: { userId: number }) {
 
 /** Open row of figures under the hero PnL: aligned columns and space, no boxes or rules. */
 function StatStrip({ children }: { children: React.ReactNode }) {
-  return <dl className="mt-6 grid grid-cols-2 gap-x-8 gap-y-5 sm:grid-cols-4">{children}</dl>;
+  return <dl className="mt-6 grid grid-cols-2 gap-x-8 gap-y-5 sm:grid-cols-3 lg:grid-cols-5">{children}</dl>;
 }
 
 function StatFigure({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: "up" }) {

@@ -8,6 +8,7 @@ import { getUserWalletAddresses } from "@/lib/users";
 import { recordSyncActivity, type SyncedPosition } from "@/lib/activity";
 import { attachPositionDetails, fetchWalletOpenPositions, mergeOpenPools, readOpenPositions, type WalletOpenPositions } from "@/lib/open-positions";
 import { refreshBadges } from "@/lib/badges/compute";
+import { scanCreatedPools } from "@/lib/created-pools";
 
 const AVATAR_RECHECK_DAYS = 7;
 
@@ -476,6 +477,9 @@ export async function syncUser(user: UserRow): Promise<SyncResult> {
   if (openOk) {
     await recordSyncActivity(user.id, openedRows, closedRows, allPortfolioPools);
   }
+
+  // DLMM pools this member created (twice a day at most; best effort), before badges so Pool Builder sees them.
+  await scanCreatedPools(user);
 
   // Badges from the snapshot just written (members only, upgrade-only, never throws).
   await refreshBadges(user.id, { announce: true });

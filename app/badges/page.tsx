@@ -41,6 +41,8 @@ function progress(id: BadgeId, m: Metrics, have: BadgeTier | 0): { label: string
       return step(m.volumeUsd ?? 0, t.whaleVolumeUsd, (v) => fmtUsd(v), " volume");
     case "pool_hopper":
       return step(m.distinctPools ?? 0, t.poolHopperPools, (v) => String(v), " pools");
+    case "pool_builder":
+      return step(m.poolsCreated ?? 0, t.poolBuilderPools, (v) => String(v), " pools created");
     case "first_splash":
       if (have) return null;
       return closed >= t.firstSplash.minClosed ? LANDS : { label: `${closed} of ${t.firstSplash.minClosed} closed position`, frac: 0 };

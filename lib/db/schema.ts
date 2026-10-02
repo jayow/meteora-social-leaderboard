@@ -86,6 +86,8 @@ export const users = pgTable(
      * sync-protected by a future lastAttemptedAt (the sync skips them); migration 0027 flagged those.
      */
     seeded: boolean("seeded").notNull().default(false),
+    /** Last scan for DLMM pools this member's wallets created (lib/created-pools.ts). */
+    createdPoolsCheckedAt: timestamp("created_pools_checked_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -413,4 +415,24 @@ export const events = pgTable(
     props: jsonb("props"),
   },
   (t) => [index("events_at_idx").on(t.at), index("events_name_at_idx").on(t.name, t.at), index("events_user_at_idx").on(t.userId, t.at)]
+);
+
+/**
+ * DLMM pools a member's wallets created (on-chain LbPair.creator), found by lib/created-pools.ts.
+ * Server-only: only counts leave the server (a pool's creator is a public wallet, so the list would
+ * reveal it).
+ */
+export const createdPools = pgTable(
+  "created_pools",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    poolAddress: varchar("pool_address", { length: 64 }).notNull(),
+    /** Pool creation time from Meteora (null if Meteora doesn't know the pool yet). */
+    poolCreatedAt: timestamp("pool_created_at", { withTimezone: true }),
+    foundAt: timestamp("found_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("created_pools_user_pool_key").on(t.userId, t.poolAddress), index("created_pools_user_created_idx").on(t.userId, t.poolCreatedAt)]
 );

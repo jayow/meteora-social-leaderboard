@@ -63,6 +63,14 @@ export function BadgeGlyph({ id, size = 12, className = "", color }: { id: Badge
           <path d="M3.8 9.4C5 4.6 11 4.6 12.2 9.4" strokeDasharray="1.6 1.9" />
         </svg>
       );
+    case "pool_builder":
+      return (
+        <svg {...common}>
+          <path d="M2.2 13.6h11.6" />
+          <path d="M3.6 13.6v-3.2M6.4 13.6V8.2M9.2 13.6V5.6" />
+          <path d="M12.6 2.4v4.2M10.5 4.5h4.2" />
+        </svg>
+      );
     case "podium":
       return (
         <svg {...common}>

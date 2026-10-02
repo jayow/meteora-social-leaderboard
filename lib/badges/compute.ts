@@ -32,6 +32,8 @@ export interface BadgeMetrics {
   winRate: number | null;
   totalPnlUsd: number | null;
   distinctPools: number | null;
+  /** DLMM pools created (created_pools). */
+  poolsCreated: number | null;
 }
 
 type Evidence = Record<string, string | number>;
@@ -87,6 +89,11 @@ export function evaluateBadges(m: BadgeMetrics): BadgeAward[] {
     out.push({ badge: "pool_hopper", tier: clampTier(pools), evidence: { distinctPools: m.distinctPools, threshold: t.poolHopperPools[pools - 1] } });
   }
 
+  const built = tierFor(m.poolsCreated, t.poolBuilderPools);
+  if (built > 0 && m.poolsCreated != null) {
+    out.push({ badge: "pool_builder", tier: clampTier(built), evidence: { poolsCreated: m.poolsCreated, threshold: t.poolBuilderPools[built - 1] } });
+  }
+
   return out;
 }
 
@@ -130,6 +137,7 @@ interface MetricsRow {
   total_pnl_usd: number | null;
   source_pools: number | null;
   db_pools: number;
+  pools_created: number;
 }
 
 /**
@@ -146,7 +154,8 @@ export async function metricsFromDb(userId: number): Promise<BadgeMetrics> {
                UNION
                SELECT pool_address FROM activity
                WHERE actor_user_id = $1 AND kind IN ('opened', 'closed', 'big_win') AND pool_address IS NOT NULL
-             ) p) AS db_pools
+             ) p) AS db_pools,
+            (SELECT count(*)::int FROM created_pools WHERE user_id = $1) AS pools_created
      FROM (SELECT 1) one
      LEFT JOIN LATERAL (SELECT * FROM pnl_snapshots WHERE user_id = $1 ORDER BY date DESC LIMIT 1) s ON true`,
     [userId]
@@ -159,6 +168,7 @@ export async function metricsFromDb(userId: number): Promise<BadgeMetrics> {
     winRate: r?.win_rate ?? null,
     totalPnlUsd: r?.total_pnl_usd ?? null,
     distinctPools: Math.max(r?.source_pools ?? 0, r?.db_pools ?? 0) || null,
+    poolsCreated: r?.pools_created ?? null,
   };
 }
 
