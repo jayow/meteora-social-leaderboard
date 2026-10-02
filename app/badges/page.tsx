@@ -11,9 +11,8 @@ import type { BadgesResponse } from "@/app/api/badges/route";
 type Metrics = NonNullable<BadgesResponse["mine"]>["metrics"];
 
 const TIER_NAME = ["Bronze", "Silver", "Gold"] as const;
-/** Metal per tier (THEME.md "Medals"): text for labels, fill for the population bar. */
+/** Metal per tier (THEME.md "Medals") for step labels. */
 const TIER_TEXT = ["text-bronze", "text-silver", "text-gold"] as const;
-const TIER_FILL = ["bg-bronze", "bg-silver", "bg-gold"] as const;
 
 const LANDS = { label: "You qualify: it lands on your next sync", frac: 1 };
 
@@ -111,7 +110,6 @@ export default function BadgesPage() {
             const own = mine.get(id);
             const have: BadgeTier | 0 = own?.tier ?? 0;
             const pop = data.holders[id];
-            const share = data.members > 0 ? pop.total / data.members : 0;
             const next = progress(id, data.mine?.metrics ?? null, have);
             return (
               <li key={id} className="flex gap-4 sm:gap-5" data-testid="badge-guide-row" data-badge={id}>
@@ -144,21 +142,10 @@ export default function BadgesPage() {
                     </div>
                   )}
 
-                  {/* Population: how many members hold it, split by tier. */}
-                  <div className="mt-4">
-                    <div className="flex h-1.5 overflow-hidden rounded-full bg-surface-raised" role="img" aria-label={`${pop.total} of ${data.members} members hold ${def.name}`}>
-                      {def.tiered ? (
-                        [0, 1, 2].map((i) =>
-                          pop.tiers[i] > 0 ? <span key={i} className={TIER_FILL[i]} style={{ width: `${(pop.tiers[i] / Math.max(data.members, 1)) * 100}%` }} /> : null
-                        )
-                      ) : (
-                        <span className="bg-fg-secondary" style={{ width: `${share * 100}%` }} />
-                      )}
-                    </div>
-                    <p className="num mt-1.5 text-sm text-mute" data-testid="badge-population">
-                      <span className="font-semibold text-fg-secondary">{pop.total}</span> of {data.members} members ({fmtPct(share, 0)})
-                    </p>
-                  </div>
+                  {/* Population: a plain count of holders (the member base keeps growing, so no "of N"). */}
+                  <p className="num mt-3 text-sm text-mute" data-testid="badge-population">
+                    <span className="font-semibold text-fg-secondary">{pop.total.toLocaleString("en-US")}</span> {pop.total === 1 ? "member has it" : "members have it"}
+                  </p>
 
                   {next && (
                     <div className="mt-3 max-w-md" data-testid="badge-progress">
