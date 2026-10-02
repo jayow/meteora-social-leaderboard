@@ -343,7 +343,6 @@ function LeaderboardBoard() {
   const quietFilters =
     view === "members" ? (
       <>
-        <Sep />
         <CountrySelect value={country} onChange={onCountryChange} allLabel="Global" membersOnly plain className="min-w-0 max-w-[200px]" />
         {followingToggle && (
           <>
@@ -351,6 +350,7 @@ function LeaderboardBoard() {
             {followingToggle}
           </>
         )}
+        <Sep />
       </>
     ) : null;
 

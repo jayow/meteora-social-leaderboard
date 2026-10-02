@@ -1,9 +1,9 @@
 "use client";
 
 /**
- * Leaderboard heading: the headline is the control. One playful sentence ("Biggest splashes by PnL in
- * 30 days") whose metric and range words open small radio menus, a quiet live status under it, and the
- * Members / Countries, country and Following controls on the right.
+ * Leaderboard heading. A compact control line sits first and never moves ("30 days ▾ · ranked by PnL ▾",
+ * the range word reserves the width of its longest option), the playful headline sits under it
+ * ("Biggest splashes"), then a quiet live status and the Members / Countries, country and Following controls.
  */
 
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
@@ -33,21 +33,20 @@ export const RANGE_OPTIONS: MenuOption<BoardRange>[] = [
 
 /** The metric as it reads mid-sentence. */
 const METRIC_WORD: Record<BoardMetric, string> = { pnl: "PnL", fees: "fees", volume: "volume", winrate: "win rate" };
-const RANGE_WORD: Record<BoardRange, string> = { "7d": "7 days", "30d": "30 days", all: "all time" };
 
-/** Playful lead-ins, one per metric. The metric word itself follows, so the plain name stays visible. */
+/** Playful headline, one per metric. The plain metric name sits in the control line right above it. */
 const PLAYFUL: Record<BoardView, Record<BoardMetric, string>> = {
   members: {
-    pnl: "Biggest splashes by",
-    fees: "Who's farming the most",
-    volume: "Making the most waves by",
-    winrate: "Sharpest swimmers by",
+    pnl: "Biggest splashes",
+    fees: "Who's farming the most fees",
+    volume: "Making the most waves",
+    winrate: "Sharpest swimmers",
   },
   countries: {
-    pnl: "Countries making the biggest splashes by",
-    fees: "Countries farming the most",
-    volume: "Countries making the most waves by",
-    winrate: "Countries with the sharpest swimmers by",
+    pnl: "Countries making the biggest splashes",
+    fees: "Countries farming the most fees",
+    volume: "Countries making the most waves",
+    winrate: "Countries with the sharpest swimmers",
   },
 };
 
@@ -64,6 +63,7 @@ export function WordMenu<T extends string>({
   onChange,
   menuLabel,
   children,
+  reserve,
   testId,
 }: {
   value: T;
@@ -71,6 +71,8 @@ export function WordMenu<T extends string>({
   onChange: (v: T) => void;
   menuLabel: string;
   children: ReactNode;
+  /** Words to reserve width for (stacked invisibly in one grid cell), so whatever follows never shifts. */
+  reserve?: string[];
   testId?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -81,10 +83,11 @@ export function WordMenu<T extends string>({
   const id = useId();
 
   const items = () => [...(menu.current?.querySelectorAll<HTMLButtonElement>('[role="menuitemradio"]') ?? [])];
-  const close = useCallback((refocus: boolean) => {
+  // Focus always returns to the word; after a mouse/touch pick it does so without the keyboard focus ring.
+  const close = useCallback((refocus: boolean, byPointer = false) => {
     setOpen(false);
     setPos(null);
-    if (refocus) btn.current?.focus();
+    if (refocus) btn.current?.focus({ preventScroll: true, focusVisible: !byPointer } as FocusOptions & { focusVisible: boolean });
   }, []);
   const openMenu = (at: "checked" | "last") => {
     startAt.current = at;
@@ -153,13 +156,19 @@ export function WordMenu<T extends string>({
             openMenu(ev.key === "ArrowUp" ? "last" : "checked");
           }
         }}
-        className="group/word inline-flex items-baseline gap-[0.12em] whitespace-nowrap rounded-tag text-accent transition-colors hover:text-accent-hover"
+        className="group/word inline-flex items-baseline gap-1 whitespace-nowrap rounded-tag text-accent transition-colors hover:text-accent-hover"
         data-testid={testId}
       >
-        <span className="underline decoration-accent/45 decoration-dotted decoration-[0.06em] underline-offset-[0.18em] transition-colors group-hover/word:decoration-accent group-aria-expanded/word:decoration-accent">
-          {children}
+        {/* No resting underline (it read like a spellcheck mark): orange + chevron, a thin solid line on hover / focus. */}
+        <span className="inline-grid">
+          {reserve?.map((r) => (
+            <span key={r} className="invisible col-start-1 row-start-1" aria-hidden="true">
+              {r}
+            </span>
+          ))}
+          <span className="col-start-1 row-start-1 decoration-accent/50 decoration-1 underline-offset-[0.25em] group-hover/word:underline group-focus-visible/word:underline">{children}</span>
         </span>
-        <svg viewBox="0 0 20 20" className="h-[0.42em] w-[0.42em] shrink-0 self-center transition-transform group-aria-expanded/word:rotate-180" fill="none" stroke="currentColor" strokeWidth={2.5} aria-hidden="true">
+        <svg viewBox="0 0 20 20" className="h-[0.8em] w-[0.8em] shrink-0 self-center transition-transform group-aria-expanded/word:rotate-180" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">
           <path d="M5 7.5l5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </button>
@@ -184,9 +193,10 @@ export function WordMenu<T extends string>({
                   role="menuitemradio"
                   aria-checked={on}
                   tabIndex={-1}
-                  onClick={() => {
+                  onClick={(ev) => {
                     if (!on) onChange(o.value);
-                    close(true);
+                    // detail is 0 for Enter / Space, the click count for a real pointer click.
+                    close(true, ev.detail > 0);
                   }}
                   className={`flex h-9 w-full items-center justify-between gap-3 rounded-[8px] px-3 text-left text-base font-medium transition-colors hover:bg-surface-raised focus-visible:bg-surface-raised ${on ? "text-fg" : "text-mute hover:text-fg"}`}
                 >
@@ -239,30 +249,45 @@ interface HeadingProps {
   updatedAt: string | null;
   /** Members / Countries switch. */
   viewToggle: ReactNode;
-  /** Country filter + Following (members only; may be null). */
+  /** Country filter + Following, each followed by a Sep (members only; may be null). Rendered before the view toggle on desktop. */
   filters: ReactNode;
   testId?: string;
 }
 
-/** The heading: one sentence; metric and range are menu words inside it ("of all time", otherwise "in"). */
+/**
+ * The heading. The control line comes first and is fixed: range (width reserved for its longest option),
+ * then "ranked by" and the metric, which ends the line so its length moves nothing. Menus open under
+ * their word, so each one always opens in the same place. The headline below can change freely.
+ */
 export function BoardHeading(p: HeadingProps) {
-  const joiner = p.range === "all" ? "of" : "in";
+  const rangeLabel = RANGE_OPTIONS.find((o) => o.value === p.range)?.label ?? "30 days";
   return (
     <div>
-      <h1 className="max-w-[22ch] text-2xl font-bold leading-[1.15] tracking-tight text-fg [text-wrap:balance] md:max-w-none md:text-3xl" data-testid={p.testId}>
-        {PLAYFUL[p.view][p.metric]}{" "}
+      <div className="flex items-baseline gap-2 text-md font-semibold" data-testid="board-controls">
+        <WordMenu value={p.range} options={RANGE_OPTIONS} onChange={p.onRange} menuLabel="Time range" reserve={RANGE_OPTIONS.map((o) => o.label)} testId="range-word">
+          {rangeLabel}
+        </WordMenu>
+        <span className="text-mute" aria-hidden="true">
+          ·
+        </span>
+        <span className="text-mute">ranked by</span>
         <WordMenu value={p.metric} options={METRIC_OPTIONS} onChange={p.onMetric} menuLabel="Rank by" testId="metric-word">
           {METRIC_WORD[p.metric]}
-        </WordMenu>{" "}
-        {joiner}{" "}
-        <WordMenu value={p.range} options={RANGE_OPTIONS} onChange={p.onRange} menuLabel="Time range" testId="range-word">
-          {RANGE_WORD[p.range]}
         </WordMenu>
+      </div>
+      {/* Phones reserve two lines so the status and filters below don't jump between metrics. */}
+      <h1 className="mt-2 min-h-[2.3em] text-2xl font-bold leading-[1.15] tracking-tight text-fg [text-wrap:balance] sm:min-h-0 md:text-3xl" data-testid={p.testId}>
+        {PLAYFUL[p.view][p.metric]}
+        <span className="sr-only">
+          , {rangeLabel.toLowerCase()}, ranked by {METRIC_WORD[p.metric]}
+        </span>
       </h1>
       <div className="mt-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
         <LiveStatus updatedAt={p.updatedAt} />
-        <div className="flex min-w-0 flex-wrap items-center gap-x-5 gap-y-2" data-testid="board-filters">
-          {p.viewToggle}
+        {/* Members / Countries is anchored (right end on desktop, first on its own row on phones), so the
+            filters that only exist in Members can come and go without moving it. */}
+        <div className="flex w-full min-w-0 flex-wrap items-center gap-x-5 gap-y-2 sm:w-auto" data-testid="board-filters">
+          <div className="order-first sm:order-last">{p.viewToggle}</div>
           {p.filters}
         </div>
       </div>
