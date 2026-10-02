@@ -157,7 +157,7 @@ export async function GET(
         <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", position: "relative", backgroundColor: THEME.bg, padding: "56px 64px", fontFamily: "Inter", color: THEME.fg }}>
           {/* Backdrop: the top pool's liquidity shape, rising from the bottom right beside the figure. */}
           {bars && (
-            <div style={{ position: "absolute", right: 64, bottom: 0, width: 440, height: 320, display: "flex", alignItems: "flex-end", gap: 4 }}>
+            <div style={{ position: "absolute", right: 64, bottom: 0, width: 440, height: 240, display: "flex", alignItems: "flex-end", gap: 4 }}>
               {bars.map((h, i) => (
                 <div key={i} style={{ flex: 1, height: `${Math.max(h, h > 0 ? 6 : 0)}%`, backgroundColor: BAR, borderRadius: "2px 2px 0 0" }} />
               ))}
