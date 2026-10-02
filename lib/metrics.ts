@@ -16,6 +16,12 @@ export interface EventsReport {
   topPages: { path: string; views: number; users: number }[];
   topClicks: { label: string; path: string; count: number }[];
   outbound: { host: string; to: string; count: number }[];
+  /** Distinct visitors per browser timezone (coarse region, from page views; no IPs). */
+  timezones: { tz: string; visitors: number }[];
+  /** The same, rolled up to continent ("Asia", "Europe", "America", ...). */
+  continents: { continent: string; visitors: number }[];
+  /** Members (not seeded) by the country they chose on their profile. */
+  memberCountries: { country: string; members: number }[];
   /** Visitors -> signed in -> joined, in the window. */
   funnel: { visitors: number; signedIn: number; newAccounts: number; inviteChecks: number; joined: number };
 }
@@ -27,7 +33,7 @@ export async function getEventsReport(days: number): Promise<EventsReport> {
   const pool = getPool();
   const since = `now() - ($1::int || ' days')::interval`;
   const q = <T extends Row>(sql: string) => pool.query<T>(sql, [days]).then((r) => r.rows);
-  const [totals, dailyActive, dailyCounts, topPages, topClicks, outbound, funnel] = await Promise.all([
+  const [totals, dailyActive, dailyCounts, topPages, topClicks, outbound, funnel, timezones, memberCountries] = await Promise.all([
     q<{ name: string; count: number; users: number }>(
       `SELECT name, count(*)::int AS count, count(DISTINCT user_id)::int AS users
        FROM events e WHERE ${REAL} AND at > ${since} GROUP BY name ORDER BY count DESC`
@@ -62,7 +68,21 @@ export async function getEventsReport(days: number): Promise<EventsReport> {
          (SELECT count(*) FROM events e WHERE ${REAL} AND name = 'invite_check' AND at > ${since})::int AS invite_checks,
          (SELECT count(*) FROM events e WHERE ${REAL} AND name = 'join' AND props->>'ok' = 'true' AND at > ${since})::int AS joined`
     ),
+    q<{ tz: string; visitors: number }>(
+      `SELECT props->>'tz' AS tz, count(DISTINCT coalesce(visitor_id, 'u' || user_id))::int AS visitors
+       FROM events e WHERE ${REAL} AND name = 'page_view' AND props ? 'tz' AND at > ${since}
+       GROUP BY 1 ORDER BY visitors DESC LIMIT 50`
+    ),
+    pool
+      .query<{ country: string; members: number }>(
+        `SELECT coalesce(country, '') AS country, count(*)::int AS members
+         FROM users WHERE joined_at IS NOT NULL AND NOT seeded GROUP BY 1 ORDER BY members DESC`
+      )
+      .then((r) => r.rows),
   ]);
+  const continentOf = (tz: string) => (tz.includes("/") ? tz.split("/")[0] : tz);
+  const continents = new Map<string, number>();
+  for (const t of timezones) continents.set(continentOf(t.tz), (continents.get(continentOf(t.tz)) ?? 0) + t.visitors);
   const byDate = new Map<string, Record<string, number>>();
   for (const r of dailyCounts) byDate.set(r.date, { ...(byDate.get(r.date) ?? {}), [r.name]: r.count });
   const f = funnel[0];
@@ -73,6 +93,9 @@ export async function getEventsReport(days: number): Promise<EventsReport> {
     topPages,
     topClicks,
     outbound,
+    timezones,
+    continents: [...continents].map(([continent, visitors]) => ({ continent, visitors })).sort((a, b) => b.visitors - a.visitors),
+    memberCountries,
     funnel: { visitors: f.visitors, signedIn: f.signed_in, newAccounts: f.new_accounts, inviteChecks: f.invite_checks, joined: f.joined },
   };
 }
@@ -86,6 +109,8 @@ export interface UserMetrics {
   signupMethod: string | null;
   hasX: boolean;
   country: string | null;
+  /** Browser timezone of their latest page view (coarse region). */
+  timezone: string | null;
   createdAt: string;
   joinedAt: string | null;
   invitedByUserId: number | null;
@@ -122,7 +147,8 @@ export async function getUserMetrics(): Promise<UserMetrics[]> {
            (SELECT coalesce(sum(coalesce(o.position_count, 1)), 0) FROM open_positions o WHERE o.user_id = u.id)::int AS open_positions,
            (SELECT coalesce(sum(o.value_usd), 0) FROM open_positions o WHERE o.user_id = u.id)::float AS open_value_usd,
            (SELECT count(*) FROM events e WHERE e.user_id = u.id AND e.at > now() - interval '7 days')::int AS events_7d,
-           (SELECT count(*) FROM events e WHERE e.user_id = u.id)::int AS events_total
+           (SELECT count(*) FROM events e WHERE e.user_id = u.id)::int AS events_total,
+           (SELECT e.props->>'tz' FROM events e WHERE e.user_id = u.id AND e.name = 'page_view' AND e.props ? 'tz' ORDER BY e.at DESC LIMIT 1) AS timezone
     FROM users u LEFT JOIN users inv ON inv.id = u.invited_by_user_id
     ORDER BY u.created_at DESC
   `);
@@ -135,6 +161,7 @@ export async function getUserMetrics(): Promise<UserMetrics[]> {
     signupMethod: (r.signup_method as string | null) ?? null,
     hasX: Boolean(r.has_x),
     country: (r.country as string | null) ?? null,
+    timezone: (r.timezone as string | null) ?? null,
     createdAt: iso(r.created_at) as string,
     joinedAt: iso(r.joined_at),
     invitedByUserId: r.invited_by_user_id == null ? null : Number(r.invited_by_user_id),

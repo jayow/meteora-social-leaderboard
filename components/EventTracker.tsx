@@ -52,6 +52,14 @@ function track(e: ClientEvent) {
   else if (!timer) timer = setTimeout(() => flush(), FLUSH_MS);
 }
 
+function timeZone(): string | null {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || null;
+  } catch {
+    return null;
+  }
+}
+
 /** Visible label of a control, without typed content: aria-label, else its short text. */
 function labelOf(el: Element): string {
   const aria = el.getAttribute("aria-label");
@@ -69,7 +77,8 @@ export function EventTracker() {
   const pathname = usePathname();
 
   useEffect(() => {
-    if (pathname) track({ name: "page_view", path: pathname });
+    // Timezone = coarse region (e.g. "Asia/Manila") without IPs or a location service.
+    if (pathname) track({ name: "page_view", path: pathname, props: { tz: timeZone() } });
   }, [pathname]);
 
   useEffect(() => {

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react
 import type { AdminStats, DailyStatsRow } from "@/lib/stats";
 import type { EventsReport, UserMetrics } from "@/lib/metrics";
 import { fmtUsd, timeAgo } from "@/lib/format";
+import { countryName } from "@/lib/countries";
 
 /**
  * Admin "data center": every metric on one dense, auto-refreshing screen. Data comes from the
@@ -201,6 +202,8 @@ function UsersTable({ users }: { users: UserMetrics[] }) {
                   {u.joinedAt ? "Member" : "Not joined"} · {u.signupMethod ?? "wallet"}
                   {u.hasX ? " · X" : ""}
                   {u.invitedByName ? ` · invited by ${u.invitedByName}` : ""}
+                  {u.country ? ` · ${u.country}` : ""}
+                  {u.timezone ? ` · ${u.timezone}` : ""}
                 </div>
               </td>
               <td className={`${NUM} py-2 pr-3 text-right`}>{u.memberNumber ?? "–"}</td>
@@ -414,6 +417,21 @@ export function MetricsDashboard() {
               ),
               value: o.count,
             }))}
+          />
+        </Panel>
+      </div>
+
+      <div className="mb-4 grid gap-4 lg:grid-cols-3">
+        <Panel title="Visitors by continent" note="browser timezone · no IPs">
+          <BarList empty="No visits recorded yet." rows={events.continents.map((c) => ({ key: c.continent, label: c.continent, value: c.visitors }))} />
+        </Panel>
+        <Panel title="Visitors by timezone" note={`last ${days} days`}>
+          <BarList empty="No visits recorded yet." rows={events.timezones.slice(0, 15).map((t) => ({ key: t.tz, label: t.tz.replace(/_/g, " "), value: t.visitors }))} />
+        </Panel>
+        <Panel title="Members by country" note="chosen on their profile">
+          <BarList
+            empty="No members yet."
+            rows={events.memberCountries.map((c) => ({ key: c.country || "none", label: c.country ? countryName(c.country) : "Not set", value: c.members }))}
           />
         </Panel>
       </div>
