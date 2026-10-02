@@ -75,7 +75,7 @@ export function PositionSharingToggle() {
           <p id="position-sharing-desc" className="mt-0.5 text-sm leading-snug text-mute">
             {on
               ? "Pools you open or close, with realized PnL on closes, show up from the moment you turned this on."
-              : "Off: only your theses, follows and badges appear. Turning it on shares new activity only, never past positions."}
+              : "Off: only your LP ideas, follows and badges appear. Turning it on shares new activity only, never past positions."}
           </p>
         </div>
         <button

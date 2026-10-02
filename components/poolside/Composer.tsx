@@ -66,7 +66,7 @@ export function Composer({ onPosted }: { onPosted: (post: ThesisPost) => void })
   if (!info.signedIn) {
     return shell(
       <div className="flex flex-wrap items-center justify-between gap-3" data-testid="composer-signed-out">
-        <p className="text-base text-mute">Sign in to share a thesis on a pool you&apos;re in.</p>
+        <p className="text-base text-mute">Sign in to share an LP idea on a pool you&apos;re in.</p>
         <button type="button" onClick={requestSignIn} className="btn-secondary">
           Sign in
         </button>
@@ -89,7 +89,7 @@ export function Composer({ onPosted }: { onPosted: (post: ThesisPost) => void })
   if (info.pools.length === 0) {
     return shell(
       <p className="text-base text-mute" data-testid="composer-note">
-        You can post a thesis on a pool once you hold a position in it. We don&apos;t see any open positions from your last
+        You can post an LP idea on a pool once you hold a position in it. We don&apos;t see any open positions from your last
         sync.{" "}
         <a href={meteoraHomeUrl()} target="_blank" rel="noopener noreferrer" className="link">
           Meteora ↗
@@ -145,7 +145,7 @@ export function Composer({ onPosted }: { onPosted: (post: ThesisPost) => void })
         }}
       >
         <label className="sr-only" htmlFor="poolside-text">
-          Your thesis
+          Your LP idea
         </label>
         <textarea
           id="poolside-text"
@@ -153,7 +153,7 @@ export function Composer({ onPosted }: { onPosted: (post: ThesisPost) => void })
           onChange={(e) => setText(e.target.value)}
           maxLength={THESIS_MAX_LENGTH}
           rows={expanded ? 3 : 1}
-          placeholder={`What's your thesis on ${selected.name}?`}
+          placeholder={`What's your LP idea for ${selected.name}?`}
           disabled={posting}
           className="field block h-auto resize-y py-2.5"
           data-testid="composer-text"

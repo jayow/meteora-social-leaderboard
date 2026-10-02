@@ -38,7 +38,7 @@ export function ThesisLikeButton({
 
   if (isOwn) {
     return (
-      <span className="inline-flex h-8 items-center gap-1.5 px-2 text-base text-mute" title="Your thesis" data-testid="thesis-like-count">
+      <span className="inline-flex h-8 items-center gap-1.5 px-2 text-base text-mute" title="Your LP idea" data-testid="thesis-like-count">
         <HeartIcon filled={false} />
         <span className="num">{state.count}</span>
         <span className="sr-only">{label}</span>

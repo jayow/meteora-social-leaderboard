@@ -229,8 +229,8 @@ export function ActivityFeed() {
   const empty =
     tab === "theses"
       ? {
-          title: "No theses yet",
-          body: shownScope === "following" ? "People you follow haven't posted a thesis yet." : "When LPs share why they're in a pool, it shows up here.",
+          title: "No LP ideas yet",
+          body: shownScope === "following" ? "People you follow haven't posted an LP idea yet." : "When LPs share why they're in a pool, it shows up here.",
         }
       : {
           title: "Nothing here yet",
@@ -251,7 +251,7 @@ export function ActivityFeed() {
           value={tab}
           onChange={switchTab}
           options={[
-            { value: "theses", label: "Theses" },
+            { value: "theses", label: "LP ideas" },
             { value: "activity", label: "Activity" },
           ]}
         />

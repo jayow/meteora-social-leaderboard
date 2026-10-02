@@ -583,7 +583,7 @@ function PositionCard({ pool, open, panelId, syncing = false, thesis = null }: {
   const expandable = hasPositionRows(pool);
   const thesisMeta = thesis ? (
     <>
-      <span className="text-sm font-medium text-mute">Thesis</span>
+      <span className="text-sm font-semibold text-accent">LP idea</span>
       <span className="whitespace-nowrap text-sm text-mute"> · {timeAgo(thesis.createdAt)}</span>
     </>
   ) : null;
@@ -643,11 +643,13 @@ function PositionCard({ pool, open, panelId, syncing = false, thesis = null }: {
 
       {thesis && (
         // The member's latest word on this pool, lined up with the pool name (past the token icons).
-        <p className="mt-3 line-clamp-2 text-base text-fg-secondary sm:ml-[68px] lg:hidden" title={thesis.body} data-testid="position-thesis">
-          <span className="mr-1.5 text-sm font-medium text-mute">Thesis</span>
-          {thesis.body}
-          <span className="whitespace-nowrap text-sm text-mute"> · {timeAgo(thesis.createdAt)}</span>
-        </p>
+        // Phones / tablets: a raised block with an orange label so the idea stands out from the figures.
+        <div className="relative mt-3 rounded-tile bg-surface-raised px-3 py-2.5 sm:ml-[68px] lg:hidden" data-testid="position-thesis">
+          <p>{thesisMeta}</p>
+          <p className="mt-1 line-clamp-3 text-base text-fg" title={thesis.body}>
+            {thesis.body}
+          </p>
+        </div>
       )}
 
       {expandable && (
@@ -698,7 +700,7 @@ function PositionCard({ pool, open, panelId, syncing = false, thesis = null }: {
           </p>
         </>
       ) : (
-        <p className="text-sm text-mute">No thesis on this pool yet</p>
+        <p className="text-sm text-mute">No LP idea on this pool yet</p>
       )}
     </aside>
     </div>

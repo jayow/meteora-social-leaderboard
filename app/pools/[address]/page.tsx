@@ -277,7 +277,7 @@ export default function PoolDetailPage() {
         {pool.tokenXMint && (
           <section className="min-w-0">
             <h2 className="mb-3 text-lg font-semibold">
-              {pool.tokenX} theses <span className="num font-medium text-mute">{comments?.total ?? comments?.comments.length ?? 0}</span>
+              {pool.tokenX} LP ideas <span className="num font-medium text-mute">{comments?.total ?? comments?.comments.length ?? 0}</span>
             </h2>
 
             {user ? (
@@ -293,12 +293,12 @@ export default function PoolDetailPage() {
                 onPost={postComment}
               />
             ) : (
-              <p className="mb-5 text-base text-mute">Sign in to post a thesis.</p>
+              <p className="mb-5 text-base text-mute">Sign in to post an LP idea.</p>
             )}
 
             {comments && comments.comments.length === 0 ? (
               <p className="pt-2 text-base text-mute">
-                No theses yet.{user ? " Be the first to share yours." : ""}
+                No LP ideas yet.{user ? " Be the first to share yours." : ""}
               </p>
             ) : (
               <div className="space-y-2">
@@ -417,7 +417,7 @@ function CommentComposer({
         <Link href="/join" className="link">
           Redeem an invite code
         </Link>{" "}
-        to share a thesis.
+        to share an LP idea.
       </div>
     );
   }
@@ -425,7 +425,7 @@ function CommentComposer({
   if (gate === "no_position") {
     return (
       <div className="mb-5 text-base text-mute">
-        <span>Hold a position in {poolName} to post a thesis on this pool.</span>
+        <span>Hold a position in {poolName} to post an LP idea on this pool.</span>
       </div>
     );
   }
@@ -447,9 +447,9 @@ function CommentComposer({
               onChange={(e) => setCommentText(e.target.value)}
               maxLength={500}
               rows={2}
-              placeholder={`Share your ${tokenSymbol} thesis…`}
+              placeholder={`Share your ${tokenSymbol} LP idea…`}
               disabled={posting || hasPosition === null}
-              aria-label={`Your ${tokenSymbol} thesis`}
+              aria-label={`Your ${tokenSymbol} LP idea`}
               className="block w-full resize-none bg-transparent px-3.5 pt-2.5 text-base text-fg outline-none placeholder:text-mute"
             />
             <div className="flex items-center justify-end gap-3 px-2 pb-2">

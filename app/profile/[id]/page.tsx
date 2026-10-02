@@ -227,7 +227,7 @@ function Profile() {
             </button>
           }
         >
-          {me.wallet ? "Sign in with your connected wallet to see your profile, claim your rank and post your thesis." : "Connect Phantom or Solflare to pull your Meteora stats, claim your rank and post your thesis."}
+          {me.wallet ? "Sign in with your connected wallet to see your profile, claim your rank and post your LP ideas." : "Connect Phantom or Solflare to pull your Meteora stats, claim your rank and post your LP ideas."}
         </EmptyState>
       </main>
     );
@@ -1134,7 +1134,7 @@ function RecentTheses({ theses: state, latest }: { theses: UserTheses; latest: M
 
   const heading = (
     <h2 className="text-lg font-semibold text-fg">
-      Theses{total > 0 ? <span className="num font-medium text-mute"> {total}</span> : null}
+      LP ideas{total > 0 ? <span className="num font-medium text-mute"> {total}</span> : null}
     </h2>
   );
 
@@ -1153,7 +1153,7 @@ function RecentTheses({ theses: state, latest }: { theses: UserTheses; latest: M
     return (
       <section>
         {heading}
-        <p className="mt-1 text-base text-mute">No theses posted yet.</p>
+        <p className="mt-1 text-base text-mute">No LP ideas posted yet.</p>
       </section>
     );
   }
