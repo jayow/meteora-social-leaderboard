@@ -219,16 +219,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </nav>
 
           <div className="ml-auto flex min-w-0 items-center gap-4">
-            {/* One entry: signed out -> Sign in (wallet picker or X); signed in, not joined -> Join beta; members -> account menu only. */}
+            {/* Signed out -> Sign in (wallet picker or X) + Sign up (invite code at /join); signed in, not joined -> Join beta; members -> account menu only. */}
             {!isSignedIn && (
-              <button
-                type="button"
-                onClick={() => openSignIn("methods")}
-                className="btn-primary"
-                data-testid="header-entry"
-              >
-                Sign in
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => openSignIn("methods")}
+                  className="btn-secondary"
+                  data-testid="header-entry"
+                >
+                  Sign in
+                </button>
+                <Link href="/join" className="btn-primary" data-testid="header-signup">
+                  Sign up
+                </Link>
+              </div>
             )}
             {isSignedIn && !isMember && (
               <Link href="/join" className="btn-primary" data-testid="header-entry">
