@@ -355,10 +355,10 @@ interface FeedQuery {
 /** The stream's keys only (rank, id, time), newest first: what listFeed pages over and the new-items check reads. */
 async function feedKeys(opts: FeedQuery): Promise<{ rank: number; id: number; ts_text: string }[]> {
   const allKinds = ["joined", "followed", "opened", "closed", "big_win", "badge"];
-  // Whitelisted strings only, so they can be inlined into the IN list.
+  // Whitelisted, and bound as a parameter (never inlined into the SQL text).
   const kinds = (opts.kinds ?? allKinds).filter((k) => allKinds.includes(k));
-  const params: (string | number)[] = [];
-  const add = (v: string | number) => {
+  const params: (string | number | string[])[] = [];
+  const add = (v: string | number | string[]) => {
     params.push(v);
     return `$${params.length}`;
   };
@@ -379,7 +379,7 @@ async function feedKeys(opts: FeedQuery): Promise<{ rank: number; id: number; ts
     FROM activity a
     JOIN users u ON u.id = a.actor_user_id AND u.joined_at IS NOT NULL
     LEFT JOIN users t ON t.id = a.target_user_id
-    WHERE a.kind IN (${(kinds.length ? kinds : ["none"]).map((k) => `'${k}'`).join(", ")})
+    WHERE a.kind = ANY(${add(kinds.length ? kinds : ["none"])}::text[])
       AND (a.kind <> 'followed' OR (t.joined_at IS NOT NULL AND EXISTS (
         SELECT 1 FROM follows f WHERE f.follower_user_id = a.actor_user_id AND f.followee_user_id = a.target_user_id)))
       AND ${positionShareSql("a", "u")}

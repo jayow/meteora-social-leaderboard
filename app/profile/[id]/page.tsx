@@ -23,7 +23,8 @@ import { displayName, fmtPct, fmtUsd, shortAddr, timeAgo } from "@/lib/format";
 import { patchCachedProfile } from "@/lib/storage";
 import { proveWallet } from "@/lib/wallet-proof-client";
 import { meteoraHomeUrl } from "@/lib/meteora-links";
-import { applyFollowChange, onFollowChanged, onSessionChanged, requestSignIn } from "@/lib/session-events";
+import { DISPLAY_NAME_MAX, displayNameError, normalizeDisplayName } from "@/lib/display-name";
+import { applyFollowChange, onFollowChanged, onSessionChanged, requestSignIn, notifySessionChanged } from "@/lib/session-events";
 import { SYNC_COOLDOWN_MS } from "@/lib/sync-limits";
 
 type Range = "1d" | "7d" | "30d" | "all";
@@ -581,6 +582,29 @@ function OwnerControls({ user, focusX, onSaved }: { user: ApiUser; focusX: boole
     else onSaved({ ...user, country: c || null });
   };
 
+  const [name, setName] = useState(user.anonName ?? "");
+  const [nameMsg, setNameMsg] = useState<string | null>(null);
+  const saveName = async () => {
+    const next = normalizeDisplayName(name);
+    const invalid = displayNameError(next);
+    if (invalid) {
+      setNameMsg(invalid);
+      return;
+    }
+    setBusy("name");
+    setNameMsg(null);
+    const r = await me.update({ displayName: next });
+    setBusy(null);
+    if (!r.ok) {
+      setNameMsg(r.error || "Couldn't save");
+      return;
+    }
+    setName(next);
+    setNameMsg("Saved");
+    onSaved({ ...user, anonName: next });
+    notifySessionChanged();
+  };
+
   const unlink = async () => {
     setBusy("unlink");
     const r = await me.update({ unlinkX: true });
@@ -613,6 +637,48 @@ function OwnerControls({ user, focusX, onSaved }: { user: ApiUser; focusX: boole
 
   return (
     <div className="mt-4 space-y-3">
+      {/* Without X, members can replace the random beach name with their own. */}
+      {!user.xHandle && (
+        <form
+          className="space-y-1.5"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void saveName();
+          }}
+        >
+          <label htmlFor="display-name" className="block text-base text-fg-secondary">
+            Display name
+          </label>
+          <div className="flex gap-2">
+            <input
+              id="display-name"
+              className="field h-9 min-w-0 flex-1"
+              value={name}
+              maxLength={DISPLAY_NAME_MAX}
+              autoComplete="off"
+              spellCheck={false}
+              onChange={(e) => {
+                setName(e.target.value);
+                setNameMsg(null);
+              }}
+              data-testid="display-name-input"
+            />
+            <button
+              type="submit"
+              className="btn-secondary h-9 px-3"
+              disabled={busy !== null || normalizeDisplayName(name) === (user.anonName ?? "")}
+              data-testid="display-name-save"
+            >
+              {busy === "name" ? "Saving…" : "Save"}
+            </button>
+          </div>
+          {nameMsg && (
+            <p className={`text-sm ${nameMsg === "Saved" ? "text-mute" : "text-dn"}`} role={nameMsg === "Saved" ? "status" : "alert"}>
+              {nameMsg}
+            </p>
+          )}
+        </form>
+      )}
       <div className="flex flex-wrap items-center gap-2">
         {user.xHandle ? (
           <button type="button" onClick={unlink} disabled={busy !== null} className="btn-secondary">

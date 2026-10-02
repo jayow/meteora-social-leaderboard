@@ -20,7 +20,7 @@ interface MeState {
   ensureSession: () => Promise<boolean>;
   verify: () => Promise<boolean>;
   refresh: () => Promise<void>;
-  update: (patch: { thesis?: string | null; country?: string | null; unlinkX?: boolean }) => Promise<{ ok: boolean; error?: string; needsAuth?: boolean }>;
+  update: (patch: { thesis?: string | null; country?: string | null; unlinkX?: boolean; displayName?: string }) => Promise<{ ok: boolean; error?: string; needsAuth?: boolean }>;
 }
 
 const Ctx = createContext<MeState | null>(null);
@@ -137,7 +137,7 @@ export function MeProvider({ children }: { children: React.ReactNode }) {
   }, [profileKey, load]);
 
   const update = useCallback(
-    async (patch: { thesis?: string | null; country?: string | null; unlinkX?: boolean }) => {
+    async (patch: { thesis?: string | null; country?: string | null; unlinkX?: boolean; displayName?: string }) => {
       if (!sessionUserId) return { ok: false, error: "Sign in required", needsAuth: true };
       const local: Partial<CachedProfile> = {};
       if (patch.thesis !== undefined) local.thesis = patch.thesis;
