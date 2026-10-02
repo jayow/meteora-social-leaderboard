@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { hasDb } from "@/lib/db";
 import { getSessionUserId } from "@/lib/session";
 import { decodeCursor, followeeCount, listFeed } from "@/lib/activity";
-import type { ActivityFallback, ActivityResponse, ActivityScope, FeedFilter } from "@/lib/activity-types";
+import { EVENT_GROUPS, isEventGroup, type ActivityFallback, type ActivityResponse, type ActivityScope, type FeedFilter } from "@/lib/activity-types";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +10,7 @@ const DEFAULT_LIMIT = 25;
 const MAX_LIMIT = 50;
 
 /**
- * GET /api/activity?scope=everyone|following&filter=all|posts&cursor=<opaque>&limit=<1..50>
+ * GET /api/activity?scope=everyone|following&filter=all|posts|events&groups=trades,follows,joins,badges&cursor=<opaque>&limit=<1..50>
  * Poolside: joined members' theses (posts) and, with filter=all, their activity. Everyone is the
  * default. `following` needs a session and at least one follow; otherwise the server answers with
  * `everyone` and says why in `fallback`.
@@ -18,7 +18,12 @@ const MAX_LIMIT = 50;
 export async function GET(req: NextRequest): Promise<NextResponse<ActivityResponse | { error: string }>> {
   const sp = req.nextUrl.searchParams;
   const asked: ActivityScope = sp.get("scope") === "following" ? "following" : "everyone";
-  const filter: FeedFilter = sp.get("filter") === "posts" ? "posts" : "all";
+  const f = sp.get("filter");
+  const filter: FeedFilter = f === "posts" || f === "events" ? f : "all";
+  // Event groups to include (Activity tab filter); unknown names are ignored, none given = all.
+  const groupsParam = sp.get("groups");
+  const groups = groupsParam === null ? null : groupsParam.split(",").filter(isEventGroup);
+  const kinds = groups === null ? undefined : EVENT_GROUPS.filter((g) => groups.includes(g.value)).flatMap((g) => g.kinds);
   const limitRaw = Number(sp.get("limit"));
   const limit = Number.isInteger(limitRaw) && limitRaw > 0 ? Math.min(limitRaw, MAX_LIMIT) : DEFAULT_LIMIT;
   const cursorParam = sp.get("cursor");
@@ -43,7 +48,7 @@ export async function GET(req: NextRequest): Promise<NextResponse<ActivityRespon
   }
 
   try {
-    const { items, nextCursor } = await listFeed({ scope, filter, viewerId, cursor, limit });
+    const { items, nextCursor } = await listFeed({ scope, filter, kinds, viewerId, cursor, limit });
     return NextResponse.json(
       { items, nextCursor, scope, filter, fallback, signedIn: Boolean(viewerId) },
       { headers: { "Cache-Control": "private, no-store" } }

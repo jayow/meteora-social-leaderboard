@@ -109,7 +109,7 @@ function Sentence({ item }: { item: ActivityItem }) {
       <>
         {item.kind === "opened" ? "opened" : "closed"}{" "}
         {item.pool ? (
-          <Link href={`/pools/${item.pool.address}`} className="font-medium text-fg-secondary transition hover:text-fg" data-testid="position-pool">
+          <Link href={`/pools/${item.pool.address}`} className="whitespace-nowrap font-medium text-fg-secondary transition hover:text-fg" data-testid="position-pool">
             {item.pool.name}
           </Link>
         ) : (
@@ -187,14 +187,13 @@ function Burst({ items }: { items: ActivityItem[] }) {
 }
 
 /**
- * A run of consecutive activity events between thesis cards. Every row is visible; only a burst from
+ * A run of activity events (one day on Poolside's Activity tab). Every row is visible; only a burst from
  * one member (e.g. one sync closing many positions) collapses behind "Show N more from <name>".
  */
 export function EventRun({ items }: { items: ActivityItem[] }) {
   const bursts = toBursts(items);
   return (
-    // Events sit in the post text column (past the avatar gutter), so posts own the left edge.
-    <div className="py-2 pl-[52px]" data-testid="activity-run">
+    <div className="py-1" data-testid="activity-run">
       <ul>
         {bursts.map((b) => (
           <Burst key={b[0].id} items={b} />

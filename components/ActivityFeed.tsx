@@ -8,36 +8,50 @@ import { EventRun } from "@/components/poolside/EventRows";
 import { PositionSharingPrompt } from "@/components/PositionSharing";
 import { EmptyState, PageHeader } from "@/components/EmptyState";
 import { onSessionChanged, requestSignIn } from "@/lib/session-events";
-import type {
-  ActivityFallback,
-  ActivityItem,
-  ActivityResponse,
-  ActivityScope,
-  FeedFilter,
-  FeedItem,
-} from "@/lib/activity-types";
+import { EVENT_GROUPS, isEventGroup, type ActivityFallback, type ActivityItem, type ActivityResponse, type ActivityScope, type EventGroup, type FeedItem } from "@/lib/activity-types";
 import type { ThesisPost } from "@/lib/thesis-types";
 
 const PAGE_SIZE = 25;
 
-type Block = { type: "post"; key: string; post: ThesisPost } | { type: "run"; key: string; items: ActivityItem[] };
+type Tab = "theses" | "activity";
 
-/** Posts stay full cards; consecutive events collapse into one compact run. */
-function toBlocks(items: FeedItem[]): Block[] {
-  const out: Block[] = [];
-  for (const it of items) {
-    if (it.type === "post") {
-      out.push({ type: "post", key: it.key, post: it.post });
-    } else {
-      const last = out[out.length - 1];
-      if (last && last.type === "run") last.items.push(it.event);
-      else out.push({ type: "run", key: `run:${it.key}`, items: [it.event] });
-    }
+const GROUPS_KEY = "poolside.groups";
+const ALL_GROUPS: EventGroup[] = EVENT_GROUPS.map((g) => g.value);
+
+/** "Today", "Yesterday", then "Mon, Sep 29": headers for the Activity list. */
+function dayLabel(iso: string): string {
+  const d = new Date(iso);
+  const today = new Date();
+  const startOf = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diff = Math.round((startOf(today) - startOf(d)) / 86_400_000);
+  if (diff === 0) return "Today";
+  if (diff === 1) return "Yesterday";
+  return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+}
+
+function byDay(events: ActivityItem[]): { label: string; items: ActivityItem[] }[] {
+  const out: { label: string; items: ActivityItem[] }[] = [];
+  for (const e of events) {
+    const label = dayLabel(e.occurredAt);
+    const last = out[out.length - 1];
+    if (last && last.label === label) last.items.push(e);
+    else out.push({ label, items: [e] });
   }
   return out;
 }
 
-/** Underline tabs (scope) or a segmented toggle (filter); same components as the leaderboard. */
+function readGroups(): EventGroup[] {
+  try {
+    const raw = window.localStorage.getItem(GROUPS_KEY);
+    if (!raw) return ALL_GROUPS;
+    const list = (JSON.parse(raw) as unknown[]).filter((v): v is EventGroup => typeof v === "string" && isEventGroup(v));
+    return list.length ? list : ALL_GROUPS;
+  } catch {
+    return ALL_GROUPS;
+  }
+}
+
+/** Underline tabs on the page's one hairline (Theses / Activity). */
 function Tabs<T extends string>({ value, options, onChange, label }: { value: T; options: { value: T; label: string }[]; onChange: (v: T) => void; label: string }) {
   return (
     <div role="tablist" aria-label={label} className="flex items-end gap-6">
@@ -60,7 +74,7 @@ function Tabs<T extends string>({ value, options, onChange, label }: { value: T;
 function FallbackNote({ fallback }: { fallback: ActivityFallback }) {
   if (fallback === "signed_out") {
     return (
-      <p className="px-4 py-3 text-base text-mute sm:px-5" data-testid="activity-fallback">
+      <p className="py-3 text-base text-mute" data-testid="activity-fallback">
         <button type="button" onClick={requestSignIn} className="link">
           Sign in
         </button>{" "}
@@ -70,7 +84,7 @@ function FallbackNote({ fallback }: { fallback: ActivityFallback }) {
   }
   if (fallback === "no_follows") {
     return (
-      <p className="px-4 py-3 text-base text-mute sm:px-5" data-testid="activity-fallback">
+      <p className="py-3 text-base text-mute" data-testid="activity-fallback">
         You&apos;re not following anyone yet, so this shows everyone.{" "}
         <Link href="/" className="link">
           Browse the leaderboard
@@ -86,7 +100,7 @@ function Skeleton() {
   return (
     <div aria-hidden data-testid="activity-loading">
       {Array.from({ length: 3 }, (_, i) => (
-        <div key={i} className="flex gap-3 border-b border-border px-4 py-4 last:border-b-0">
+        <div key={i} className="flex gap-3 py-5">
           <span className="skeleton h-10 w-10 shrink-0 rounded-full" />
           <div className="flex-1 space-y-2">
             <span className="skeleton block h-3.5 w-40" />
@@ -101,8 +115,10 @@ function Skeleton() {
 }
 
 export function ActivityFeed() {
+  const [tab, setTab] = useState<Tab>("theses");
   const [scope, setScope] = useState<ActivityScope>("everyone");
-  const [filter, setFilter] = useState<FeedFilter>("all");
+  // Event types the viewer wants in Activity; remembered on this device.
+  const [groups, setGroups] = useState<EventGroup[]>(ALL_GROUPS);
   const [items, setItems] = useState<FeedItem[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [shownScope, setShownScope] = useState<ActivityScope | null>(null);
@@ -112,21 +128,53 @@ export function ActivityFeed() {
   const [error, setError] = useState<string | null>(null);
   const reqId = useRef(0);
 
-  const fetchPage = useCallback(async (s: ActivityScope, f: FeedFilter, cursor: string | null): Promise<ActivityResponse> => {
-    const qs = new URLSearchParams({ scope: s, filter: f, limit: String(PAGE_SIZE) });
-    if (cursor) qs.set("cursor", cursor);
-    const res = await fetch(`/api/activity?${qs.toString()}`, { cache: "no-store" });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return (await res.json()) as ActivityResponse;
+  useEffect(() => {
+    setGroups(readGroups());
+    if (new URLSearchParams(window.location.search).get("tab") === "activity") setTab("activity");
   }, []);
 
+  const toggleGroup = (g: EventGroup) => {
+    setGroups((prev) => {
+      // Never all off: switching off the last one leaves it on.
+      const next = prev.includes(g) ? (prev.length > 1 ? prev.filter((x) => x !== g) : prev) : [...prev, g];
+      try {
+        window.localStorage.setItem(GROUPS_KEY, JSON.stringify(next));
+      } catch {
+        // per-device convenience only
+      }
+      return next;
+    });
+  };
+
+  const switchTab = (t: Tab) => {
+    setTab(t);
+    const url = new URL(window.location.href);
+    if (t === "activity") url.searchParams.set("tab", "activity");
+    else url.searchParams.delete("tab");
+    window.history.replaceState(null, "", url.pathname + url.search);
+  };
+
+  const groupsKey = groups.slice().sort().join(",");
+
+  const fetchPage = useCallback(
+    async (s: ActivityScope, t: Tab, cursor: string | null): Promise<ActivityResponse> => {
+      const qs = new URLSearchParams({ scope: s, filter: t === "theses" ? "posts" : "events", limit: String(PAGE_SIZE) });
+      if (t === "activity") qs.set("groups", groupsKey);
+      if (cursor) qs.set("cursor", cursor);
+      const res = await fetch(`/api/activity?${qs.toString()}`, { cache: "no-store" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return (await res.json()) as ActivityResponse;
+    },
+    [groupsKey]
+  );
+
   const loadFirst = useCallback(
-    async (s: ActivityScope, f: FeedFilter) => {
+    async (s: ActivityScope, t: Tab) => {
       const id = ++reqId.current;
       setLoading(true);
       setError(null);
       try {
-        const data = await fetchPage(s, f, null);
+        const data = await fetchPage(s, t, null);
         if (id !== reqId.current) return;
         setItems(data.items);
         setNextCursor(data.nextCursor);
@@ -145,17 +193,17 @@ export function ActivityFeed() {
   );
 
   useEffect(() => {
-    void loadFirst(scope, filter);
-  }, [scope, filter, loadFirst]);
+    void loadFirst(scope, tab);
+  }, [scope, tab, loadFirst]);
 
-  useEffect(() => onSessionChanged(() => void loadFirst(scope, filter)), [scope, filter, loadFirst]);
+  useEffect(() => onSessionChanged(() => void loadFirst(scope, tab)), [scope, tab, loadFirst]);
 
   const loadMore = async () => {
     if (!nextCursor || loadingMore || !shownScope) return;
     const id = reqId.current;
     setLoadingMore(true);
     try {
-      const data = await fetchPage(shownScope, filter, nextCursor);
+      const data = await fetchPage(shownScope, tab, nextCursor);
       if (id !== reqId.current) return;
       setItems((prev) => {
         const seen = new Set(prev.map((i) => i.key));
@@ -170,49 +218,83 @@ export function ActivityFeed() {
   };
 
   const onPosted = (post: ThesisPost) => {
+    if (tab !== "theses") return;
     const key = `post:${post.id}`;
     setItems((prev) => [{ type: "post", key, occurredAt: post.createdAt, post }, ...prev.filter((i) => i.key !== key)]);
   };
 
-  const blocks = useMemo(() => toBlocks(items), [items]);
+  const posts = useMemo(() => items.flatMap((i) => (i.type === "post" ? [i.post] : [])), [items]);
+  const days = useMemo(() => byDay(items.flatMap((i) => (i.type === "event" ? [i.event] : []))), [items]);
+
+  const empty =
+    tab === "theses"
+      ? {
+          title: "No theses yet",
+          body: shownScope === "following" ? "People you follow haven't posted a thesis yet." : "When LPs share why they're in a pool, it shows up here.",
+        }
+      : {
+          title: "Nothing here yet",
+          body:
+            shownScope === "following"
+              ? "No activity from people you follow with these filters."
+              : "Trades, follows, joins and badges show up here as they happen. Trades only appear for members who share them.",
+        };
 
   return (
     <section className="mx-auto w-full max-w-[680px] px-4 pb-10 pt-6 md:px-0">
-      <div className="mb-5">
-        <PageHeader title="Poolside" />
-      </div>
+      <PageHeader title="Poolside" />
 
-      <Composer onPosted={onPosted} />
-      <PositionSharingPrompt className="mt-4" />
-
-      <div className="mt-6 flex flex-wrap items-end justify-between gap-2 border-b border-border">
+      {/* Two views: Theses (posts) and Activity (what members do). Everyone / Following applies to both. */}
+      <div className="mt-5 flex flex-wrap items-end justify-between gap-x-4 gap-y-2 border-b border-border">
         <Tabs
-          label="Poolside scope"
-          value={scope}
-          onChange={setScope}
+          label="Poolside view"
+          value={tab}
+          onChange={switchTab}
           options={[
-            { value: "everyone", label: "Everyone" },
-            { value: "following", label: "Following" },
+            { value: "theses", label: "Theses" },
+            { value: "activity", label: "Activity" },
           ]}
         />
-        {/* Same underline tabs as the scope, on the same hairline: one control style per row. */}
-        <Tabs
-          label="Show"
-          value={filter}
-          onChange={setFilter}
-          options={[
-            { value: "all", label: "All" },
-            { value: "posts", label: "Posts" },
-          ]}
-        />
+        <div className="tgl pb-2" role="group" aria-label="Whose posts">
+          {(["everyone", "following"] as const).map((v) => (
+            <button key={v} type="button" aria-pressed={scope === v} onClick={() => setScope(v)} className="tgl-item">
+              {v === "everyone" ? "Everyone" : "Following"}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <div className="mt-1" data-testid="activity-feed">
-        {!loading && scope === "following" && shownScope === "everyone" && (
-          <div className="border-b border-border">
-            <FallbackNote fallback={fallback} />
+      {tab === "theses" ? (
+        <div className="mt-5">
+          <Composer onPosted={onPosted} />
+        </div>
+      ) : (
+        <>
+          <PositionSharingPrompt className="mt-5" />
+          {/* What to show: each type switches on and off; at least one stays on. */}
+          <div className="mt-5 flex flex-wrap items-center gap-2" role="group" aria-label="Show activity types" data-testid="activity-filters">
+            {EVENT_GROUPS.map((g) => {
+              const on = groups.includes(g.value);
+              return (
+                <button
+                  key={g.value}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => toggleGroup(g.value)}
+                  className={`h-7 rounded-full border px-3 text-sm font-semibold transition ${
+                    on ? "border-accent/50 bg-accent-tint text-fg" : "border-border text-mute hover:border-border-strong hover:text-fg"
+                  }`}
+                >
+                  {g.label}
+                </button>
+              );
+            })}
           </div>
-        )}
+        </>
+      )}
+
+      <div className="mt-2" data-testid="activity-feed">
+        {!loading && scope === "following" && shownScope === "everyone" && <FallbackNote fallback={fallback} />}
 
         {loading ? (
           <Skeleton />
@@ -221,45 +303,46 @@ export function ActivityFeed() {
             testId="activity-error"
             title={error}
             action={
-              <button type="button" onClick={() => void loadFirst(scope, filter)} className="btn-secondary">
+              <button type="button" onClick={() => void loadFirst(scope, tab)} className="btn-secondary">
                 Try again
               </button>
             }
           />
         ) : items.length === 0 ? (
-          <div className="px-6 py-10 text-center" data-testid="activity-empty">
-            <p className="text-md font-semibold text-fg">{filter === "posts" ? "No theses yet" : "Nothing here yet"}</p>
-            <p className="mx-auto mt-1 max-w-md text-base text-mute">
-              {shownScope === "following"
-                ? filter === "posts"
-                  ? "People you follow haven't posted a thesis yet."
-                  : "People you follow haven't posted or done anything new yet."
-                : filter === "posts"
-                  ? "When LPs share why they're in a pool, it shows up here."
-                  : "Theses, follows and badges show up here as they happen, plus opened and closed positions from members who choose to share them."}
-            </p>
-            {shownScope === "following" && (
-              <button type="button" onClick={() => setScope("everyone")} className="btn-secondary mt-4">
-                See everyone
-              </button>
-            )}
+          <EmptyState
+            testId="activity-empty"
+            title={empty.title}
+            action={
+              shownScope === "following" ? (
+                <button type="button" onClick={() => setScope("everyone")} className="btn-secondary">
+                  See everyone
+                </button>
+              ) : undefined
+            }
+          >
+            {empty.body}
+          </EmptyState>
+        ) : tab === "theses" ? (
+          <div className="divide-y divide-border">
+            {posts.map((post) => (
+              <div key={post.id} className="py-5">
+                <ThesisCard post={post} />
+              </div>
+            ))}
           </div>
         ) : (
-          <div className="divide-y divide-border">
-            {blocks.map((b) =>
-              b.type === "post" ? (
-                <div key={b.key} className="py-5">
-                  <ThesisCard post={b.post} />
-                </div>
-              ) : (
-                <EventRun key={b.key} items={b.items} />
-              )
-            )}
+          <div className="space-y-5 pt-3">
+            {days.map((d) => (
+              <div key={d.label}>
+                <h3 className="text-sm font-medium text-mute">{d.label}</h3>
+                <EventRun items={d.items} />
+              </div>
+            ))}
           </div>
         )}
 
         {!loading && nextCursor && (
-          <div className="border-t border-border p-2 text-center">
+          <div className="pt-2 text-center">
             <button type="button" onClick={() => void loadMore()} disabled={loadingMore} className="btn-ghost w-full" data-testid="activity-more">
               {loadingMore ? "Loading…" : "Show more"}
             </button>

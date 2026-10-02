@@ -10,8 +10,22 @@ export type EventKind = Exclude<ActivityKind, "thesis">;
 
 export type ActivityScope = "following" | "everyone";
 
-/** "posts" = theses only; "all" = theses plus compact activity rows. */
-export type FeedFilter = "all" | "posts";
+/** "posts" = theses only; "events" = activity rows only (Poolside's Activity tab); "all" = both. */
+export type FeedFilter = "all" | "posts" | "events";
+
+/** Activity filter groups on Poolside: what a viewer can switch on and off. */
+export type EventGroup = "trades" | "follows" | "joins" | "badges";
+
+export const EVENT_GROUPS: ReadonlyArray<{ value: EventGroup; label: string; kinds: readonly EventKind[] }> = [
+  { value: "trades", label: "Trades", kinds: ["opened", "closed", "big_win"] },
+  { value: "follows", label: "Follows", kinds: ["followed"] },
+  { value: "joins", label: "Joins", kinds: ["joined"] },
+  { value: "badges", label: "Badges", kinds: ["badge"] },
+];
+
+export function isEventGroup(v: string): v is EventGroup {
+  return EVENT_GROUPS.some((g) => g.value === v);
+}
 
 /** Why the server answered with a different scope than the one asked for. */
 export type ActivityFallback = "signed_out" | "no_follows" | null;

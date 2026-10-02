@@ -321,10 +321,15 @@ async function getEvents(ids: number[]): Promise<Map<number, ActivityItem>> {
 export async function listFeed(opts: {
   scope: ActivityScope;
   filter: FeedFilter;
+  /** Event kinds to include (already validated against EVENT_GROUPS); all kinds when omitted. */
+  kinds?: readonly string[];
   viewerId: number | null;
   cursor: FeedCursor | null;
   limit: number;
 }): Promise<{ items: FeedItem[]; nextCursor: string | null }> {
+  const allKinds = ["joined", "followed", "opened", "closed", "big_win", "badge"];
+  // Whitelisted strings only, so they can be inlined into the IN list.
+  const kinds = (opts.kinds ?? allKinds).filter((k) => allKinds.includes(k));
   const params: (string | number)[] = [];
   const add = (v: string | number) => {
     params.push(v);
@@ -347,7 +352,7 @@ export async function listFeed(opts: {
     FROM activity a
     JOIN users u ON u.id = a.actor_user_id AND u.joined_at IS NOT NULL
     LEFT JOIN users t ON t.id = a.target_user_id
-    WHERE a.kind IN ('joined', 'followed', 'opened', 'closed', 'big_win', 'badge')
+    WHERE a.kind IN (${(kinds.length ? kinds : ["none"]).map((k) => `'${k}'`).join(", ")})
       AND (a.kind <> 'followed' OR (t.joined_at IS NOT NULL AND EXISTS (
         SELECT 1 FROM follows f WHERE f.follower_user_id = a.actor_user_id AND f.followee_user_id = a.target_user_id)))
       AND ${positionShareSql("a", "u")}
@@ -355,7 +360,7 @@ export async function listFeed(opts: {
 
   const { rows } = await getPool().query<{ rank: number; id: number; ts_text: string }>(
     `SELECT rank, id, to_char(ts AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS ts_text
-     FROM (${posts}${opts.filter === "all" ? ` UNION ALL ${events}` : ""}) s
+     FROM (${opts.filter === "events" ? events : opts.filter === "posts" ? posts : `${posts} UNION ALL ${events}`}) s
      ORDER BY ts DESC, rank DESC, id DESC
      LIMIT ${limit}`,
     params
