@@ -28,7 +28,8 @@ interface AdminData {
 }
 
 export default function AdminPage() {
-  const { loading, wallet } = useMe();
+  // Signed-in user, not a connected wallet: wallets disconnect right after sign-in.
+  const { loading, userId, sessionChecked } = useMe();
   const router = useRouter();
   const [data, setData] = useState<AdminData | null>(null);
   const [loadingData, setLoadingData] = useState(true);
@@ -49,14 +50,14 @@ export default function AdminPage() {
   };
 
   useEffect(() => {
-    if (!loading && !wallet) {
+    if (!sessionChecked || loading) return;
+    if (!userId) {
       router.push("/");
       return;
     }
-    if (loading) return;
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, wallet, router]);
+  }, [loading, userId, sessionChecked, router]);
 
   const generateCodes = async () => {
     setGenerating(true);

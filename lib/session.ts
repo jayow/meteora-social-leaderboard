@@ -70,21 +70,23 @@ export function readSessionToken(token: string | undefined | null): string | nul
  * postdate its sessionsValidAfter (sign-out revokes every session). Legacy wallet sessions resolve
  * to the wallet's user. Takes the raw cookie value so middleware can use it too.
  */
-export async function sessionUserFromToken(token: string | undefined | null): Promise<{ id: number; joinedAt: Date | null } | null> {
+export async function sessionUserFromToken(
+  token: string | undefined | null
+): Promise<{ id: number; joinedAt: Date | null; lastSeenAt: Date | null } | null> {
   try {
     if (!token) return null;
     const userId = readUserSessionToken(token);
     const wallet = userId ? null : readSessionToken(token);
     if (!userId && !wallet) return null;
-    if (!hasDb()) return userId ? { id: userId, joinedAt: null } : null;
+    if (!hasDb()) return userId ? { id: userId, joinedAt: null, lastSeenAt: null } : null;
     const db = getDb();
-    const cols = { id: users.id, joinedAt: users.joinedAt, sessionsValidAfter: users.sessionsValidAfter };
+    const cols = { id: users.id, joinedAt: users.joinedAt, lastSeenAt: users.lastSeenAt, sessionsValidAfter: users.sessionsValidAfter };
     const [user] = userId
       ? await db.select(cols).from(users).where(eq(users.id, userId)).limit(1)
       : await db.select(cols).from(users).where(eq(users.wallet, wallet as string)).limit(1);
     if (!user) return null;
     if (user.sessionsValidAfter && issuedAtMs(token) < user.sessionsValidAfter.getTime()) return null;
-    return { id: user.id, joinedAt: user.joinedAt };
+    return { id: user.id, joinedAt: user.joinedAt, lastSeenAt: user.lastSeenAt };
   } catch {
     return null;
   }
@@ -98,6 +100,18 @@ export async function getSessionUserId(): Promise<number | null> {
   } catch {
     return null;
   }
+}
+
+const SEEN_EVERY_MS = 10 * 60 * 1000;
+
+/** Record activity for the stats, at most once per SEEN_EVERY_MS per user. Fire-and-forget. */
+export function markSeen(user: { id: number; lastSeenAt: Date | null }): void {
+  if (user.lastSeenAt && Date.now() - user.lastSeenAt.getTime() < SEEN_EVERY_MS) return;
+  void getDb()
+    .update(users)
+    .set({ lastSeenAt: new Date() })
+    .where(eq(users.id, user.id))
+    .catch(() => undefined);
 }
 
 /** Sign out everywhere: every session issued so far for this user stops working. */
