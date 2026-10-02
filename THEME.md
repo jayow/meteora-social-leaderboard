@@ -58,12 +58,12 @@ Sentence case everywhere. No `uppercase` or tracked-out labels (acronyms like DL
 | `field` | Text input / textarea / select: h-10, `surface-raised`, border, hover `border-strong`, accent focus ring. Use `h-9` in toolbars, `h-11` in forms, `h-auto py-2.5` for textareas. |
 | `chip` | 20px neutral pill (bin step, "You", status). |
 | `seg` + `seg-item` | Segmented toggle for compact in-card switches. Not for page-level nav or leaderboard controls (use `tgl`). Active item via `aria-pressed` / `aria-selected` / `aria-current`. |
-| `tgl` + `tgl-item` | Plain text toggle (Members/Countries, 7D/30D/All): 13px semibold `mute`, active item `fg` with a 2px accent underline. Active via `aria-pressed` / `aria-selected`. Separate groups with a 1px `h-4 w-px bg-border` rule. |
-| `tab` | Underline tab with an accent bar when `aria-selected` / `aria-pressed`. Sits on a `border-b` row. |
+| `tgl` + `tgl-item` | Plain text toggle (e.g. Members/Countries): 13px semibold `mute`, active item `fg` with a 2px accent underline. Active via `aria-pressed` / `aria-selected`. Separate groups with a 1px `h-4 w-px bg-border` rule. |
+| `tab` | Underline tab with an accent bar when `aria-selected` / `aria-pressed`. Sits on a `border-b` row (Poolside feed scope). |
 | `link` | Inline link in body copy: `fg`, semibold, quiet underline that brightens on hover. |
 | `skeleton` | Loading block (`surface-raised`, gentle pulse, off under reduced motion). Give it the final element's size so nothing jumps. |
 
-Components: `CountrySelect` (`plain` renders a borderless text control for filter rows), `PageHeader` and `EmptyState` (`components/EmptyState.tsx`) for page titles and empty/error/signed-out states; `Tag`, `binLabel()` ("Bin 80"), `Pills`, `StatTile` (`components/ui.tsx`); `Modal` + `ModalClose` (`components/Modal.tsx`) for every modal.
+Components: `BoardHeading`, `WordMenu` and `LiveStatus` (`components/BoardHeading.tsx`, see "Leaderboard heading" below); `CountrySelect` (`plain` renders a borderless text control for filter rows), `PageHeader` and `EmptyState` (`components/EmptyState.tsx`) for page titles and empty/error/signed-out states; `Tag`, `binLabel()` ("Bin 80"), `Pills`, `StatTile` (`components/ui.tsx`); `Modal` + `ModalClose` (`components/Modal.tsx`) for every modal.
 
 ## Buttons
 
@@ -88,6 +88,7 @@ Don't override font size, radius or colours with `!` classes.
 ## Patterns
 
 - Header: flush, `sticky top-0 border-b border-border bg-bg`, 60px. Wordmark left, plain text nav links (`text-mute hover:text-fg`; active `text-fg` with a 2px accent bar sitting on the hairline), account avatar + chevron right (name from lg). No pill containers. Phones keep the bottom tab bar.
+- Leaderboard heading (`BoardHeading`): the headline is the control. One sentence, `text-2xl md:text-3xl font-bold`, with a playful lead-in per metric followed by the metric word itself, so the plain name stays visible: "Biggest splashes by PnL", "Who's farming the most fees", "Making the most waves by volume", "Sharpest swimmers by win rate" (Countries view: "Countries making the biggest splashes by PnL", etc.), then "in 7 days / 30 days" or "of all time". The metric and range words are `WordMenu`s: `accent` text with a dotted accent underline and a small chevron. Each opens a small radio menu (`role="menu"` + `menuitemradio`; arrows, Home/End, Enter/Space, Esc/Tab return focus to the word). There's no separate tab row or range toggle. Under the headline: `LiveStatus` on the left (6px `up` dot + "Fresh from Meteora · 2m ago" in `text-sm text-mute`, from the newest snapshot), and quiet `tgl` / plain `CountrySelect` / Following controls on the right. Copy stays sentence case, pool-themed but not cheesy, no emoji.
 - Leaderboard list (members, countries): open list with hairline dividers (`LIST_ROW` in `components/RankMedal.tsx`: `border-b border-border hover:bg-surface`), no per-row boxes. Rank `text-sm text-mute`, name `font-medium text-fg`, metric `font-bold num` flush right. Own row: `bg-surface` + 2px accent left bar.
 - Other list rows (pools, LPs): `rounded-tile border border-border bg-surface px-3 py-2.5 sm:px-4 hover:border-border-strong`, whole row clickable via an overlay link.
 - Section header: `text-lg font-semibold`, optional count in `num font-medium text-mute` after the title.

@@ -12,8 +12,8 @@ import { LeaderboardHoverCard } from "@/components/LeaderboardHoverCard";
 import { CountryBoard } from "@/components/CountryBoard";
 import { LIST_ROW, MedalPin, MedalRing, PODIUM_GRID, PODIUM_LIFT, PODIUM_SLOT, PODIUM_STACK_ORDER, PODIUM_WRAP, PodiumSkeleton, isMedalRank, listWrap, type MedalRank } from "@/components/RankMedal";
 import { useMe } from "@/components/MeProvider";
-import { EmptyState, PageHeader } from "@/components/EmptyState";
-import { HeadingHybrid, HeadingSentence, HeadingWords, Sep, isHeadingVariant } from "@/components/BoardHeading";
+import { EmptyState } from "@/components/EmptyState";
+import { BoardHeading, Sep } from "@/components/BoardHeading";
 import { displayName, fmtPct, fmtUsd } from "@/lib/format";
 import { applyFollowChange, onFollowChanged } from "@/lib/session-events";
 import { isCountryCode } from "@/lib/countries";
@@ -21,11 +21,6 @@ import { isCountryCode } from "@/lib/countries";
 type Range = "7d" | "30d" | "all";
 type Metric = "pnl" | "fees" | "volume" | "winrate";
 
-const RANGE_TEXT: Record<Range, string> = {
-  "7d": "Last 7 days",
-  "30d": "Last 30 days",
-  all: "All time",
-};
 const RANGE_SHORT: Record<Range, string> = {
   "7d": "7D",
   "30d": "30D",
@@ -310,30 +305,13 @@ function LeaderboardBoard() {
   const twoCols = rest.length >= 6;
   const rowsPerCol = twoCols ? Math.ceil(rest.length / 2) : rest.length;
 
-  // Round 3 heading exploration: ?hv=a|a-plain|b|c picks a variant; no param keeps the current heading.
-  const hvParam = searchParams.get("hv");
-  const hv = isHeadingVariant(hvParam) ? hvParam : null;
+  // "Fresh from Meteora · 2m ago": the newest snapshot on this board.
   const updatedAt = useMemo(() => allEntries.reduce<string | null>((m, e) => (e.updatedAt && (!m || e.updatedAt > m) ? e.updatedAt : m), null), [allEntries]);
   const viewToggle = (
     <div className="tgl" role="group" aria-label="Rank" data-testid="view-toggle">
       {(["members", "countries"] as const).map((v) => (
         <button key={v} type="button" aria-pressed={view === v} onClick={() => setView(v)} className="tgl-item">
           {v === "members" ? "Members" : "Countries"}
-        </button>
-      ))}
-    </div>
-  );
-  const rangeToggle = (
-    <div className="tgl" role="group" aria-label="Range">
-      {(
-        [
-          { value: "7d", label: "7D" },
-          { value: "30d", label: "30D" },
-          { value: "all", label: "All" },
-        ] as const
-      ).map((o) => (
-        <button key={o.value} type="button" aria-pressed={range === o.value} onClick={() => setRange(o.value)} className="tgl-item">
-          {o.label}
         </button>
       ))}
     </div>
@@ -375,100 +353,20 @@ function LeaderboardBoard() {
         )}
       </>
     ) : null;
-  const headingProps = { view, metric, range, onMetric: setMetric, onRange: setRange, updatedAt, viewToggle, rangeToggle, filters: quietFilters, testId: "board-heading" };
 
   return (
     <main className="mx-auto max-w-[1320px] px-4 pb-10 pt-6 lg:px-6">
-      {hv === "a" || hv === "a-plain" ? (
-        <HeadingSentence {...headingProps} playful={hv === "a"} />
-      ) : hv === "b" ? (
-        <HeadingWords {...headingProps} />
-      ) : hv === "c" ? (
-        <HeadingHybrid {...headingProps} />
-      ) : (
-        <>
-          <PageHeader
-            testId="board-heading"
-            title={<>Top {view === "countries" ? "countries" : "LPs"} by {metricInfo.heading}</>}
-            description={`${RANGE_TEXT[range]} · live data from Meteora`}
-          >
-            {/* Phones: the Members / Countries switch gets its own full-width row; range + country share the
-                next one (the country name truncates). From sm everything sits on one line. */}
-            {/* Plain text controls, no pill groups: which board, which range, which country. */}
-            <div className="flex w-full flex-wrap items-center gap-x-6 gap-y-2 sm:w-auto sm:flex-nowrap" data-testid="board-filters">
-              <div className="tgl" role="group" aria-label="Rank" data-testid="view-toggle">
-                {(["members", "countries"] as const).map((v) => (
-                  <button key={v} type="button" aria-pressed={view === v} onClick={() => setView(v)} className="tgl-item">
-                    {v === "members" ? "Members" : "Countries"}
-                  </button>
-                ))}
-              </div>
-              <span className="hidden h-4 w-px bg-border sm:block" aria-hidden="true" />
-              <div className="tgl" role="group" aria-label="Range">
-                {(
-                  [
-                    { value: "7d", label: "7D" },
-                    { value: "30d", label: "30D" },
-                    { value: "all", label: "All" },
-                  ] as const
-                ).map((o) => (
-                  <button key={o.value} type="button" aria-pressed={range === o.value} onClick={() => setRange(o.value)} className="tgl-item">
-                    {o.label}
-                  </button>
-                ))}
-              </div>
-              {view === "members" && (
-                <>
-                  <span className="hidden h-4 w-px bg-border sm:block" aria-hidden="true" />
-                  <CountrySelect value={country} onChange={onCountryChange} allLabel="Global" membersOnly plain className="min-w-0 max-w-[200px]" />
-                </>
-              )}
-            </div>
-          </PageHeader>
-
-          {/* Which leaderboard: each metric re-ranks the board server-side. */}
-          <div className="mt-6 flex items-end justify-between gap-3 border-b border-border">
-            <div role="tablist" aria-label="Leaderboard" className="no-scrollbar flex min-w-0 gap-6 overflow-x-auto">
-              {METRICS.map((m) => (
-                <button
-                  key={m.value}
-                  type="button"
-                  role="tab"
-                  aria-selected={metric === m.value}
-                  onClick={() => setMetric(m.value)}
-                  className="tab shrink-0"
-                >
-                  {m.label}
-                </button>
-              ))}
-            </div>
-            {verified && view === "members" && (
-              <button
-                type="button"
-                aria-pressed={who === "following"}
-                onClick={() => setWho((w) => (w === "following" ? "all" : "following"))}
-                className="group mb-2 flex h-7 shrink-0 items-center gap-2 rounded-tag text-base font-semibold text-mute transition hover:text-fg aria-pressed:text-fg"
-                data-testid="following-toggle"
-              >
-                {/* A small check box rather than a pill: it filters the board, it isn't another tab. */}
-                <span
-                  className={`flex h-3.5 w-3.5 items-center justify-center rounded-[4px] border transition ${
-                    who === "following" ? "border-accent bg-accent text-accent-fg" : "border-border-strong group-hover:border-mute"
-                  }`}
-                  aria-hidden="true"
-                >
-                  {who === "following" && (
-                    <svg viewBox="0 0 12 12" className="h-2.5 w-2.5" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M2.5 6.2l2.2 2.3 4.8-5" />
-                    </svg>
-                  )}
-                </span>
-                Following
-              </button>
-            )}
-          </div>
-        </>
-      )}
+      <BoardHeading
+        view={view}
+        metric={metric}
+        range={range}
+        onMetric={setMetric}
+        onRange={setRange}
+        updatedAt={updatedAt}
+        viewToggle={viewToggle}
+        filters={quietFilters}
+        testId="board-heading"
+      />
 
       {/* Members who aren't on the board yet (first sync pending). Sign in / join live in the header. */}
       {view === "members" && !loading && isMember && !mine && !followingOnly && (

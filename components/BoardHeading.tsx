@@ -1,19 +1,14 @@
 "use client";
 
 /**
- * Leaderboard heading variants (round 3 exploration, picked via ?hv=a|a-plain|b|c on the board).
- * - A: the headline is the control. A sentence whose metric and range words open small menus.
- * - B: a small "Top LPs by" with the metrics as large inline words, range and filters on one baseline.
- * - C: playful sentence with the metric menu; range as quiet text toggles on the status line.
+ * Leaderboard heading: the headline is the control. One playful sentence ("Biggest splashes by PnL in
+ * 30 days") whose metric and range words open small radio menus, a quiet live status under it, and the
+ * Members / Countries, country and Following controls on the right.
  */
 
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { timeAgo } from "@/lib/format";
-
-export type HeadingVariant = "a" | "a-plain" | "b" | "c";
-export const HEADING_VARIANTS: readonly HeadingVariant[] = ["a", "a-plain", "b", "c"];
-export const isHeadingVariant = (v: string | null): v is HeadingVariant => v !== null && (HEADING_VARIANTS as readonly string[]).includes(v);
 
 export type BoardRange = "7d" | "30d" | "all";
 export type BoardMetric = "pnl" | "fees" | "volume" | "winrate";
@@ -55,12 +50,6 @@ const PLAYFUL: Record<BoardView, Record<BoardMetric, string>> = {
     winrate: "Countries with the sharpest swimmers by",
   },
 };
-
-/** Plain sentence for screen readers and the document (no menu chrome). */
-export function headingText(view: BoardView, metric: BoardMetric, range: BoardRange, playful: boolean): string {
-  const lead = playful ? PLAYFUL[view][metric] : `Top ${view === "countries" ? "countries" : "LPs"} by`;
-  return `${lead} ${METRIC_WORD[metric]} ${range === "all" ? "of" : playful ? "in" : "over"} ${RANGE_WORD[range]}`;
-}
 
 /* -------------------------------------------------------------------------------------------------- */
 
@@ -252,19 +241,16 @@ interface HeadingProps {
   viewToggle: ReactNode;
   /** Country filter + Following (members only; may be null). */
   filters: ReactNode;
-  /** The 7D / 30D / All text toggle (variants B and C). */
-  rangeToggle: ReactNode;
   testId?: string;
 }
 
-/** A: one sentence; metric and range are menu words inside it. */
-export function HeadingSentence({ playful, ...p }: HeadingProps & { playful: boolean }) {
-  const lead = playful ? PLAYFUL[p.view][p.metric] : `Top ${p.view === "countries" ? "countries" : "LPs"} by`;
-  const joiner = p.range === "all" ? "of" : playful ? "in" : "over";
+/** The heading: one sentence; metric and range are menu words inside it ("of all time", otherwise "in"). */
+export function BoardHeading(p: HeadingProps) {
+  const joiner = p.range === "all" ? "of" : "in";
   return (
-    <div data-testid="heading-variant-a">
+    <div>
       <h1 className="max-w-[22ch] text-2xl font-bold leading-[1.15] tracking-tight text-fg [text-wrap:balance] md:max-w-none md:text-3xl" data-testid={p.testId}>
-        {lead}{" "}
+        {PLAYFUL[p.view][p.metric]}{" "}
         <WordMenu value={p.metric} options={METRIC_OPTIONS} onChange={p.onMetric} menuLabel="Rank by" testId="metric-word">
           {METRIC_WORD[p.metric]}
         </WordMenu>{" "}
@@ -275,70 +261,6 @@ export function HeadingSentence({ playful, ...p }: HeadingProps & { playful: boo
       </h1>
       <div className="mt-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
         <LiveStatus updatedAt={p.updatedAt} />
-        <div className="flex min-w-0 flex-wrap items-center gap-x-5 gap-y-2" data-testid="board-filters">
-          {p.viewToggle}
-          {p.filters}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/** B: small lead-in (with the live status on the same line), big inline metric words, controls on their baseline. */
-export function HeadingWords(p: HeadingProps) {
-  return (
-    <div data-testid="heading-variant-b">
-      <h1 className="sr-only" data-testid={p.testId}>
-        {headingText(p.view, p.metric, p.range, false)}
-      </h1>
-      <div className="flex items-center justify-between gap-4">
-        <span className="text-md font-semibold text-mute" aria-hidden="true">
-          Top {p.view === "countries" ? "countries" : "LPs"} by
-        </span>
-        <LiveStatus updatedAt={p.updatedAt} />
-      </div>
-      <div className="mt-1.5 flex flex-wrap items-end justify-between gap-x-8 gap-y-3">
-        <div role="group" aria-label="Rank by" className="flex flex-wrap items-baseline gap-x-5 gap-y-1">
-          {METRIC_OPTIONS.map((o) => (
-            <button
-              key={o.value}
-              type="button"
-              aria-pressed={p.metric === o.value}
-              onClick={() => p.onMetric(o.value)}
-              className="whitespace-nowrap rounded-tag text-xl font-bold tracking-tight text-mute transition-colors hover:text-fg-secondary aria-pressed:text-fg sm:text-2xl"
-            >
-              {o.label}
-            </button>
-          ))}
-        </div>
-        <div className="flex min-w-0 flex-wrap items-center gap-x-5 gap-y-2 pb-0.5" data-testid="board-filters">
-          {p.rangeToggle}
-          <Sep />
-          {p.viewToggle}
-          {p.filters}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/** C: playful sentence with the metric menu; range is a one-tap text toggle on the status line. */
-export function HeadingHybrid(p: HeadingProps) {
-  return (
-    <div data-testid="heading-variant-c">
-      <h1 className="text-2xl font-bold leading-[1.15] tracking-tight text-fg [text-wrap:balance] md:text-3xl" data-testid={p.testId}>
-        {PLAYFUL[p.view][p.metric]}{" "}
-        <WordMenu value={p.metric} options={METRIC_OPTIONS} onChange={p.onMetric} menuLabel="Rank by" testId="metric-word">
-          {METRIC_WORD[p.metric]}
-        </WordMenu>
-        <span className="sr-only">, {RANGE_WORD[p.range]}</span>
-      </h1>
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-          {p.rangeToggle}
-          <Sep className="h-3.5" />
-          <LiveStatus updatedAt={p.updatedAt} />
-        </div>
         <div className="flex min-w-0 flex-wrap items-center gap-x-5 gap-y-2" data-testid="board-filters">
           {p.viewToggle}
           {p.filters}
