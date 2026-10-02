@@ -113,7 +113,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [signInOpen, setSignInOpen] = useState(false);
   const [signInStep, setSignInStep] = useState<SignInStep>("methods");
   const [menuOpen, setMenuOpen] = useState(false);
+  const [xError, setXError] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // A failed X sign-in lands on whatever page it started from with ?x=error&message=…; say so here
+  // (the signed-out views have nowhere else to show it), then drop the params from the URL.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("x") !== "error") return;
+    setXError(url.searchParams.get("message") || "unknown error");
+    url.searchParams.delete("x");
+    url.searchParams.delete("message");
+    window.history.replaceState(null, "", url.pathname + url.search);
+  }, []);
   const onBoard = pathname === "/";
   const onMe = pathname.startsWith("/profile");
   const onPools = pathname === "/pools" || pathname.startsWith("/pools/");
@@ -284,6 +296,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </header>
+
+      {xError && (
+        <div role="alert" className="mx-auto mt-4 flex max-w-[1320px] items-start justify-between gap-3 px-4 lg:px-6">
+          <p className="tile flex-1 border-dn/30 bg-dn/10 px-4 py-2.5 text-base text-fg">X sign-in failed: {xError}</p>
+          <button type="button" onClick={() => setXError(null)} className="btn-ghost shrink-0" aria-label="Dismiss">
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {children}
 

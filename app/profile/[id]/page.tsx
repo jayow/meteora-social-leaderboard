@@ -173,8 +173,8 @@ function Profile() {
   // Returning from X OAuth.
   useEffect(() => {
     const x = search.get("x");
-    if (!x) return;
-    if (x === "error") setXNotice(`X connection failed: ${search.get("message") || "unknown error"}`);
+    // Errors are shown by AppShell (also for signed-out visitors); this handles the success notice.
+    if (!x || x === "error") return;
     if (x === "connected") {
       fetch("/api/x/session")
         .then((r) => r.json() as Promise<{ profile: { username: string; name: string; avatarUrl: string } | null }>)

@@ -13,6 +13,12 @@ import { users } from "@/lib/db/schema";
 import { setSessionUserId, getSessionUserId } from "@/lib/session";
 import { TERMS_VERSION } from "@/lib/legal";
 
+/** Error redirect for a failed sign-in; logs the reason (never tokens) so failures show in the server logs. */
+function failRedirect(url: URL): NextResponse {
+  console.warn(`[x/callback] sign-in failed: ${url.searchParams.get("message") ?? "unknown"}`);
+  return NextResponse.redirect(url);
+}
+
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const { searchParams } = new URL(req.url);
   const callbackUrl = getCallbackUrl(req);
@@ -23,20 +29,20 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   if (error) {
     const errorDescription = searchParams.get("error_description") || error;
-    return NextResponse.redirect(
+    return failRedirect(
       new URL(`/profile/me?x=error&message=${encodeURIComponent(errorDescription)}`, baseUrl)
     );
   }
 
   if (!code || !state) {
-    return NextResponse.redirect(
+    return failRedirect(
       new URL("/profile/me?x=error&message=Missing+code+or+state", baseUrl)
     );
   }
 
   const validated = await validateOAuthState(state);
   if (!validated) {
-    return NextResponse.redirect(
+    return failRedirect(
       new URL("/profile/me?x=error&message=Invalid+state", baseUrl)
     );
   }
@@ -51,14 +57,14 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const tokenResult = await exchangeCodeForToken(code, verifier, callbackUrl);
   if (!tokenResult) {
-    return NextResponse.redirect(
+    return failRedirect(
       oauthReturnUrl(returnTo, "x=error&message=Token+exchange+failed", baseUrl)
     );
   }
 
   const profile = await fetchXProfile(tokenResult.accessToken);
   if (!profile) {
-    return NextResponse.redirect(
+    return failRedirect(
       oauthReturnUrl(returnTo, "x=error&message=Failed+to+fetch+profile", baseUrl)
     );
   }
@@ -87,7 +93,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         const existingUser = existingByXId || existingByHandle;
         
         if (existingUser && existingUser.id !== currentUserId) {
-          return NextResponse.redirect(
+          return failRedirect(
             oauthReturnUrl(returnTo, "x=error&message=This+X+account+is+already+linked+to+another+Pool+Party+account", baseUrl)
           );
         }
@@ -169,7 +175,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       await setSessionUserId(user.id);
     } catch (e) {
       console.error("Failed to create/update user:", e);
-      return NextResponse.redirect(
+      return failRedirect(
         oauthReturnUrl(returnTo, "x=error&message=Failed+to+save+profile", baseUrl)
       );
     }
