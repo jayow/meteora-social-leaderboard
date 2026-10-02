@@ -4,6 +4,7 @@ import { getDb, hasDb } from "@/lib/db";
 import { users, type UserRow } from "@/lib/db/schema";
 import { syncUser, type SyncResult } from "@/lib/sync";
 import { evaluatePodium } from "@/lib/badges/compute";
+import { recordDailyStats } from "@/lib/stats";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -210,6 +211,8 @@ async function handle(req: NextRequest): Promise<NextResponse> {
     if (hasDb()) {
       const podium = await evaluatePodium({ announce: true });
       summary.podium = { checked: podium.checked, awarded: podium.awarded.length };
+      // Daily stats history (admin): today's snapshot + this run's sync results.
+      await recordDailyStats({ synced: summary.synced, failed: summary.failed });
     }
     const body: RunSummary = { ...summary, errors: summary.errors.slice(0, MAX_ERRORS_IN_RESPONSE) };
     return NextResponse.json(body, { status: statusCode(summary), headers: { "Cache-Control": "no-store" } });

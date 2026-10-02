@@ -376,3 +376,17 @@ export const walletNonces = pgTable(
   },
   (t) => [index("wallet_nonces_expires_at_idx").on(t.expiresAt)]
 );
+
+/**
+ * One row per UTC day of admin stats (lib/stats.ts), rewritten by every sync-all run so the last
+ * write of the day is that day's value; sync counters add up over the day's runs.
+ */
+export const dailyStats = pgTable("daily_stats", {
+  date: date("date").primaryKey(),
+  /** AdminStats as of the latest run that day. */
+  stats: jsonb("stats").notNull(),
+  syncRuns: integer("sync_runs").notNull().default(0),
+  syncSynced: integer("sync_synced").notNull().default(0),
+  syncFailed: integer("sync_failed").notNull().default(0),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});

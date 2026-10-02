@@ -99,3 +99,43 @@ export async function getAdminStats(): Promise<AdminStats> {
     },
   };
 }
+
+/** One day of history: that day's last stats plus the day's sync totals. */
+export interface DailyStatsRow {
+  date: string;
+  stats: AdminStats;
+  sync: { runs: number; synced: number; failed: number };
+}
+
+/**
+ * Called by every sync-all run: rewrite today's (UTC) stats and add this run's sync results to
+ * today's counters. Best effort: never fails the sync.
+ */
+export async function recordDailyStats(run: { synced: number; failed: number }): Promise<void> {
+  try {
+    const stats = await getAdminStats();
+    await getPool().query(
+      `INSERT INTO daily_stats (date, stats, sync_runs, sync_synced, sync_failed, updated_at)
+       VALUES ((now() AT TIME ZONE 'UTC')::date, $1, 1, $2, $3, now())
+       ON CONFLICT (date) DO UPDATE SET
+         stats = EXCLUDED.stats,
+         sync_runs = daily_stats.sync_runs + 1,
+         sync_synced = daily_stats.sync_synced + EXCLUDED.sync_synced,
+         sync_failed = daily_stats.sync_failed + EXCLUDED.sync_failed,
+         updated_at = now()`,
+      [JSON.stringify(stats), run.synced, run.failed]
+    );
+  } catch (e) {
+    console.error("[stats] daily record failed:", e instanceof Error ? e.message : e);
+  }
+}
+
+/** The last `days` days of history, oldest first. */
+export async function getStatsHistory(days: number): Promise<DailyStatsRow[]> {
+  const { rows } = await getPool().query<{ date: string; stats: AdminStats; sync_runs: number; sync_synced: number; sync_failed: number }>(
+    `SELECT to_char(date, 'YYYY-MM-DD') AS date, stats, sync_runs, sync_synced, sync_failed
+     FROM daily_stats WHERE date > (now() AT TIME ZONE 'UTC')::date - $1::int ORDER BY date`,
+    [days]
+  );
+  return rows.map((r) => ({ date: r.date, stats: r.stats, sync: { runs: r.sync_runs, synced: r.sync_synced, failed: r.sync_failed } }));
+}

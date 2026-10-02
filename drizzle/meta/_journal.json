@@ -169,6 +169,13 @@
       "when": 1790941058504,
       "tag": "0023_last_seen",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1790941517184,
+      "tag": "0024_daily_stats",
+      "breakpoints": true
     }
   ]
 }
