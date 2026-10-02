@@ -13,13 +13,25 @@ const monthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).pad
 /** Meteora zero-fills every day, so "has data" means any non-zero PnL or a closed position. */
 const hasData = (days: DailyPnL[]) => days.some((d) => d.pnl !== 0 || d.positions > 0);
 /**
- * Short day value for narrow cells (phones, compact): no "+" (the tint and the "-" on losses carry the
- * sign), cents only under $10. The full value is in the cell's title and in the sm+ layout.
+ * Short day value for narrow cells (phones, compact): at most four figures and no "$" or sign (the
+ * cell's green / red tint carries it): 2.97, 10.05, 559, 2.34K, 12.3K, 100K, 1.2M. The full signed
+ * value is in the cell's title and in the sm+ layout.
  */
-function formatCell(n: number): string {
+export function formatCell(n: number): string {
   const abs = Math.abs(n);
-  const body = abs >= 1000 ? `$${(abs / 1000).toFixed(abs >= 10000 ? 0 : 1)}K` : `$${abs.toFixed(abs >= 10 ? 0 : 2)}`;
-  return `${n < 0 ? "\u2212" : ""}${body}`;
+  const trim = (v: number, digits: number) => String(Number(v.toFixed(digits)));
+  let body: string;
+  if (abs < 100) body = abs.toFixed(2);
+  else if (abs < 999.5) body = String(Math.round(abs));
+  else if (abs < 1e6) {
+    const k = abs / 1000;
+    // Rounding can carry into the next unit (999.6K -> 1M).
+    body = k >= 999.5 ? "1M" : `${trim(k, k < 10 ? 2 : k < 100 ? 1 : 0)}K`;
+  } else {
+    const m = abs / 1e6;
+    body = `${trim(m, m < 10 ? 2 : m < 100 ? 1 : 0)}M`;
+  }
+  return body;
 }
 /** formatUsd with a true minus sign: same width as "+" in tabular figures (a hyphen is narrower). */
 const signed = (n: number) => formatUsd(n, true).replace("-", "\u2212");

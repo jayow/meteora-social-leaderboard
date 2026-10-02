@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useWallet } from "@solana/wallet-adapter-react";
@@ -76,8 +76,12 @@ function Profile() {
   const [shareModalOpen, setShareModalOpen] = useState(false);
   // Owner settings (X, country, Poolside sharing) live in a modal so the public card stays a profile.
   const [editOpen, setEditOpen] = useState(() => search.get("connect") === "x");
+  const [bannerEditing, setBannerEditing] = useState(false);
   const [followList, setFollowList] = useState<FollowListKind | null>(null);
   const desktop = useIsDesktop();
+  const theses = useUserTheses(user?.id ?? null);
+  // Latest thesis per pool: shown on that pool's open-position row; the rest list under Theses.
+  const latestByPool = useMemo(() => latestThesisPerPool(theses.list), [theses.list]);
   const closeFollowList = useCallback(() => setFollowList(null), []);
 
   const load = useCallback(async (id: string) => {
@@ -311,7 +315,7 @@ function Profile() {
         {/* Identity, with the calendar under it on desktop so it reads at a glance. */}
         <div className="h-fit min-w-0 space-y-10">
         <section>
-          <ProfileBanner user={user} mine={mine} onUpdated={() => load(target!)} />
+          <ProfileBanner user={user} editing={bannerEditing} setEditing={setBannerEditing} onUpdated={() => load(target!)} />
           <div className="relative">
             <div className="relative -mt-12 flex items-end justify-between pl-4">
               <Avatar user={user} size={96} ring />
@@ -326,8 +330,15 @@ function Profile() {
                   </button>
                 )}
                 {mine && (
-                  <button type="button" onClick={() => setEditOpen(true)} className="btn-secondary shrink-0" data-testid="edit-profile">
-                    Edit profile
+                  <button
+                    type="button"
+                    onClick={() => setEditOpen((v) => !v)}
+                    aria-expanded={editOpen}
+                    aria-controls="edit-profile-panel"
+                    className="btn-secondary shrink-0"
+                    data-testid="edit-profile"
+                  >
+                    {editOpen ? "Done" : "Edit profile"}
                   </button>
                 )}
                 {!mine && <FollowButton targetUser={user} />}
@@ -355,6 +366,30 @@ function Profile() {
                     <span className="num font-semibold text-fg">{user.followingCount}</span> <span className="text-mute transition group-hover:text-fg">following</span>
                   </button>
                 )}
+              </div>
+            )}
+
+            {/* Editing opens in place, under the profile it changes, instead of a separate screen. */}
+            {mine && editOpen && (
+              <div id="edit-profile-panel" className="mt-6 border-t border-border pt-5" data-testid="edit-profile-panel">
+                <h2 className="text-md font-semibold">Edit profile</h2>
+                <div className="mt-3 flex items-center justify-between gap-3">
+                  <span className="text-base text-fg-secondary">Banner</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!me.verified) {
+                        window.location.href = `/api/x/login?returnTo=${encodeURIComponent(window.location.pathname + window.location.search)}`;
+                        return;
+                      }
+                      setBannerEditing(true);
+                    }}
+                    className="btn-secondary h-8 px-3"
+                  >
+                    {user.bannerUpdatedAt ? "Change banner" : "Add banner"}
+                  </button>
+                </div>
+                <OwnerControls user={user} focusX={search.get("connect") === "x"} onSaved={(u) => setUser(u)} />
               </div>
             )}
 
@@ -403,11 +438,11 @@ function Profile() {
             )}
           </section>
 
-          <OpenPositions userId={user.id} mine={mine} refreshKey={snap?.updatedAt ?? null} syncing={syncing} />
+          <OpenPositions userId={user.id} mine={mine} refreshKey={snap?.updatedAt ?? null} syncing={syncing} thesesByPool={latestByPool} />
 
           {!desktop && <CalendarCard userId={user.id} />}
 
-          <RecentTheses userId={user.id} />
+          <RecentTheses theses={theses} latest={latestByPool} />
         </div>
       </div>
 
@@ -419,15 +454,6 @@ function Profile() {
           initialRange={range}
           onClose={() => setShareModalOpen(false)}
         />
-      )}
-      {mine && editOpen && (
-        <Modal onClose={() => setEditOpen(false)} labelledBy="edit-profile-title" className="max-w-md p-6">
-          <ModalClose onClick={() => setEditOpen(false)} />
-          <h2 id="edit-profile-title" className="text-xl font-semibold">
-            Edit profile
-          </h2>
-          <OwnerControls user={user} focusX={search.get("connect") === "x"} onSaved={(u) => setUser(u)} />
-        </Modal>
       )}
       {followList && <FollowListModal key={`${user.id}-${followList}`} userId={user.id} kind={followList} onClose={closeFollowList} />}
     </main>
@@ -594,9 +620,9 @@ function OwnerControls({ user, focusX, onSaved }: { user: ApiUser; focusX: boole
   );
 }
 
-function ProfileBanner({ user, mine, onUpdated }: { user: ApiUser; mine: boolean; onUpdated: () => void }) {
+/** Profile banner; its uploader opens from the Edit profile section (`editing`). */
+function ProfileBanner({ user, editing, setEditing, onUpdated }: { user: ApiUser; editing: boolean; setEditing: (v: boolean) => void; onUpdated: () => void }) {
   const { verified } = useMe();
-  const [editing, setEditing] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -731,15 +757,6 @@ function ProfileBanner({ user, mine, onUpdated }: { user: ApiUser; mine: boolean
     }
   };
 
-  const handleEditClick = () => {
-    if (!verified) {
-      const currentPath = encodeURIComponent(window.location.pathname + window.location.search);
-      window.location.href = `/api/x/login?returnTo=${currentPath}`;
-      return;
-    }
-    setEditing(true);
-  };
-
   return (
     <>
       <div className="relative aspect-[3/1] max-h-36 w-full overflow-hidden rounded-tile">
@@ -747,19 +764,6 @@ function ProfileBanner({ user, mine, onUpdated }: { user: ApiUser; mine: boolean
           <img src={bannerUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
         ) : (
           <div className="absolute inset-0 bg-surface-raised" />
-        )}
-        {mine && (
-          <button
-            type="button"
-            onClick={handleEditClick}
-            className="btn-secondary absolute right-3 top-3 z-10 h-8 px-3"
-          >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-            {bannerUrl ? "Edit banner" : "Add banner"}
-          </button>
         )}
       </div>
 
@@ -1066,29 +1070,45 @@ function WalletsSection() {
 }
 
 
-function RecentTheses({ userId }: { userId: number }) {
-  const [theses, setTheses] = useState<ThesisPost[]>([]);
-  const [total, setTotal] = useState(0);
-  const [showAll, setShowAll] = useState(false);
-  const [loading, setLoading] = useState(true);
+interface UserTheses {
+  list: ThesisPost[];
+  total: number;
+  loading: boolean;
+}
 
+/** A member's recent theses (newest first), loaded once per profile. */
+function useUserTheses(userId: number | null): UserTheses {
+  const [state, setState] = useState<UserTheses>({ list: [], total: 0, loading: true });
   useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      try {
-        const res = await fetch(`/api/users/${userId}/theses`, { cache: "no-store" });
-        const data = (await res.json()) as { theses?: ThesisPost[]; total?: number };
-        setTheses(data.theses || []);
-        setTotal(data.total ?? data.theses?.length ?? 0);
-      } catch {
-        setTheses([]);
-        setTotal(0);
-      } finally {
-        setLoading(false);
-      }
+    if (userId == null) return;
+    let live = true;
+    setState((s) => ({ ...s, loading: true }));
+    fetch(`/api/users/${userId}/theses`, { cache: "no-store" })
+      .then((r) => r.json() as Promise<{ theses?: ThesisPost[]; total?: number }>)
+      .then((d) => live && setState({ list: d.theses || [], total: d.total ?? d.theses?.length ?? 0, loading: false }))
+      .catch(() => live && setState({ list: [], total: 0, loading: false }));
+    return () => {
+      live = false;
     };
-    load();
   }, [userId]);
+  return state;
+}
+
+/** Newest thesis for each pool (theses arrive newest first, so the first one per pool wins). */
+function latestThesisPerPool(list: ThesisPost[]): Map<string, ThesisPost> {
+  const out = new Map<string, ThesisPost>();
+  for (const t of list) if (t.pool && !out.has(t.pool.address)) out.set(t.pool.address, t);
+  return out;
+}
+
+/**
+ * Theses for pools the member has left (open pools show theirs on the position row), latest per pool.
+ */
+function RecentTheses({ theses: state, latest }: { theses: UserTheses; latest: Map<string, ThesisPost> }) {
+  const [showAll, setShowAll] = useState(false);
+  const { loading, total } = state;
+  // One per pool (untagged old theses kept as they are), minus pools still open.
+  const theses = state.list.filter((t) => (t.pool ? latest.get(t.pool.address)?.id === t.id && !t.authorInPool : true));
 
   const heading = (
     <h2 className="text-lg font-semibold text-fg">
@@ -1107,7 +1127,7 @@ function RecentTheses({ userId }: { userId: number }) {
     );
   }
 
-  if (theses.length === 0) {
+  if (total === 0) {
     return (
       <section>
         {heading}
@@ -1115,6 +1135,8 @@ function RecentTheses({ userId }: { userId: number }) {
       </section>
     );
   }
+  // Every thesis sits on an open position above: nothing left to list here.
+  if (theses.length === 0) return null;
 
   const shown = showAll ? theses : theses.slice(0, 3);
   return (

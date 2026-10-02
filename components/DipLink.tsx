@@ -7,7 +7,7 @@ export function DipLink({ poolAddress, protocol, className = "" }: { poolAddress
       href={meteoraPoolUrl(poolAddress, protocol)}
       target="_blank"
       rel="noopener noreferrer"
-      className={`relative z-10 shrink-0 whitespace-nowrap rounded-tag text-sm font-semibold text-mute transition hover:text-fg ${className}`}
+      className={`relative z-10 shrink-0 whitespace-nowrap rounded-tag text-sm font-semibold text-accent transition hover:text-accent-hover ${className}`}
     >
       Dip in ↗
     </a>

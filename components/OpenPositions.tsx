@@ -4,6 +4,7 @@ import { useEffect, useId, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { fmtPct, fmtPositions, fmtPrice, fmtUsd, pnlClass, timeAgo } from "@/lib/format";
 import { DipLink } from "@/components/DipLink";
+import type { ThesisPost } from "@/lib/thesis-types";
 import { binLabel } from "@/components/ui";
 import type { OpenPositionDetail } from "@/lib/db/schema";
 
@@ -54,6 +55,7 @@ export function OpenPositions({
   mine = false,
   refreshKey,
   syncing = false,
+  thesesByPool,
 }: {
   userId?: number;
   compact?: boolean;
@@ -61,6 +63,8 @@ export function OpenPositions({
   refreshKey?: string | null;
   /** A stats sync is running: rows without a liquidity shape yet show a loading placeholder. */
   syncing?: boolean;
+  /** The member's latest thesis per pool address, shown on that pool's row. */
+  thesesByPool?: Map<string, ThesisPost>;
 }) {
   const [data, setData] = useState<OpenPositionsData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -221,7 +225,7 @@ export function OpenPositions({
       {header}
       <div className="space-y-1">
         {visible.map((pool) => (
-          <PositionCard key={pool.poolAddress} pool={pool} open={open} panelId={`${panelBase}-${pool.poolAddress}`} syncing={syncing} />
+          <PositionCard key={pool.poolAddress} pool={pool} open={open} panelId={`${panelBase}-${pool.poolAddress}`} syncing={syncing} thesis={thesesByPool?.get(pool.poolAddress) ?? null} />
         ))}
       </div>
       {data.pools.length > INITIAL_POOLS && (
@@ -567,7 +571,7 @@ function hasPositionRows(pool: OpenPool): boolean {
   return (pool.positionCount || 1) > 1 && (pool.positions ?? []).length > 0;
 }
 
-function PositionCard({ pool, open, panelId, syncing = false }: { pool: OpenPool; open: boolean; panelId: string; syncing?: boolean }) {
+function PositionCard({ pool, open, panelId, syncing = false, thesis = null }: { pool: OpenPool; open: boolean; panelId: string; syncing?: boolean; thesis?: ThesisPost | null }) {
   const count = pool.positionCount || 1;
   const details = pool.positions ?? [];
   const pair = `${pool.tokenX}-${pool.tokenY}`;
@@ -628,6 +632,15 @@ function PositionCard({ pool, open, panelId, syncing = false }: { pool: OpenPool
         )}
       </div>
       </div>
+
+      {thesis && (
+        // The member's latest word on this pool, lined up with the pool name (past the token icons).
+        <p className="mt-3 line-clamp-2 text-base text-fg-secondary sm:ml-[68px] sm:mr-16" title={thesis.body} data-testid="position-thesis">
+          <span className="mr-1.5 text-sm font-medium text-mute">Thesis</span>
+          {thesis.body}
+          <span className="whitespace-nowrap text-sm text-mute"> · {timeAgo(thesis.createdAt)}</span>
+        </p>
+      )}
 
       {expandable && (
         // Above the overlay so clicks inside the list don't open the pool page.

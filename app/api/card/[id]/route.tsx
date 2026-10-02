@@ -1,8 +1,13 @@
+import { readFile } from "fs/promises";
+import path from "path";
 import { ImageResponse } from "next/og";
 import { NextRequest } from "next/server";
 import { findUser, latestSnapshot, toPublicSnapshot } from "@/lib/users";
+import { readOpenPositions } from "@/lib/open-positions";
 import { displayName, fmtUsd, fmtPct } from "@/lib/format";
 import { THEME } from "@/lib/theme";
+import { getPool } from "@/lib/db";
+import { HAS_DATA_SQL, boardOrderSql, type LeaderboardRange } from "@/lib/leaderboard-rank";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 600;
@@ -23,25 +28,76 @@ function requestOrigin(req: NextRequest): string {
   return req.nextUrl.origin;
 }
 
-async function getUserRank(origin: string, userId: number, range: string): Promise<number | null> {
+/**
+ * The member's PnL rank on this range's board, computed here with the leaderboard's own ordering
+ * (lib/leaderboard-rank.ts). Not fetched from /api/leaderboard: the beta gate turns that internal,
+ * cookie-less request away. Null when unranked (no Meteora activity yet) or on any error.
+ */
+async function getUserRank(userId: number, range: LeaderboardRange): Promise<number | null> {
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3000); // 3s timeout
-    
-    const res = await fetch(`${origin}/api/leaderboard?range=${range}&sort=pnl`, {
-      next: { revalidate: 600 },
-      signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
-    
-    if (!res.ok) return null;
-    const data = await res.json() as { entries: Array<{ id: number; rank: number }> };
-    const entry = data.entries.find((e) => e.id === userId);
-    return entry?.rank ?? null;
+    const { rows } = await getPool().query<{ pos: number; has_data: boolean }>(
+      `WITH latest AS (
+         SELECT DISTINCT ON (user_id) * FROM pnl_snapshots ORDER BY user_id, date DESC
+       ), ranked AS (
+         SELECT s.user_id, ${HAS_DATA_SQL} AS has_data, row_number() OVER (ORDER BY ${boardOrderSql(range, "pnl")}) AS pos
+         FROM latest s JOIN users u ON u.id = s.user_id
+         WHERE u.joined_at IS NOT NULL
+       )
+       SELECT pos::int AS pos, has_data FROM ranked WHERE user_id = $1`,
+      [userId]
+    );
+    const r = rows[0];
+    return r && r.has_data ? r.pos : null;
   } catch {
     return null;
   }
 }
+
+/** What the sharer chose to include (Share PnL checkboxes). PnL itself is always on the card. */
+const CARD_PARTS = ["name", "winrate", "fees", "volume", "rank", "pool", "shape"] as const;
+type CardPart = (typeof CARD_PARTS)[number];
+const DEFAULT_PARTS: CardPart[] = ["name", "winrate", "fees", "rank", "pool", "shape"];
+
+function parseParts(raw: string | null): Set<CardPart> {
+  if (raw === null) return new Set(DEFAULT_PARTS);
+  return new Set(raw.split(",").filter((p): p is CardPart => (CARD_PARTS as readonly string[]).includes(p)));
+}
+
+/** Inter, the app's typeface, read once per process from assets/fonts (OFL). */
+let fontsPromise: Promise<{ name: string; data: Buffer; weight: 500 | 600 | 700; style: "normal" }[]> | null = null;
+function interFonts() {
+  fontsPromise ??= Promise.all(
+    ([
+      ["Inter-Medium.ttf", 500],
+      ["Inter-SemiBold.ttf", 600],
+      ["Inter-Bold.ttf", 700],
+    ] as const).map(async ([file, weight]) => ({
+      name: "Inter",
+      data: await readFile(path.join(process.cwd(), "assets/fonts", file)),
+      weight,
+      style: "normal" as const,
+    }))
+  );
+  return fontsPromise;
+}
+
+/**
+ * Backdrop: the liquidity shape of the member's largest open pool (on-chain bars from the sync), drawn
+ * low across the card like the water line of a pool. Null when no position has a shape.
+ */
+async function poolBackdrop(userId: number): Promise<number[] | null> {
+  try {
+    const { pools } = await readOpenPositions(userId);
+    const top = pools[0];
+    const best = (top?.positions ?? []).filter((d) => d.shape && d.shape.bars.length > 0).sort((a, b) => b.valueUsd - a.valueUsd)[0];
+    return best?.shape?.bars ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Backdrop bars: accent at ~14% over the background, solid (the image has no transparency). */
+const BAR = "#2e1710";
 
 export async function GET(
   req: NextRequest,
@@ -50,92 +106,72 @@ export async function GET(
   try {
     const { id } = await ctx.params;
     const range = req.nextUrl.searchParams.get("range") || "30d";
-
     if (!["7d", "30d", "all"].includes(range)) {
       return new Response("Invalid range", { status: 400 });
     }
+    const parts = parseParts(req.nextUrl.searchParams.get("show"));
+    const has = (p: CardPart) => parts.has(p);
 
     const user = await findUser(decodeURIComponent(id));
     if (!user || !user.joinedAt) {
       return new Response("User not found", { status: 404 });
     }
-
     const snapRow = await latestSnapshot(user.id);
     if (!snapRow) {
       return new Response("No data available", { status: 404 });
     }
-
     const snap = toPublicSnapshot(snapRow);
 
-    // Same values and formatting as the profile page's Meteora stats card, so the two always agree.
-    const pnlMap: Record<string, number | null> = {
-      "7d": snap.pnl7d,
-      "30d": snap.pnl30d,
-      all: snap.totalPnlUsd,
-    };
-    const winRateMap: Record<string, number | null> = {
-      "7d": snap.winRate7d,
-      "30d": snap.winRate30d,
-      all: snap.winRate,
-    };
-
-    const pnl = pnlMap[range] ?? 0;
-    // The profile shows lifetime fees on "All" and 30D fees otherwise (7D fees aren't tracked per snapshot).
+    // Same values and formatting as the profile page's Portfolio section, so the two always agree.
+    const pnl = ({ "7d": snap.pnl7d, "30d": snap.pnl30d, all: snap.totalPnlUsd } as Record<string, number | null>)[range] ?? 0;
+    const winRate = ({ "7d": snap.winRate7d, "30d": snap.winRate30d, all: snap.winRate } as Record<string, number | null>)[range];
+    const volume = ({ "7d": snap.volume7dUsd, "30d": snap.volume30dUsd, all: snap.volumeUsd } as Record<string, number | null>)[range];
+    // Fees: lifetime on "All", 30 days otherwise (7-day fees aren't tracked per snapshot).
     const fees = range === "all" ? snap.feesUsd : snap.fees30dUsd;
-    const feesLabel = range === "all" ? "Fees Earned" : "Fees Earned (30D)";
-    const winRate = winRateMap[range];
-    const topPool = snap.topPool?.name || null;
+    const feesLabel = range === "7d" ? "Fees, 30 days" : "Fees earned";
+    const topPool = snap.topPool;
 
     const origin = requestOrigin(req);
-    const rank = await getUserRank(origin, user.id, range);
+    const [rank, bars, fonts] = await Promise.all([
+      has("rank") ? getUserRank(user.id, range as LeaderboardRange) : Promise.resolve(null),
+      has("shape") ? poolBackdrop(user.id) : Promise.resolve(null),
+      interFonts(),
+    ]);
 
-    const rangeLabel = range === "7d" ? "7D" : range === "30d" ? "30D" : "All-time";
+    const rangeLabel = range === "7d" ? "7-day PnL" : range === "30d" ? "30-day PnL" : "All-time PnL";
     const handle = displayName(user);
-    const avatar = user.xAvatarUrl
-      ? user.xAvatarUrl.replace("_normal", "_400x400")
-      : `https://api.dicebear.com/9.x/notionists/svg?seed=${user.id}`;
-
-    // Theme up/down colours (text-up / text-dn on the profile).
+    // X photo when there is one; otherwise the name's initial (remote SVG avatars don't render here).
+    const avatar = user.xAvatarUrl ? user.xAvatarUrl.replace("_normal", "_400x400") : null;
     const pnlColor = pnl >= 0 ? THEME.up : THEME.dn;
     const pnlText = fmtUsd(pnl, { signed: true, compact: false });
-    const pnlFontSize = pnlText.length > 12 ? 88 : pnlText.length > 10 ? 104 : 120;
+    const pnlFontSize = pnlText.length > 12 ? 104 : pnlText.length > 10 ? 120 : 136;
+
+    const stats: { label: string; value: string; color: string }[] = [];
+    if (has("winrate")) stats.push({ label: "Win rate", value: fmtPct(winRate, 1), color: THEME.fg });
+    if (has("fees")) stats.push({ label: feesLabel, value: fmtUsd(fees), color: THEME.up });
+    if (has("volume")) stats.push({ label: "Volume", value: fmtUsd(volume), color: THEME.fg });
+    if (has("rank") && rank) stats.push({ label: "Leaderboard", value: `#${rank}`, color: THEME.fg });
 
     return new ImageResponse(
       (
-        <div
-          style={{
-            width: "100%",
-            height: "100%",
-            display: "flex",
-            flexDirection: "column",
-            backgroundColor: THEME.bg,
-            padding: "60px",
-            fontFamily: "system-ui, -apple-system, sans-serif",
-            fontWeight: 600,
-          }}
-        >
-          {/* Header: Logo + Handle */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              marginBottom: "40px",
-            }}
-          >
-            {/* Logo */}
-            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              <img
-                src={`${origin}/logo-mark.svg`}
-                width="38"
-                height="33"
-                alt="Pool Party"
-                style={{ flexShrink: 0 }}
-              />
+        <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", position: "relative", backgroundColor: THEME.bg, padding: "56px 64px", fontFamily: "Inter", color: THEME.fg }}>
+          {/* Backdrop: the top pool's liquidity shape, rising from the bottom right beside the figure. */}
+          {bars && (
+            <div style={{ position: "absolute", right: 64, bottom: 0, width: 440, height: 320, display: "flex", alignItems: "flex-end", gap: 4 }}>
+              {bars.map((h, i) => (
+                <div key={i} style={{ flex: 1, height: `${Math.max(h, h > 0 ? 6 : 0)}%`, backgroundColor: BAR, borderRadius: "2px 2px 0 0" }} />
+              ))}
+            </div>
+          )}
+
+          {/* Header: wordmark, then who */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <img src={`${origin}/logo-mark.svg`} width="40" height="35" alt="" />
               <svg
-                width="120"
-                height="40"
-                viewBox="0 0 302 64"
+                width="162"
+                height="44"
+                viewBox="84 14 216 44"
                 fill="none"
                 xmlns="http://www.w3.org/2000/svg"
               >
@@ -157,7 +193,7 @@ export async function GET(
                 />
                 <path
                   d="M192.04 55.68Q189.87 55.68 188.7 54.51Q187.54 53.35 187.54 51.14V30.2Q187.54 28 188.68 26.83Q189.83 25.66 191.95 25.66Q194.11 25.66 195.26 26.83Q196.4 28 196.4 30.2V32.19L195.93 29.6Q196.53 27.83 198.41 26.7Q200.3 25.58 202.63 25.58Q205.36 25.58 207.46 26.92Q209.55 28.26 210.74 30.77Q211.93 33.28 211.93 36.78Q211.93 40.24 210.74 42.77Q209.55 45.3 207.46 46.64Q205.36 47.98 202.63 47.98Q200.38 47.98 198.52 46.94Q196.66 45.91 196.01 44.31H196.53V51.14Q196.53 53.35 195.37 54.51Q194.2 55.68 192.04 55.68ZM199.65 41.41Q200.6 41.41 201.31 40.95Q202.03 40.5 202.46 39.48Q202.89 38.47 202.89 36.78Q202.89 34.23 201.96 33.19Q201.03 32.15 199.65 32.15Q198.74 32.15 198 32.61Q197.27 33.06 196.84 34.05Q196.4 35.05 196.4 36.78Q196.4 39.33 197.33 40.37Q198.26 41.41 199.65 41.41Z"
-                  fill={THEME.fg}
+                  fill={THEME.accent}
                 />
                 <path
                   d="M221.66 47.98Q219.11 47.98 217.17 47.05Q215.22 46.12 214.14 44.5Q213.06 42.88 213.06 40.8Q213.06 38.47 214.27 37.13Q215.48 35.78 218.16 35.2Q220.84 34.62 225.21 34.62H227.72V38.55H225.17Q224.04 38.55 223.24 38.79Q222.44 39.03 222.01 39.44Q221.58 39.85 221.58 40.46Q221.58 41.23 222.12 41.73Q222.66 42.23 223.78 42.23Q224.65 42.23 225.34 41.86Q226.03 41.49 226.47 40.82Q226.9 40.15 226.9 39.25V34.23Q226.9 32.97 226.21 32.52Q225.51 32.06 223.74 32.06Q222.79 32.06 221.6 32.26Q220.41 32.45 218.77 32.97Q217.43 33.41 216.47 33.04Q215.52 32.67 215.02 31.85Q214.53 31.03 214.55 30.03Q214.57 29.04 215.22 28.15Q215.87 27.26 217.21 26.79Q219.28 26.05 221.02 25.81Q222.75 25.58 224.17 25.58Q227.98 25.58 230.44 26.64Q232.91 27.7 234.14 29.9Q235.38 32.11 235.38 35.53V43.35Q235.38 45.56 234.32 46.73Q233.26 47.9 231.22 47.9Q229.19 47.9 228.11 46.73Q227.03 45.56 227.03 43.35V42.79L227.24 43.7Q227.07 45 226.34 45.95Q225.6 46.9 224.41 47.44Q223.22 47.98 221.66 47.98Z"
@@ -177,187 +213,49 @@ export async function GET(
                 />
               </svg>
             </div>
-            {/* Avatar + Handle */}
-            <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-              <div
-                style={{
-                  display: "flex",
-                  fontSize: "28px",
-                  fontWeight: 700,
-                  color: THEME.fg,
-                  letterSpacing: "-0.02em",
-                }}
-              >
-                {handle}
-              </div>
-              <img
-                src={avatar}
-                width="64"
-                height="64"
-                alt={`${handle} avatar`}
-                style={{
-                  borderRadius: "50%",
-                  border: `3px solid ${THEME.borderStrong}`,
-                }}
-              />
-            </div>
-          </div>
-
-          {/* Main PnL Display */}
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              flex: 1,
-              justifyContent: "center",
-              marginBottom: "40px",
-            }}
-          >
-            <div
-              style={{
-                fontSize: "24px",
-                fontWeight: 600,
-                color: THEME.mute,
-                marginBottom: "16px",
-                letterSpacing: "0.05em",
-                textTransform: "uppercase",
-              }}
-            >
-              {`${rangeLabel} PnL`}
-            </div>
-            <div
-              style={{
-                fontSize: `${pnlFontSize}px`,
-                fontWeight: 900,
-                color: pnlColor,
-                lineHeight: 1,
-                letterSpacing: "-0.03em",
-              }}
-            >
-              {pnlText}
-            </div>
-          </div>
-
-          {/* Stats Grid */}
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              gap: "20px",
-              marginBottom: "40px",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                flex: 1,
-                backgroundColor: THEME.surfaceRaised,
-                borderRadius: "16px",
-                padding: "20px",
-                border: `1px solid ${THEME.border}`,
-              }}
-            >
-              <div style={{ fontSize: "16px", color: THEME.mute, marginBottom: "8px" }}>
-                Win Rate
-              </div>
-              <div style={{ fontSize: "36px", fontWeight: 800, color: THEME.fg }}>
-                {fmtPct(winRate, 1)}
-              </div>
-            </div>
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                flex: 1,
-                backgroundColor: THEME.surfaceRaised,
-                borderRadius: "16px",
-                padding: "20px",
-                border: `1px solid ${THEME.border}`,
-              }}
-            >
-              <div style={{ fontSize: "16px", color: THEME.mute, marginBottom: "8px" }}>
-                {feesLabel}
-              </div>
-              <div
-                style={{ fontSize: "36px", fontWeight: 800, color: THEME.up }}
-              >
-                {fmtUsd(fees)}
-              </div>
-            </div>
-            {rank && (
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  flex: 1,
-                  backgroundColor: THEME.surfaceRaised,
-                  borderRadius: "16px",
-                  padding: "20px",
-                  border: `1px solid ${THEME.border}`,
-                }}
-              >
-                <div style={{ fontSize: "16px", color: THEME.mute, marginBottom: "8px" }}>
-                  Rank
-                </div>
-                <div
-                  style={{ fontSize: "36px", fontWeight: 800, color: THEME.fg }}
-                >
-                  {`#${rank}`}
-                </div>
-              </div>
-            )}
-            {topPool && (
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  flex: 1,
-                  backgroundColor: THEME.surfaceRaised,
-                  borderRadius: "16px",
-                  padding: "20px",
-                  border: `1px solid ${THEME.border}`,
-                }}
-              >
-                <div style={{ fontSize: "16px", color: THEME.mute, marginBottom: "8px" }}>
-                  Top Pool (30D)
-                </div>
-                <div
-                  style={{
-                    fontSize: "24px",
-                    fontWeight: 700,
-                    color: THEME.fg,
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {topPool}
-                </div>
+            {has("name") && (
+              <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                <div style={{ display: "flex", fontSize: 28, fontWeight: 600 }}>{handle}</div>
+                {avatar ? (
+                  <img src={avatar} width="60" height="60" alt="" style={{ borderRadius: 999, border: `2px solid ${THEME.borderStrong}` }} />
+                ) : (
+                  <div style={{ display: "flex", width: 60, height: 60, borderRadius: 999, alignItems: "center", justifyContent: "center", backgroundColor: THEME.surfaceRaised, border: `2px solid ${THEME.borderStrong}`, fontSize: 26, fontWeight: 600, color: THEME.fgSecondary }}>
+                    {handle.replace(/^@/, "").slice(0, 1).toUpperCase()}
+                  </div>
+                )}
               </div>
             )}
           </div>
 
-          {/* Footer */}
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "center",
-              fontSize: "20px",
-              fontWeight: 600,
-              color: THEME.mute,
-              letterSpacing: "0.02em",
-            }}
-          >
-            Party starts here
+          {/* The figure */}
+          <div style={{ display: "flex", flexDirection: "column", marginTop: 56 }}>
+            <div style={{ display: "flex", fontSize: 28, fontWeight: 500, color: THEME.mute }}>{rangeLabel}</div>
+            <div style={{ display: "flex", fontSize: pnlFontSize, fontWeight: 700, color: pnlColor, lineHeight: 1, letterSpacing: "-0.03em", marginTop: 8 }}>{pnlText}</div>
+            {has("pool") && topPool && (
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 20, fontSize: 26, fontWeight: 500, color: THEME.fgSecondary }}>
+                <span style={{ color: THEME.mute }}>Top pool</span>
+                <span style={{ fontWeight: 600, color: THEME.fg }}>{topPool.name}</span>
+                {topPool.binStep != null && <span style={{ color: THEME.mute }}>{`Bin ${topPool.binStep}`}</span>}
+              </div>
+            )}
           </div>
+
+          {/* Supporting figures, open (no boxes) */}
+          {stats.length > 0 && (
+            <div style={{ display: "flex", gap: 64, marginTop: 40 }}>
+              {stats.map((st) => (
+                <div key={st.label} style={{ display: "flex", flexDirection: "column" }}>
+                  <div style={{ display: "flex", fontSize: 22, fontWeight: 500, color: THEME.mute }}>{st.label}</div>
+                  <div style={{ display: "flex", fontSize: 42, fontWeight: 600, color: st.color, marginTop: 4 }}>{st.value}</div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div style={{ display: "flex", position: "absolute", left: 64, bottom: 44, fontSize: 22, fontWeight: 600, color: THEME.mute }}>lppool.party</div>
         </div>
       ),
-      {
-        width: 1200,
-        height: 630,
-      }
+      { width: 1200, height: 630, fonts }
     );
   } catch (error) {
     console.error("Card generation error:", error);
