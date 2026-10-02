@@ -191,6 +191,11 @@ export interface OpenPositionDetail {
   poolPrice?: number | null;
   /** All-time deposits, USD: the basis for pnlPct. */
   depositUsd?: number | null;
+  /**
+   * Liquidity per bin from the chain (lib/position-shape.ts): bar heights 0-100, lowest price
+   * first, and the pool price's place in the range (0..1, outside when out of range).
+   */
+  shape?: { bars: number[]; active: number } | null;
 }
 
 export const openPositions = pgTable(

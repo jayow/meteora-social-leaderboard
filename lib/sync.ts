@@ -374,7 +374,8 @@ export async function syncUser(user: UserRow): Promise<SyncResult> {
     await enrichPoolsWithMints(mergedPools);
     await attachPositionDetails(
       walletDataList.map((wd) => ({ wallet: wd.wallet, pools: wd.open?.pools ?? [] })),
-      mergedPools
+      mergedPools,
+      (await readOpenPositions(user.id)).pools
     );
   }
 

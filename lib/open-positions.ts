@@ -10,6 +10,7 @@
 import { asc, desc, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { openPositions, type OpenPositionDetail } from "@/lib/db/schema";
+import { fetchPositionShapes } from "@/lib/position-shape";
 import { num } from "@/lib/meteora";
 import { fetchMeteoraOrNull } from "@/lib/meteora-limiter";
 import { METEORA_OPEN_PAGE_SIZE, meteoraUrls } from "@/lib/meteora-endpoints";
@@ -124,9 +125,15 @@ function toDetail(p: Json): OpenPositionDetail {
   };
 }
 
+/** A position's public detail plus its address, which is only used during the sync (never stored). */
+interface PositionEntry {
+  address: string | null;
+  detail: OpenPositionDetail;
+}
+
 /** One wallet's open positions in one pool, or null if any page failed. */
-export async function fetchPoolPositionDetails(poolAddress: string, wallet: string, ttlMs = 60000): Promise<OpenPositionDetail[] | null> {
-  const out: OpenPositionDetail[] = [];
+async function fetchPoolPositionEntries(poolAddress: string, wallet: string, ttlMs = 60000): Promise<PositionEntry[] | null> {
+  const out: PositionEntry[] = [];
   for (let page = 1; page <= 5; page++) {
     let data: Json | null;
     try {
@@ -136,26 +143,55 @@ export async function fetchPoolPositionDetails(poolAddress: string, wallet: stri
     }
     if (data === null) break;
     if (typeof data !== "object" || !Array.isArray(data.positions)) return null;
-    for (const p of data.positions as Json[]) if (p && typeof p === "object" && p.isClosed !== true) out.push(toDetail(p));
+    for (const p of data.positions as Json[]) {
+      if (p && typeof p === "object" && p.isClosed !== true) {
+        out.push({ address: typeof p.positionAddress === "string" ? p.positionAddress : null, detail: toDetail(p) });
+      }
+    }
     if (!data.hasNext) break;
     if (page === 5) return null;
   }
   return out;
 }
 
+/** Same position as before? Open time and range don't change while a position is open. */
+const samePosition = (a: OpenPositionDetail, b: OpenPositionDetail) =>
+  a.openedAt != null && a.openedAt === b.openedAt && a.minPrice === b.minPrice && a.maxPrice === b.maxPrice;
+
 /**
- * Fill `positions` on the largest merged pools from every wallet holding them. A pool whose details
- * can't all be fetched is left undefined, so the sync keeps what was stored before.
+ * Fill `positions` on the largest merged pools from every wallet holding them, with each position's
+ * liquidity shape read from the chain. A pool whose details can't all be fetched is left undefined,
+ * so the sync keeps what was stored before; a shape the chain read misses keeps the previous one
+ * (`previous` = what's stored now).
  */
-export async function attachPositionDetails(perWallet: { wallet: string; pools: MeteoraOpenPool[] }[], merged: MergedOpenPool[]): Promise<void> {
+export async function attachPositionDetails(
+  perWallet: { wallet: string; pools: MeteoraOpenPool[] }[],
+  merged: MergedOpenPool[],
+  previous: OpenPositionPool[] = []
+): Promise<void> {
+  const entriesByPool = new Map<string, PositionEntry[]>();
   await Promise.all(
     merged.slice(0, MAX_DETAIL_POOLS).map(async (pool) => {
       const holders = perWallet.filter((w) => w.pools.some((p) => p.poolAddress === pool.poolAddress));
-      const lists = await Promise.all(holders.map((w) => fetchPoolPositionDetails(pool.poolAddress, w.wallet)));
+      const lists = await Promise.all(holders.map((w) => fetchPoolPositionEntries(pool.poolAddress, w.wallet)));
       if (lists.some((l) => l === null)) return;
-      pool.positions = (lists as OpenPositionDetail[][]).flat().sort((a, b) => b.valueUsd - a.valueUsd);
+      entriesByPool.set(pool.poolAddress, (lists as PositionEntry[][]).flat());
     })
   );
+  const shapes = await fetchPositionShapes(
+    [...entriesByPool].flatMap(([poolAddress, entries]) => entries.flatMap((e) => (e.address ? [{ address: e.address, poolAddress }] : [])))
+  );
+  for (const pool of merged) {
+    const entries = entriesByPool.get(pool.poolAddress);
+    if (!entries) continue;
+    const before = previous.find((p) => p.poolAddress === pool.poolAddress)?.positions ?? [];
+    pool.positions = entries
+      .map(({ address, detail }) => {
+        const shape = (address && shapes.get(address)) || before.find((b) => b.shape && samePosition(b, detail))?.shape;
+        return shape ? { ...detail, shape } : detail;
+      })
+      .sort((a, b) => b.valueUsd - a.valueUsd);
+  }
 }
 
 /** Merge pools across wallets by address: values and position counts add up. */

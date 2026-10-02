@@ -335,8 +335,27 @@ function RangeBar({ d, scale, unit }: { d: OpenPositionDetail; scale: PriceScale
   // Narrow ranges get one combined label so the two bounds don't collide.
   const split = b - a >= 36;
   const label = `Range ${min} to ${max} ${unit}${p != null ? `, current ${fmtPrice(d.poolPrice ?? null)}` : ""}, ${d.inRange ? "in range" : "out of range"}`;
+  // Liquidity shape over the same span (bins are geometric, so they sit evenly on the log scale).
+  const shape = d.shape && d.shape.bars.length > 0 && b - a >= 6 ? d.shape : null;
   return (
     <div role="img" aria-label={label} className="min-w-0">
+      {shape && (
+        <div className="relative h-6" aria-hidden="true" data-testid="position-shape">
+          <div className="absolute inset-y-0 flex items-end gap-px" style={{ left: `${a}%`, width: `${b - a}%` }}>
+            {shape.bars.map((h, i) => {
+              // Bins above the pool price hold the base token, below it the quote token.
+              const above = (i + 0.5) / shape.bars.length > shape.active;
+              return (
+                <div
+                  key={i}
+                  className={`min-w-0 flex-1 rounded-t-[1px] ${above ? "bg-fg-secondary/55" : "bg-mute/40"}`}
+                  style={{ height: `${Math.max(h, h > 0 ? 6 : 0)}%` }}
+                />
+              );
+            })}
+          </div>
+        </div>
+      )}
       <div className="relative h-3">
         <div className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-border" />
         <div
