@@ -8,10 +8,10 @@ export const isMedalRank = (rank: number | null | undefined): rank is MedalRank 
 
 /** Literal class names per metal (kept static so Tailwind can see them). */
 export const MEDAL = {
-  1: { label: "Gold", text: "text-gold", ring: "border-gold", card: "border-gold/50 bg-gold/[.07] hover:border-gold" },
-  2: { label: "Silver", text: "text-silver", ring: "border-silver", card: "border-silver/50 bg-silver/[.07] hover:border-silver" },
-  3: { label: "Bronze", text: "text-bronze", ring: "border-bronze", card: "border-bronze/50 bg-bronze/[.07] hover:border-bronze" },
-} as const satisfies Record<MedalRank, { label: string; text: string; ring: string; card: string }>;
+  1: { label: "Gold", text: "text-gold", ring: "border-gold" },
+  2: { label: "Silver", text: "text-silver", ring: "border-silver" },
+  3: { label: "Bronze", text: "text-bronze", ring: "border-bronze" },
+} as const satisfies Record<MedalRank, { label: string; text: string; ring: string }>;
 
 const ORDINAL: Record<MedalRank, string> = { 1: "1st", 2: "2nd", 3: "3rd" };
 
@@ -45,30 +45,61 @@ export function MedalRing({ rank, children, className = "" }: { rank: MedalRank;
 
 /** Podium layout shared by the members and countries boards: phones stack 1-2-3, `sm`+ uses DOM order (2-1-3). */
 export const PODIUM_STACK_ORDER: Record<MedalRank, string> = { 1: "order-1 sm:order-none", 2: "order-2 sm:order-none", 3: "order-3 sm:order-none" };
-export const PODIUM_GRID: Record<number, string> = { 1: "sm:max-w-[340px]", 2: "sm:max-w-[660px] sm:grid-cols-2", 3: "sm:max-w-[980px] sm:grid-cols-3" };
+export const PODIUM_GRID: Record<number, string> = { 1: "sm:max-w-[320px]", 2: "sm:max-w-[640px] sm:grid-cols-2", 3: "sm:max-w-[960px] sm:grid-cols-3" };
 
-/** Loading state matching the podium + two-column rows. */
-export function PodiumSkeleton({
-  testId = "board-skeleton",
-  heights = { first: "h-[92px] sm:h-[328px]", other: "h-[78px] sm:h-[280px]" },
-}: {
-  testId?: string;
-  /** Card heights (phone + `sm`) so the skeleton matches the real podium. */
-  heights?: { first: string; other: string };
-}) {
+/**
+ * One podium place, no card: phones get a divided row (ringed avatar, name + figure, action); from `sm`
+ * an open column, #1 raised above #2 and #3, with a quiet surface on hover.
+ */
+export const PODIUM_SLOT =
+  "group relative flex min-w-0 items-center gap-3.5 border-b border-border py-3 transition sm:flex-col sm:gap-0 sm:rounded-card sm:border-b-0 sm:px-4 sm:pb-6 sm:text-center sm:hover:bg-surface";
+export const PODIUM_LIFT: Record<MedalRank, string> = { 1: "sm:pt-5", 2: "sm:pt-14", 3: "sm:pt-14" };
+/** Podium wrapper: a hairline on top for the phone list; the open columns need none. */
+export const PODIUM_WRAP = "mx-auto mt-6 grid border-t border-border sm:mt-8 sm:items-start sm:gap-3 sm:border-t-0";
+
+/** Open list rows (members and countries): hairline dividers, a quiet surface on hover. */
+export const LIST_ROW = "group relative flex min-w-0 items-center gap-3 border-b border-border px-2 py-2.5 transition hover:bg-surface sm:px-3";
+/** List wrapper. With a podium above, phones continue its divided list (no extra rule); `sm`+ opens with a hairline. */
+export function listWrap(twoCols: boolean, hasPodium: boolean): string {
+  return `grid ${twoCols ? "lg:grid-flow-col lg:grid-cols-2 lg:gap-x-12" : "mx-auto max-w-[680px]"} ${
+    hasPodium ? "sm:mt-8 sm:border-t sm:border-border" : "mt-6 border-t border-border"
+  }`;
+}
+
+/** Medal pinned to the bottom of the ringed avatar / flag. */
+export function MedalPin({ rank, first }: { rank: MedalRank; first: boolean }) {
+  return (
+    <RankMedal
+      rank={rank}
+      size={20}
+      className={`pointer-events-none absolute -bottom-2 left-1/2 -translate-x-1/2 ${first ? "sm:-bottom-3 sm:h-9 sm:w-[31px]" : "sm:-bottom-3 sm:h-7 sm:w-6"}`}
+    />
+  );
+}
+
+/** Loading state matching the open podium and the divided two-column list. */
+export function PodiumSkeleton({ testId = "board-skeleton" }: { testId?: string }) {
   return (
     <div aria-hidden data-testid={testId}>
-      <div className={`mx-auto mt-6 grid gap-2.5 sm:items-end sm:gap-4 ${PODIUM_GRID[3]}`}>
+      <div className={`${PODIUM_WRAP} ${PODIUM_GRID[3]}`}>
         {([2, 1, 3] as const).map((r) => (
-          <div
-            key={r}
-            className={`animate-pulse rounded-card border ${MEDAL[r].card} ${PODIUM_STACK_ORDER[r]} ${r === 1 ? heights.first : heights.other}`}
-          />
+          <div key={r} className={`${PODIUM_SLOT} ${PODIUM_STACK_ORDER[r]} ${PODIUM_LIFT[r]} sm:hover:bg-transparent`}>
+            <span className={`skeleton shrink-0 rounded-full ${r === 1 ? "h-[58px] w-[58px] sm:h-[124px] sm:w-[124px]" : "h-[52px] w-[52px] sm:h-[96px] sm:w-[96px]"}`} />
+            <div className="flex min-w-0 flex-1 flex-col gap-2 sm:mt-6 sm:w-full sm:flex-none sm:items-center">
+              <span className="skeleton block h-4 w-28" />
+              <span className={`skeleton block w-24 ${r === 1 ? "h-7 sm:h-10 sm:w-36" : "h-7 sm:h-8 sm:w-28"}`} />
+            </div>
+          </div>
         ))}
       </div>
-      <div className="mt-6 grid gap-2 lg:grid-cols-2 lg:gap-x-4">
-        {Array.from({ length: 8 }, (_, i) => (
-          <div key={i} className="h-[58px] animate-pulse rounded-tile border border-border bg-surface" />
+      <div className={listWrap(true, true)} style={{ gridTemplateRows: "repeat(5, minmax(0, auto))" }}>
+        {Array.from({ length: 10 }, (_, i) => (
+          <div key={i} className={`${LIST_ROW} hover:bg-transparent`}>
+            <span className="skeleton block h-3 w-5" />
+            <span className="skeleton h-8 w-8 shrink-0 rounded-full" />
+            <span className="skeleton block h-4 flex-1" style={{ maxWidth: `${9 + (i % 4) * 2}rem` }} />
+            <span className="skeleton ml-auto block h-4 w-16" />
+          </div>
         ))}
       </div>
     </div>

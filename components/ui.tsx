@@ -119,8 +119,8 @@ export function XIcon({ className = "h-3.5 w-3.5" }: { className?: string }) {
 export function Logo() {
   return (
     <>
-      <Image src="/logo.svg" alt="Pool Party" width={151} height={32} priority unoptimized className="hidden h-7 w-auto max-[379px]:block sm:hidden sm:h-8 md:block" />
-      <Image src="/logo-mark.svg" alt="Pool Party" width={32} height={28} priority unoptimized className="h-7 w-auto max-[379px]:hidden sm:block md:hidden" />
+      {/* The full wordmark at every width: the header has room for it now that the nav is plain text. */}
+      <Image src="/logo.svg" alt="Pool Party" width={151} height={32} priority unoptimized className="h-7 w-auto" />
     </>
   );
 }

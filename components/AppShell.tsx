@@ -34,6 +34,21 @@ interface SessionData {
 const MENU_BASE = "flex w-full items-center gap-2 rounded-tag px-3 py-2 text-left text-base transition hover:bg-surface-raised";
 const MENU_ITEM = `${MENU_BASE} text-fg-secondary hover:text-fg`;
 
+/** Header nav: plain text; the current page is `fg` with a 2px accent bar sitting on the header's hairline. */
+function NavLink({ href, active, children }: { href: string; active: boolean; children: React.ReactNode }) {
+  return (
+    <Link
+      href={href}
+      aria-current={active ? "page" : undefined}
+      className={`relative flex items-center text-base font-medium transition ${
+        active ? "text-fg after:absolute after:inset-x-0 after:-bottom-px after:h-0.5 after:rounded-full after:bg-accent" : "text-mute hover:text-fg"
+      }`}
+    >
+      {children}
+    </Link>
+  );
+}
+
 function TabLink({ href, active, label, icon }: { href: string; active: boolean; label: string; icon: React.ReactNode }) {
   return (
     <Link
@@ -116,6 +131,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const adapterShort = adapterWallet ? `${adapterWallet.slice(0, 4)}…${adapterWallet.slice(-4)}` : null;
   const ownWallet =
     adapterWallet && adapterShort && session?.wallets?.includes(adapterShort) ? adapterWallet : session?.wallet ?? null;
+  const accountName = displayName({ xHandle: session?.xHandle, anonName: session?.anonName });
 
   const loadSession = useCallback(() => {
     fetch("/api/auth/session", { cache: "no-store" })
@@ -178,26 +194,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen pb-24 md:pb-0">
-      <header className="sticky top-0 z-40 border-b border-border bg-surface">
-        <div className="mx-auto flex h-[64px] max-w-[1320px] items-center gap-6 px-4 lg:px-6">
-          <Link href="/" className="flex items-center gap-2">
+      {/* Flush with the page: same background, one hairline underneath. */}
+      <header className="sticky top-0 z-40 border-b border-border bg-bg">
+        <div className="mx-auto flex h-[60px] max-w-[1320px] items-center gap-10 px-4 lg:px-6">
+          <Link href="/" className="flex shrink-0 items-center rounded-tag" aria-label="Pool Party home">
             <Logo />
           </Link>
-          {(
-            <nav className="seg mx-auto hidden md:flex" aria-label="Main">
-              <Link href="/poolside" aria-current={onFeed ? "page" : undefined} className="seg-item px-4">
-                Poolside
-              </Link>
-              <Link href="/pools" aria-current={onPools ? "page" : undefined} className="seg-item px-4">
-                Pools
-              </Link>
-              <Link href="/" aria-current={onBoard ? "page" : undefined} className="seg-item px-4">
-                Leaderboard
-              </Link>
-            </nav>
-          )}
+          <nav className="hidden h-full items-stretch gap-7 md:flex" aria-label="Main">
+            <NavLink href="/poolside" active={onFeed}>Poolside</NavLink>
+            <NavLink href="/pools" active={onPools}>Pools</NavLink>
+            <NavLink href="/" active={onBoard}>Leaderboard</NavLink>
+          </nav>
 
-          <div className="ml-auto flex items-center gap-2 md:ml-0">
+          <div className="ml-auto flex min-w-0 items-center gap-4">
             {/* One entry: signed out -> Sign in (wallet picker or X); signed in, not joined -> Join beta; members -> account menu only. */}
             {!isSignedIn && (
               <button
@@ -216,46 +225,42 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             )}
 
             {isSignedIn && (
-              <div ref={menuRef} className="relative">
+              <div ref={menuRef} className="relative min-w-0">
                 <button
                   type="button"
                   onClick={() => setMenuOpen((o) => !o)}
                   aria-expanded={menuOpen}
-                  className="btn-secondary max-w-[200px] gap-2 pl-1 pr-3"
+                  aria-haspopup="menu"
+                  aria-label={`Account menu for ${accountName}`}
+                  className="group flex min-w-0 items-center gap-2 rounded-full text-base font-medium text-fg-secondary transition hover:text-fg"
                   data-testid="user-menu-button"
                 >
-                  <Avatar 
-                    user={{ id: session?.userId || undefined, xAvatarUrl: session?.xAvatarUrl }} 
-                    size={26} 
+                  <Avatar
+                    user={{ id: session?.userId || undefined, xAvatarUrl: session?.xAvatarUrl }}
+                    size={30}
                   />
-                  <span className="truncate">
-                    {displayName({ xHandle: session?.xHandle, anonName: session?.anonName })}
-                  </span>
+                  {/* Name from lg; phones and tablets show the avatar alone (the menu repeats the name). */}
+                  <span className="hidden max-w-[180px] truncate lg:block">{accountName}</span>
+                  <svg viewBox="0 0 20 20" className={`h-3.5 w-3.5 shrink-0 text-mute transition group-hover:text-fg ${menuOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                    <path d="M5 7.5l5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
                 </button>
 
                 {menuOpen && (
-                  <div className="absolute right-0 z-50 mt-2 w-52 overflow-hidden rounded-tile border border-border bg-surface p-1 shadow-lg shadow-black/40">
-                    <Link
-                      href="/profile/me"
-                      onClick={() => setMenuOpen(false)}
-                      className={MENU_ITEM}
-                    >
+                  <div className="absolute right-0 z-50 mt-3 w-56 overflow-hidden rounded-tile border border-border bg-surface p-1 shadow-lg shadow-black/40">
+                    <div className="truncate px-3 pb-1.5 pt-2 text-sm font-medium text-mute" title={accountName}>
+                      {accountName}
+                    </div>
+                    <Link href="/profile/me" onClick={() => setMenuOpen(false)} className={MENU_ITEM}>
                       Profile
                     </Link>
                     {isMember && (
-                      <Link
-                        href="/invites"
-                        onClick={() => setMenuOpen(false)}
-                        className={MENU_ITEM}
-                      >
+                      <Link href="/invites" onClick={() => setMenuOpen(false)} className={MENU_ITEM}>
                         Invites
                       </Link>
                     )}
                     {!hasX && (
-                      <a
-                        href={`/api/x/login?link=true&returnTo=${encodeURIComponent("/profile/me")}`}
-                        className={MENU_ITEM}
-                      >
+                      <a href={`/api/x/login?link=true&returnTo=${encodeURIComponent("/profile/me")}`} className={MENU_ITEM}>
                         <XIcon className="h-3.5 w-3.5" />
                         Link X account
                       </a>
