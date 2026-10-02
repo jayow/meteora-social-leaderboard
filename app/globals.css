@@ -5,9 +5,39 @@
  * Flat colours only: no gradients, glows or coloured shadows.
  */
 @theme {
-  --font-sans: var(--font-jakarta), "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
-  /* Dense numbers at small sizes (PnL calendar): `font-numeric tabular-nums` */
+  /* One typeface everywhere: Inter. Figures are tabular app-wide (see `body`). */
+  --font-sans: var(--font-inter), "Inter", ui-sans-serif, system-ui, sans-serif;
+  /* Kept as an alias so existing `font-numeric` classes resolve to the same face. */
   --font-numeric: var(--font-inter), "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-inter), "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  /*
+   * Type scale (fixed, 8 steps). Only these sizes exist: Tailwind's default text-* sizes are cleared.
+   * xs 11 captions/chips · sm 12 meta/labels · base 13 body/controls · md 15 names/emphasis/long-form
+   * lg 18 section titles · xl 22 modal titles/figures · 2xl 28 page titles · 3xl 40 hero figures
+   */
+  --text-*: initial;
+  --text-xs: 0.6875rem;
+  --text-xs--line-height: 1rem;
+  --text-sm: 0.75rem;
+  --text-sm--line-height: 1rem;
+  --text-base: 0.8125rem;
+  --text-base--line-height: 1.25rem;
+  --text-md: 0.9375rem;
+  --text-md--line-height: 1.375rem;
+  --text-lg: 1.125rem;
+  --text-lg--line-height: 1.5rem;
+  --text-xl: 1.375rem;
+  --text-xl--line-height: 1.75rem;
+  --text-2xl: 1.75rem;
+  --text-2xl--line-height: 2.125rem;
+  --text-3xl: 2.5rem;
+  --text-3xl--line-height: 2.75rem;
+
+  /* Radii: card (panels, modals), tile (rows, tiles, inputs, menus), tag (small labels). Pills/buttons are full. */
+  --radius-card: 1.25rem;
+  --radius-tile: 0.75rem;
+  --radius-tag: 0.375rem;
 
   /* Surfaces (darkest to lightest) */
   --color-bg: #0e0d12;
@@ -19,7 +49,7 @@
   /* Text */
   --color-fg: #f5f4f8;
   --color-fg-secondary: #c9c7d3;
-  /* Muted: >= 4.5:1 on every surface, safe for 9-11px labels. Never add opacity to it. */
+  /* Muted: >= 4.5:1 on every surface, safe for 11-12px labels. Never add opacity to it. */
   --color-mute: #9b99ab;
 
   /* The one brand accent: primary actions and the active state only */
@@ -39,16 +69,6 @@
   --color-gold: #e8b84a;
   --color-silver: #b9c2cf;
   --color-bronze: #cf8a57;
-
-  /*
-   * Deprecated aliases, kept so older classes keep rendering flat while they are migrated.
-   * Don't use them in new code.
-   */
-  --color-orange: var(--color-accent);
-  --color-orange-soft: var(--color-accent-hover);
-  --color-purp: var(--color-fg-secondary);
-  --color-purp-soft: var(--color-fg-secondary);
-  --color-pink: var(--color-accent);
 }
 
 :root {
@@ -63,103 +83,267 @@ body {
 
 body {
   min-height: 100vh;
+  font-size: var(--text-base);
+  line-height: var(--text-base--line-height);
 }
 
-/* Buttons: primary (solid accent), secondary (raised surface + border), ghost. Size with h-/px-/text- utilities. */
-@utility btn-primary {
+/*
+ * One keyboard focus ring for everything: accent, 2px, offset. Mouse clicks don't show it, and neither do
+ * containers focused from script (modal panels, tabIndex -1). In the base layer so `outline-none` can opt out.
+ */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+  [tabindex="-1"]:focus-visible,
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+}
+
+::selection {
+  background: color-mix(in oklab, var(--color-accent) 35%, transparent);
+  color: var(--color-fg);
+}
+
+/*
+ * Buttons: primary (solid accent), secondary (raised surface + border), ghost (text until hover).
+ * Default size is md (h-9, 13px). Resize only with h-8 px-3 (sm, inside rows) or h-11 px-5 (lg, form CTAs).
+ */
+@utility btn-base {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.375rem;
+  height: 2.25rem;
+  padding-inline: 1rem;
   border-radius: 9999px;
-  font-weight: 700;
+  border: 1px solid transparent;
+  font-size: var(--text-base);
+  line-height: 1;
+  font-weight: 600;
   white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 150ms, border-color 150ms, color 150ms;
+  &:disabled,
+  &[aria-disabled="true"] {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+}
+
+@utility btn-primary {
+  @apply btn-base;
   background-color: var(--color-accent);
   color: var(--color-accent-fg);
-  transition: background-color 150ms;
-  &:hover:not(:disabled) {
+  &:hover:where(:not(:disabled)) {
     background-color: var(--color-accent-hover);
-  }
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
   }
 }
 
 @utility btn-secondary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.375rem;
-  border-radius: 9999px;
-  font-weight: 600;
-  white-space: nowrap;
+  @apply btn-base;
   background-color: var(--color-surface-raised);
-  border: 1px solid var(--color-border);
+  border-color: var(--color-border);
   color: var(--color-fg);
-  transition: background-color 150ms, border-color 150ms;
-  &:hover:not(:disabled) {
+  &:hover:where(:not(:disabled)) {
     border-color: var(--color-border-strong);
     background-color: var(--color-border);
-  }
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
   }
 }
 
 @utility btn-ghost {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.375rem;
-  border-radius: 9999px;
-  font-weight: 600;
-  white-space: nowrap;
+  @apply btn-base;
   color: var(--color-mute);
-  transition: background-color 150ms, color 150ms;
-  &:hover:not(:disabled) {
+  &:hover:where(:not(:disabled)) {
     color: var(--color-fg);
     background-color: var(--color-surface-raised);
   }
+}
+
+/* Panels: page-level cards and modals. */
+@utility card {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+}
+
+/* Things on a card: stat tiles, nested rows, notices. */
+@utility tile {
+  background-color: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-tile);
+}
+
+/* Text inputs, textareas and selects. */
+@utility field {
+  width: 100%;
+  min-width: 0;
+  height: 2.5rem;
+  padding-inline: 0.875rem;
+  border-radius: var(--radius-tile);
+  border: 1px solid var(--color-border);
+  background-color: var(--color-surface-raised);
+  color: var(--color-fg);
+  font-size: var(--text-base);
+  outline: none;
+  transition: border-color 150ms;
+  &::placeholder {
+    color: var(--color-mute);
+  }
+  &:hover:where(:not(:disabled)) {
+    border-color: var(--color-border-strong);
+  }
+  &:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 0;
+    border-color: transparent;
+  }
   &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+    opacity: 0.6;
   }
 }
 
-/* Card surface (name kept for existing markup; it is a flat surface now, no blur). */
-.glass {
-  background: var(--color-surface);
+/* Small neutral label: bin step, protocol, "You", status. */
+@utility chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  height: 1.25rem;
+  padding-inline: 0.5rem;
+  border-radius: 9999px;
   border: 1px solid var(--color-border);
+  background-color: var(--color-surface-raised);
+  color: var(--color-mute);
+  font-size: var(--text-xs);
+  line-height: 1;
+  font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
-/* Deprecated: rendered flat. Use btn-primary / text-fg / a plain border instead. */
-.brand-grad {
-  background: var(--color-accent);
-  color: var(--color-accent-fg);
+/*
+ * Segmented control (range, Members/Countries, nav, share range): one look for every toggle group.
+ * Mark the active item with aria-pressed, aria-selected or aria-current.
+ */
+@utility seg {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.125rem;
+  height: 2.25rem;
+  padding: 0.125rem;
+  border-radius: 9999px;
+  border: 1px solid var(--color-border);
+  background-color: var(--color-surface);
 }
 
-.brand-text {
+@utility seg-item {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 1.875rem;
+  padding-inline: 0.875rem;
+  border-radius: 9999px;
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--color-mute);
+  white-space: nowrap;
+  transition: background-color 150ms, color 150ms;
+  &:hover {
+    color: var(--color-fg);
+  }
+  &[aria-pressed="true"],
+  &[aria-selected="true"],
+  &[aria-current="page"] {
+    background-color: var(--color-border);
+    color: var(--color-fg);
+  }
+}
+
+/* Underline tabs (leaderboard metric, Poolside scope). */
+@utility tab {
+  margin-bottom: -1px;
+  padding-bottom: 0.625rem;
+  border-bottom: 2px solid transparent;
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--color-mute);
+  white-space: nowrap;
+  transition: color 150ms, border-color 150ms;
+  &:hover {
+    color: var(--color-fg);
+  }
+  &[aria-selected="true"],
+  &[aria-pressed="true"] {
+    color: var(--color-fg);
+    border-bottom-color: var(--color-accent);
+  }
+}
+
+/* Inline text link inside body copy. */
+@utility link {
+  font-weight: 600;
   color: var(--color-fg);
+  text-decoration-line: underline;
+  text-decoration-color: var(--color-border-strong);
+  text-underline-offset: 3px;
+  transition: text-decoration-color 150ms;
+  &:hover {
+    text-decoration-color: var(--color-fg);
+  }
 }
 
-.ring-brand {
-  background: var(--color-border-strong);
+/*
+ * Inline metadata separated by middots that never dangle at a line end: each item carries its own
+ * leading dot, and the dots that land at the start of a line sit in the clipped negative margin.
+ * Wrap it in an `overflow-hidden` element.
+ */
+@utility dot-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  row-gap: 0.125rem;
+  margin-left: -1rem;
+  & > * {
+    white-space: nowrap;
+  }
+  & > *::before {
+    content: "·";
+    display: inline-block;
+    width: 1rem;
+    text-align: center;
+    color: var(--color-mute);
+  }
 }
 
+/* Loading placeholder block; give it the final element's size. */
+@utility skeleton {
+  background-color: var(--color-surface-raised);
+  border-radius: var(--radius-tag);
+  animation: pp-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pp-pulse {
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton,
+  .animate-pulse {
+    animation: none;
+  }
+}
+
+/*
+ * Tabular (even-width) figures for every number: stats, rows, counts, calendar. Applied per element
+ * rather than on body because Inter's tabular set also widens hyphens, which looks off in prose and pair names.
+ */
 .num {
   font-variant-numeric: tabular-nums;
-}
-
-.podium-1 {
-  background: var(--color-surface-raised);
-  border: 1px solid var(--color-border-strong);
-}
-
-.you-row {
-  background: color-mix(in oklab, var(--color-accent) 8%, var(--color-surface));
-  border: 1px solid color-mix(in oklab, var(--color-accent) 40%, transparent);
 }
 
 .no-scrollbar::-webkit-scrollbar {

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { ApiUser, ApiSnapshot } from "@/lib/api-types";
 import { displayName, fmtUsd } from "@/lib/format";
-import { Modal } from "@/components/Modal";
+import { Modal, ModalClose } from "@/components/Modal";
 import { useMe } from "@/components/MeProvider";
 
 type Range = "7d" | "30d" | "all";
@@ -89,36 +89,22 @@ function ShareDialog({ user, snap, onClose }: Omit<SharePnLModalProps, "isOpen">
 
   return (
     <Modal onClose={onClose} labelledBy="share-pnl-title" className="max-w-[680px] p-5 sm:p-6" testId="share-modal">
-      <button
-        type="button"
-        onClick={onClose}
-        aria-label="Close"
-        className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full bg-surface-raised text-mute hover:bg-border hover:text-fg"
-      >
-        ✕
-      </button>
+      <ModalClose onClick={onClose} className="absolute right-3 top-3 sm:right-4 sm:top-4" />
 
-      <h2 id="share-pnl-title" className="pr-10 text-2xl font-extrabold">
+      <h2 id="share-pnl-title" className="pr-10 text-xl font-semibold tracking-tight">
         {mine ? "Share your PnL" : "Share PnL"}
       </h2>
-      {!mine && <p className="mt-1 truncate pr-10 text-[13px] text-mute">{name}&apos;s Meteora LP stats</p>}
+      {!mine && <p className="mt-1 truncate pr-10 text-base text-mute">{name}&apos;s Meteora LP stats</p>}
 
-      <div className="mb-4 mt-4 flex gap-2">
+      <div className="seg mb-4 mt-4" role="group" aria-label="Range">
         {(["7d", "30d", "all"] as Range[]).map((r) => (
-          <button
-            key={r}
-            type="button"
-            onClick={() => setRange(r)}
-            className={`h-9 rounded-full px-4 text-sm font-semibold transition ${
-              range === r ? "bg-accent text-accent-fg" : "bg-surface-raised text-mute hover:bg-border hover:text-fg"
-            }`}
-          >
+          <button key={r} type="button" onClick={() => setRange(r)} aria-pressed={range === r} className="seg-item">
             {RANGE_LABEL[r]}
           </button>
         ))}
       </div>
 
-      <div className="mb-4 aspect-[1200/630] overflow-hidden rounded-2xl border border-border bg-bg">
+      <div className="mb-4 aspect-[1200/630] overflow-hidden rounded-tile border border-border bg-bg">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={cardUrl} alt={`${name}'s ${rangeLabel} PnL card`} className="h-full w-full object-cover" data-testid="share-card" />
       </div>
@@ -128,7 +114,7 @@ function ShareDialog({ user, snap, onClose }: Omit<SharePnLModalProps, "isOpen">
           type="button"
           onClick={handleDownload}
           disabled={downloading}
-          className="flex h-11 items-center justify-center whitespace-nowrap rounded-full bg-surface-raised px-3 text-[13px] font-bold hover:bg-border disabled:cursor-not-allowed disabled:text-mute sm:text-sm"
+          className="btn-secondary h-11 px-3"
         >
           {downloading ? (
             "Saving…"
@@ -142,15 +128,15 @@ function ShareDialog({ user, snap, onClose }: Omit<SharePnLModalProps, "isOpen">
           type="button"
           onClick={handleCopyImage}
           disabled={copying}
-          className="flex h-11 items-center justify-center whitespace-nowrap rounded-full bg-surface-raised px-3 text-[13px] font-bold hover:bg-border disabled:cursor-default sm:text-sm"
+          className="btn-secondary h-11 px-3"
         >
-          {copying ? "Copied!" : "Copy image"}
+          {copying ? "Copied" : "Copy image"}
         </button>
         <a
           href={xShareUrl}
           target="_blank"
           rel="noreferrer"
-          className="btn-primary h-11 px-3 text-[13px] sm:text-sm"
+          className="btn-primary h-11 px-3"
         >
           Share on X
         </a>

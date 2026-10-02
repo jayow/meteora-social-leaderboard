@@ -6,6 +6,8 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useMe } from "@/components/MeProvider";
 import { fmtUsd } from "@/lib/format";
 import { DipLink } from "@/components/DipLink";
+import { EmptyState, PageHeader } from "@/components/EmptyState";
+import { Tag, binLabel } from "@/components/ui";
 import { PoolMemberAvatars } from "@/components/PoolMemberAvatars";
 import { onFollowChanged } from "@/lib/session-events";
 import {
@@ -57,7 +59,7 @@ function TokenDot({ icon, label, className = "" }: { icon: string | null; label:
     );
   }
   return (
-    <span className={`flex h-8 w-8 items-center justify-center rounded-full border-2 border-surface bg-border-strong text-[12px] font-bold ${className}`}>
+    <span className={`flex h-8 w-8 items-center justify-center rounded-full border-2 border-surface bg-border-strong text-sm font-bold ${className}`}>
       {label.slice(0, 1)}
     </span>
   );
@@ -65,7 +67,7 @@ function TokenDot({ icon, label, className = "" }: { icon: string | null; label:
 
 export default function PoolsPage() {
   return (
-    <Suspense fallback={<div className="mx-auto max-w-[1320px] px-4 py-10 text-mute">Loading...</div>}>
+    <Suspense fallback={<PoolsSkeleton />}>
       <PoolsContent />
     </Suspense>
   );
@@ -252,7 +254,7 @@ function PoolsContent() {
     <main className="mx-auto max-w-[1320px] px-4 pb-10 pt-6 lg:px-6">
       {tokenMint && tokenInfo && (
         <div className="mb-4">
-          <Link href="/pools" className="text-[13px] font-semibold text-mute hover:text-fg">
+          <Link href="/pools" className="rounded-tag text-base font-semibold text-mute transition hover:text-fg">
             ← All pools
           </Link>
         </div>
@@ -261,58 +263,47 @@ function PoolsContent() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex-1">
           {tokenInfo ? (
-            <div className="glass flex items-center gap-4 rounded-[24px] p-4">
+            <div className="card flex items-center gap-4 p-5">
               {tokenInfo.icon ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={tokenInfo.icon}
                   alt={tokenInfo.symbol}
-                  className="h-14 w-14 rounded-full border-2 border-surface bg-surface-raised object-cover"
+                  className="h-14 w-14 shrink-0 rounded-full border border-border bg-surface-raised object-cover"
                 />
               ) : (
-                <div className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-surface bg-border-strong text-[20px] font-bold">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-border bg-surface-raised text-lg font-semibold text-mute">
                   {tokenInfo.symbol.slice(0, 1)}
                 </div>
               )}
-              <div>
-                <h1 className="text-[28px] font-extrabold">{tokenInfo.symbol} Pools</h1>
-                <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[13px] text-mute">
-                  <span>{tokenInfo.poolCount.toLocaleString("en-US")} pools</span>
-                  <span>·</span>
-                  <span>{fmtUsd(tokenInfo.totalTvl)} total TVL</span>
-                  {tokenInfo.lpCount > 0 && (
-                    <>
-                      <span>·</span>
+              <div className="min-w-0">
+                <h1 className="truncate text-2xl font-bold tracking-tight">{tokenInfo.symbol} pools</h1>
+                <div className="mt-1 overflow-hidden">
+                  <div className="num dot-list text-base text-mute">
+                    <span>{tokenInfo.poolCount.toLocaleString("en-US")} pools</span>
+                    <span>{fmtUsd(tokenInfo.totalTvl)} total TVL</span>
+                    {tokenInfo.lpCount > 0 && (
                       <span>
                         {tokenInfo.lpCount} member LP{tokenInfo.lpCount === 1 ? "" : "s"} ({fmtUsd(tokenInfo.memberLiquidity)})
                       </span>
-                    </>
-                  )}
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
           ) : (
-            <>
-              <h1 className="text-[32px] font-extrabold leading-tight tracking-tight sm:text-[40px]">
-                Pools
-              </h1>
-              <p className="mt-1 text-[14px] text-mute">
-                All DLMM pools with active LPs · see where your friends are providing liquidity
-              </p>
-            </>
+            <PageHeader title="Pools" description="Every DLMM pool with active member LPs. See where your friends are providing liquidity." />
           )}
         </div>
         {!tokenInfo && (
-          <div className="flex flex-wrap items-end justify-between gap-4 sm:flex-nowrap">
-            <div className="flex-1">
-              <div className="text-[12px] text-mute">Active pools</div>
-              <div className="num text-[22px] font-bold">{(pools ?? []).length}</div>
-            </div>
+          <div className="text-right">
+            <div className="text-sm text-mute">Active pools</div>
+            <div className="num mt-0.5 text-xl font-semibold">{pools ? pools.length : "—"}</div>
           </div>
         )}
       </div>
 
-      <div className="mt-4">
+      <div className="mt-5">
         <div className="flex gap-2">
           <input
             type="text"
@@ -323,13 +314,14 @@ function PoolsContent() {
                 handleSearch(searchTerm);
               }
             }}
-            placeholder="Filter by token symbol or mint address..."
-            className="h-11 min-w-0 flex-1 rounded-full border border-border bg-bg px-5 text-[14px] outline-none placeholder:text-mute focus:border-accent"
+            placeholder="Filter by token symbol or mint address…"
+            aria-label="Filter by token symbol or mint address"
+            className="field h-9 flex-1 rounded-full bg-surface px-4"
           />
           <button
             type="button"
             onClick={() => handleSearch(searchTerm)}
-            className="btn-primary h-11 px-6 text-[14px]"
+            className="btn-primary"
           >
             Filter
           </button>
@@ -340,13 +332,13 @@ function PoolsContent() {
                 setSearchTerm("");
                 router.push("/pools");
               }}
-              className="h-11 rounded-full bg-surface-raised px-5 text-[14px] font-semibold hover:bg-border"
+              className="btn-secondary"
             >
               Clear
             </button>
           )}
         </div>
-        <div className="mt-2 flex flex-wrap items-center gap-2">
+        <div className="mt-3 flex flex-wrap items-center gap-2">
           {tokenMint && tokenInfo && (
             <input
               type="search"
@@ -355,10 +347,10 @@ function PoolsContent() {
               placeholder={`Search ${tokenInfo.symbol} pools`}
               title="Pair, token mint or pool address"
               aria-label={`Search ${tokenInfo.symbol} pools`}
-              className="h-9 min-w-0 flex-1 rounded-full border border-border bg-bg px-4 text-[13px] outline-none placeholder:text-mute focus:border-accent sm:max-w-sm"
+              className="field h-9 flex-1 rounded-full bg-surface px-4 sm:max-w-sm"
             />
           )}
-          <label className="ml-auto flex items-center gap-2 text-[12px] text-mute">
+          <label className="ml-auto flex items-center gap-2 text-sm text-mute">
             Sort
             <select
               value={sort}
@@ -366,7 +358,7 @@ function PoolsContent() {
                 const v = e.target.value;
                 if (isPoolSort(v)) setSort(v);
               }}
-              className="h-9 rounded-full border border-border bg-bg px-3 text-[13px] text-fg outline-none focus:border-accent"
+              className="field h-9 w-auto rounded-full bg-surface px-3"
             >
               {POOL_SORTS.map((s) => (
                 <option key={s.value} value={s.value}>
@@ -379,27 +371,20 @@ function PoolsContent() {
       </div>
 
       {loading && !pools ? (
-        <div className="mt-6 space-y-3">
-          {[0, 1, 2, 3, 4].map((i) => (
-            <div key={i} className="glass h-20 animate-pulse rounded-[20px]" />
-          ))}
-        </div>
+        <PoolRowsSkeleton />
       ) : visiblePools.length === 0 ? (
-        <div className="glass mt-6 rounded-[28px] px-6 py-12 text-center">
-          <div className="text-[46px]">🏊</div>
-          <h2 className="mt-2 text-[22px] font-extrabold">
-            {tokenInfo
+        <EmptyState
+          className="mt-6"
+          title={
+            tokenInfo
               ? debouncedQuery
                 ? `No ${tokenInfo.symbol} pools match “${debouncedQuery}”`
                 : `No ${tokenInfo.symbol} pools found`
-              : "No pools yet"}
-          </h2>
-          <p className="mx-auto mt-1 max-w-md text-[14px] text-mute">
-            {tokenInfo 
-              ? "Try another pair, mint or pool address."
-              : "Pools will appear here as LPs sync their positions."}
-          </p>
-        </div>
+              : "No pools yet"
+          }
+        >
+          {tokenInfo ? "Try another pair, mint or pool address." : "Pools will appear here as LPs sync their positions."}
+        </EmptyState>
       ) : (
         <>
           <div className={`mt-6 space-y-2 transition-opacity ${loading ? "opacity-60" : ""}`}>
@@ -414,7 +399,7 @@ function PoolsContent() {
           </div>
           {tokenMint && (
             <div className="mt-4 flex flex-col items-center gap-2">
-              <div className="text-[12px] text-mute" data-testid="pools-count">
+              <div className="num text-sm text-mute" data-testid="pools-count">
                 Showing {visiblePools.length.toLocaleString("en-US")} of {total.toLocaleString("en-US")} pools
               </div>
               {hasMore && (
@@ -422,7 +407,7 @@ function PoolsContent() {
                   type="button"
                   onClick={loadMore}
                   disabled={loadingMore}
-                  className="btn-secondary h-10 px-6 text-[14px]"
+                  className="btn-secondary"
                 >
                   {loadingMore ? "Loading…" : `Show ${Math.min(PAGE_SIZE, total - visiblePools.length)} more`}
                 </button>
@@ -447,58 +432,84 @@ function PoolRow({
   const [x = "?", y = "?"] = [pool.tokenX, pool.tokenY];
 
   return (
-    <div className="glass relative flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[20px] px-3 py-3 transition hover:bg-surface-raised sm:flex-nowrap sm:px-4" data-testid="pool-row">
-      <Link href={`/pools/${pool.poolAddress}`} prefetch={false} className="absolute inset-0 rounded-[20px]" aria-label={`${x}-${y} pool`} />
+    <div className="relative flex flex-wrap items-center gap-x-3 gap-y-2 rounded-tile border border-border bg-surface px-3 py-3 transition hover:border-border-strong sm:flex-nowrap sm:px-4" data-testid="pool-row">
+      <Link href={`/pools/${pool.poolAddress}`} prefetch={false} className="absolute inset-0 rounded-tile" aria-label={`${x}-${y} pool`} />
 
-      <div className="flex shrink-0">
+      <div className="flex w-14 shrink-0">
         <TokenDot icon={pool.tokenXIcon} label={x} />
         <TokenDot icon={pool.tokenYIcon} label={y} className="-ml-2" />
       </div>
 
       <div className="min-w-0 flex-1">
-        <div className="flex min-w-0 items-center gap-2 text-[16px] font-bold">
+        <div className="flex min-w-0 items-center gap-2 text-md font-semibold">
           <span className="min-w-0 truncate">
             {pool.tokenXMint ? (
-              <Link href={`/pools?token=${pool.tokenXMint}`} prefetch={false} onClick={(e) => e.stopPropagation()} className="relative z-10 hover:underline">{x}</Link>
+              <Link href={`/pools?token=${pool.tokenXMint}`} prefetch={false} onClick={(e) => e.stopPropagation()} className="relative z-10 underline-offset-2 hover:underline">{x}</Link>
             ) : (
               <span>{x}</span>
             )}
             <span>-</span>
             {pool.tokenYMint ? (
-              <Link href={`/pools?token=${pool.tokenYMint}`} prefetch={false} onClick={(e) => e.stopPropagation()} className="relative z-10 hover:underline">{y}</Link>
+              <Link href={`/pools?token=${pool.tokenYMint}`} prefetch={false} onClick={(e) => e.stopPropagation()} className="relative z-10 underline-offset-2 hover:underline">{y}</Link>
             ) : (
               <span>{y}</span>
             )}
           </span>
-          <span className="shrink-0 rounded border border-border px-1.5 text-[10px] font-semibold uppercase text-mute">
-            DLMM
-          </span>
-          {pool.binStep != null && (
-            <span className="shrink-0 text-[12px] font-medium text-mute">Bin {pool.binStep}</span>
-          )}
+          <Tag>DLMM</Tag>
+          {pool.binStep != null && <span className="shrink-0 text-sm font-medium text-mute">{binLabel(pool.binStep)}</span>}
         </div>
-        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px] text-mute" data-testid="pool-metrics">
-          <span className="whitespace-nowrap" data-col="lps">
-            {pool.lpCount} LP{pool.lpCount === 1 ? "" : "s"}
-            {pool.lpCount > 0 && pool.memberLiquidity != null && (
-              <span className="text-fg-secondary"> · {fmtUsd(pool.memberLiquidity)}</span>
-            )}
-          </span>
-          <span>·</span>
-          <span className="whitespace-nowrap" data-col="tvl">{fmtUsd(pool.tvl)} TVL</span>
-          <span>·</span>
-          <span className="whitespace-nowrap" data-col="volume">{fmtUsd(pool.volume24h)} 24h vol</span>
+        <div className="mt-0.5 overflow-hidden">
+          <div className="num dot-list text-sm text-mute" data-testid="pool-metrics">
+            <span data-col="lps">
+              {pool.lpCount} LP{pool.lpCount === 1 ? "" : "s"}
+              {pool.lpCount > 0 && pool.memberLiquidity != null && <span className="text-fg-secondary"> ({fmtUsd(pool.memberLiquidity)})</span>}
+            </span>
+            <span data-col="tvl">{fmtUsd(pool.tvl)} TVL</span>
+            <span data-col="volume">{fmtUsd(pool.volume24h)} 24h vol</span>
+          </div>
         </div>
       </div>
 
       {members.length > 0 && (
-        // Mobile: own line under the pool name (avatars + label are too wide to share it); desktop: inline.
-        <div className="relative z-10 order-last w-full pl-[68px] sm:order-none sm:w-auto sm:shrink-0 sm:pl-0">
+        // Mobile: own line under the pool name, indented past the token icons (w-14 + gap-3); desktop: inline.
+        <div className="relative z-10 order-last w-full pl-17 sm:order-none sm:w-auto sm:shrink-0 sm:pl-0">
           <PoolMemberAvatars poolAddress={pool.poolAddress} members={members} isSignedIn={isSignedIn} />
         </div>
       )}
 
       <DipLink poolAddress={pool.poolAddress} protocol={pool.protocol} />
     </div>
+  );
+}
+
+/** Same footprint as a pool row (icons, two text lines), so nothing jumps when the list arrives. */
+function PoolRowsSkeleton() {
+  return (
+    <div className="mt-6 space-y-2" aria-busy="true" aria-label="Loading pools">
+      {[0, 1, 2, 3, 4, 5].map((i) => (
+        <div key={i} className="flex items-center gap-3 rounded-tile border border-border bg-surface px-3 py-3 sm:px-4">
+          <div className="flex w-14 shrink-0">
+            <span className="skeleton h-8 w-8 rounded-full" />
+            <span className="skeleton -ml-2 h-8 w-8 rounded-full" />
+          </div>
+          <div className="min-w-0 flex-1 space-y-1.5">
+            <span className="skeleton block h-4 w-36" />
+            <span className="skeleton block h-3 w-56 max-w-full" />
+          </div>
+          <span className="skeleton hidden h-3 w-12 sm:block" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function PoolsSkeleton() {
+  return (
+    <main className="mx-auto max-w-[1320px] px-4 pb-10 pt-6 lg:px-6">
+      <span className="skeleton block h-8 w-32" />
+      <span className="skeleton mt-2 block h-4 w-80 max-w-full" />
+      <span className="skeleton mt-5 block h-9 w-full rounded-full" />
+      <PoolRowsSkeleton />
+    </main>
   );
 }

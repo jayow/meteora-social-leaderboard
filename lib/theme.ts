@@ -1,6 +1,8 @@
 /**
  * Theme palette as plain hex, for places that can't read CSS variables (OG/share images, meta tags).
- * Mirrors the @theme tokens in app/globals.css; keep the two in sync. See THEME.md.
+ * Mirrors the @theme colour tokens in app/globals.css; keep the two in sync. See THEME.md.
+ * Type scale, radii and component utilities (card, tile, field, chip, seg, tab, link, skeleton, btn-*)
+ * are CSS-only and live in globals.css.
  */
 export const THEME = {
   bg: "#0e0d12",

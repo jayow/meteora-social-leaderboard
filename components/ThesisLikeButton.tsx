@@ -38,7 +38,7 @@ export function ThesisLikeButton({
 
   if (isOwn) {
     return (
-      <span className="inline-flex h-8 items-center gap-1.5 px-1 text-[12.5px] text-mute" title="Your thesis" data-testid="thesis-like-count">
+      <span className="inline-flex h-8 items-center gap-1.5 px-2 text-base text-mute" title="Your thesis" data-testid="thesis-like-count">
         <HeartIcon filled={false} />
         <span className="num">{state.count}</span>
         <span className="sr-only">{label}</span>
@@ -85,14 +85,14 @@ export function ThesisLikeButton({
         onClick={() => void toggle()}
         aria-pressed={state.liked}
         aria-label={state.liked ? `Unlike (${label})` : `Like (${label})`}
-        className={`btn-ghost h-8 gap-1.5 px-2 text-[12.5px] ${state.liked ? "!text-accent" : ""}`}
+        className={`btn-ghost h-8 gap-1.5 px-2 font-medium ${state.liked ? "text-accent hover:text-accent" : ""}`}
         data-testid="thesis-like"
       >
         <HeartIcon filled={state.liked} />
         <span className="num">{state.count}</span>
       </button>
       {note && (
-        <span role="status" className="text-[12px] text-mute">
+        <span role="status" className="text-sm text-mute">
           {note}
         </span>
       )}

@@ -49,12 +49,12 @@ export function WalletPicker({ busyName, onPick }: WalletPickerProps) {
                   type="button"
                   onClick={() => onPick(name)}
                   disabled={busyName !== null}
-                  className="flex h-14 w-full items-center gap-3 rounded-2xl border border-border bg-surface-raised px-4 text-left text-[15px] font-semibold text-fg transition hover:border-border-strong hover:bg-border disabled:cursor-not-allowed disabled:opacity-60"
+                  className="tile flex h-12 w-full items-center gap-3 px-3 text-left text-md font-semibold text-fg transition hover:border-border-strong disabled:cursor-not-allowed disabled:opacity-45"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={w.adapter.icon} alt="" className="h-8 w-8 rounded-lg" />
+                  <img src={w.adapter.icon} alt="" className="h-7 w-7 rounded-tag" />
                   <span className="flex-1 truncate">{name}</span>
-                  <span className="text-[12px] font-medium text-mute">
+                  <span className={`shrink-0 text-sm font-medium ${isCurrent && !busy ? "text-up" : "text-mute"}`}>
                     {busy
                       ? "Check your wallet…"
                       : isCurrent
@@ -69,15 +69,15 @@ export function WalletPicker({ busyName, onPick }: WalletPickerProps) {
           })}
         </ul>
       ) : (
-        <div className="rounded-2xl border border-border bg-surface-raised px-4 py-5 text-center" data-testid="wallet-picker-empty">
-          <p className="text-[15px] font-semibold text-fg">No Solana wallet detected</p>
-          <p className="mt-1 text-[13px] text-mute">Install a wallet extension (or open this page in your wallet app), then reload.</p>
+        <div className="tile px-4 py-5 text-center" data-testid="wallet-picker-empty">
+          <p className="text-md font-semibold text-fg">No Solana wallet detected</p>
+          <p className="mt-1 text-base text-mute">Install a wallet extension (or open this page in your wallet app), then reload.</p>
         </div>
       )}
 
       {(notDetected.length > 0 || suggestions.length > 0) && (
         <div>
-          <p className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-mute">Not detected</p>
+          <p className="mb-1.5 px-3 text-sm font-medium text-mute">Not detected</p>
           <ul className="space-y-1.5">
             {notDetected.map((w) => (
               <li key={w.adapter.name}>
@@ -85,12 +85,12 @@ export function WalletPicker({ busyName, onPick }: WalletPickerProps) {
                   href={w.adapter.url}
                   target="_blank"
                   rel="noreferrer"
-                  className="flex h-11 items-center gap-3 rounded-xl px-3 text-[14px] text-mute transition hover:bg-surface-raised hover:text-fg"
+                  className="flex h-10 items-center gap-3 rounded-tile px-3 text-base text-fg-secondary transition hover:bg-surface-raised hover:text-fg"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={w.adapter.icon} alt="" className="h-6 w-6 rounded-md opacity-70" />
-                  <span className="flex-1">{w.adapter.name}</span>
-                  <span className="text-[12px] text-mute">Install ↗</span>
+                  <img src={w.adapter.icon} alt="" className="h-6 w-6 rounded-tag opacity-70" />
+                  <span className="flex-1 truncate">{w.adapter.name}</span>
+                  <span className="text-sm text-mute">Install ↗</span>
                 </a>
               </li>
             ))}
@@ -102,13 +102,13 @@ export function WalletPicker({ busyName, onPick }: WalletPickerProps) {
                     href={s.url}
                     target="_blank"
                     rel="noreferrer"
-                    className="flex h-11 items-center gap-3 rounded-xl px-3 text-[14px] text-mute transition hover:bg-surface-raised hover:text-fg"
+                    className="flex h-10 items-center gap-3 rounded-tile px-3 text-base text-fg-secondary transition hover:bg-surface-raised hover:text-fg"
                   >
-                    <span className="flex h-6 w-6 items-center justify-center rounded-md bg-border text-[12px] font-bold text-fg-secondary">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-tag bg-border text-sm font-semibold text-fg-secondary">
                       {s.name.charAt(0)}
                     </span>
-                    <span className="flex-1">{s.name}</span>
-                    <span className="text-[12px] text-mute">Install ↗</span>
+                    <span className="flex-1 truncate">{s.name}</span>
+                    <span className="text-sm text-mute">Install ↗</span>
                   </a>
                 </li>
               ))}

@@ -89,33 +89,33 @@ export default function AdminPage() {
 
   if (loading || loadingData || !data) {
     return (
-      <main className="mx-auto max-w-[1200px] px-4 py-20">
-        <p className="text-center text-mute">Loading...</p>
+      <main className="mx-auto max-w-[1320px] px-4 pb-16 pt-6 lg:px-6">
+        <p className="text-base text-mute">Loading…</p>
       </main>
     );
   }
 
   return (
-    <main className="mx-auto max-w-[1200px] px-4 py-20">
-      <h1 className="mb-8 text-3xl font-bold">Admin</h1>
+    <main className="mx-auto max-w-[1320px] px-4 pb-16 pt-6 lg:px-6">
+      <h1 className="mb-6 text-2xl font-bold tracking-tight">Admin</h1>
 
-      <div className="glass mb-6 rounded-3xl p-6">
-        <h2 className="mb-4 text-xl font-bold">Beta Status</h2>
-        <p className="text-2xl font-bold">
+      <div className="card mb-4 p-5">
+        <h2 className="mb-3 text-lg font-semibold">Beta status</h2>
+        <p className="num text-xl font-semibold">
           {data.memberCount} / {data.cap} members
         </p>
       </div>
 
-      <div className="glass mb-6 rounded-3xl p-6">
-        <h2 className="mb-4 text-xl font-bold">Generate Codes</h2>
-        <div className="mb-4 flex gap-4">
+      <div className="card mb-4 p-5">
+        <h2 className="mb-3 text-lg font-semibold">Generate codes</h2>
+        <div className="flex flex-wrap gap-2">
           <input
             type="number"
             value={count}
             onChange={(e) => setCount(Number(e.target.value))}
             min={1}
             max={100}
-            className="w-24 rounded-xl border border-border bg-surface-raised px-4 py-2"
+            className="field num h-9 w-24"
           />
           <input
             type="number"
@@ -123,20 +123,20 @@ export default function AdminPage() {
             onChange={(e) => setMaxUses(Number(e.target.value))}
             min={1}
             max={1000}
-            className="w-24 rounded-xl border border-border bg-surface-raised px-4 py-2"
+            className="field num h-9 w-24"
           />
-          <button onClick={generateCodes} disabled={generating} className="btn-primary px-6 py-2">
-            {generating ? "Generating..." : "Generate"}
+          <button onClick={generateCodes} disabled={generating} className="btn-primary">
+            {generating ? "Generating…" : "Generate"}
           </button>
         </div>
       </div>
 
-      <div className="glass mb-6 rounded-3xl p-6">
-        <h2 className="mb-4 text-xl font-bold">Recent Joins</h2>
+      <div className="card mb-4 p-5">
+        <h2 className="mb-3 text-lg font-semibold">Recent joins</h2>
         <div className="space-y-2">
           {data.recentJoins.slice(0, 20).map((u) => (
-            <div key={u.id} className="rounded-xl border border-border bg-surface-raised p-3">
-              <span className="font-semibold">
+            <div key={u.id} className="tile px-4 py-3">
+              <span className="num font-semibold">
                 #{u.memberNumber} {displayName(u)}
               </span>
             </div>
@@ -144,22 +144,22 @@ export default function AdminPage() {
         </div>
       </div>
 
-      <div className="glass rounded-3xl p-6">
-        <h2 className="mb-4 text-xl font-bold">All Codes ({data.codes.length})</h2>
+      <div className="card p-5">
+        <h2 className="mb-3 text-lg font-semibold">
+          All codes <span className="num font-medium text-mute">{data.codes.length}</span>
+        </h2>
         <div className="space-y-2">
           {data.codes.map((code) => (
-            <div key={code.id} className="flex items-center justify-between rounded-xl border border-border bg-surface-raised p-3">
+            <div key={code.id} className="tile flex items-center justify-between gap-3 px-4 py-3">
               <div>
-                <span className="font-mono font-bold">{code.code}</span>
-                <span className="ml-4 text-sm text-mute">
+                <span className="num font-semibold">{code.code}</span>
+                <span className="num ml-3 text-base text-mute">
                   {code.uses}/{code.maxUses} · {code.createdByUserId ? `User ${code.createdByUserId}` : "Admin"}
                 </span>
               </div>
               <button
                 onClick={() => toggleCode(code.id, !code.disabled)}
-                className={`rounded-full px-4 py-1 text-sm font-semibold ${
-                  code.disabled ? "btn-secondary" : "btn-primary"
-                }`}
+                className={`${code.disabled ? "btn-primary" : "btn-secondary"} h-8 px-3`}
               >
                 {code.disabled ? "Enable" : "Disable"}
               </button>

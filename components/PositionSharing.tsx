@@ -66,13 +66,13 @@ export function PositionSharingToggle() {
   if (!state?.joined) return null;
   const on = state.share;
   return (
-    <div className="rounded-2xl border border-border bg-surface px-4 py-3" data-testid="position-sharing-setting">
+    <div className="tile px-4 py-3" data-testid="position-sharing-setting">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p id="position-sharing-label" className="text-[13px] font-semibold text-fg">
+          <p id="position-sharing-label" className="text-base font-semibold text-fg">
             Share my opened/closed positions on Poolside
           </p>
-          <p id="position-sharing-desc" className="mt-0.5 text-[12px] leading-snug text-mute">
+          <p id="position-sharing-desc" className="mt-0.5 text-sm leading-snug text-mute">
             {on
               ? "Pools you open or close, with realized PnL on closes, show up from the moment you turned this on."
               : "Off: only your theses, follows and badges appear. Turning it on shares new activity only, never past positions."}
@@ -86,7 +86,7 @@ export function PositionSharingToggle() {
           aria-describedby="position-sharing-desc"
           disabled={saving}
           onClick={() => void save({ share: !on })}
-          className={`relative mt-0.5 inline-flex h-6 w-10 shrink-0 items-center rounded-full border transition disabled:opacity-60 ${
+          className={`relative mt-0.5 inline-flex h-6 w-10 shrink-0 items-center rounded-full border transition disabled:opacity-45 ${
             on ? "border-accent bg-accent" : "border-border-strong bg-surface-raised"
           }`}
           data-testid="position-sharing-switch"
@@ -94,7 +94,7 @@ export function PositionSharingToggle() {
           <span className={`block h-4 w-4 rounded-full transition-transform ${on ? "translate-x-[19px] bg-accent-fg" : "translate-x-[3px] bg-mute"}`} aria-hidden />
         </button>
       </div>
-      {error && <p className="mt-1.5 text-[12px] text-dn">{error}</p>}
+      {error && <p className="mt-2 text-sm text-dn">{error}</p>}
     </div>
   );
 }
@@ -109,9 +109,9 @@ export function PositionSharingPrompt({ className = "" }: { className?: string }
 
   if (justEnabled) {
     return (
-      <div className={`rounded-2xl border border-border bg-surface px-4 py-3 text-[13px] text-fg-secondary ${className}`} role="status" data-testid="position-sharing-prompt-done">
+      <div className={`card px-5 py-4 text-base text-fg-secondary ${className}`} role="status" data-testid="position-sharing-prompt-done">
         Sharing is on. New opens and closes will show on Poolside. You can turn it off on{" "}
-        <Link href="/profile/me" className="font-semibold text-fg hover:underline">
+        <Link href="/profile/me" className="link">
           your profile
         </Link>{" "}
         anytime.
@@ -121,29 +121,29 @@ export function PositionSharingPrompt({ className = "" }: { className?: string }
   if (!state?.joined || state.asked) return null;
 
   return (
-    <div className={`rounded-2xl border border-border bg-surface px-4 py-3.5 ${className}`} data-testid="position-sharing-prompt">
-      <p className="text-[14px] font-semibold text-fg">Share your positions on Poolside?</p>
-      <p className="mt-1 text-[12.5px] leading-snug text-mute">
+    <div className={`card p-5 ${className}`} data-testid="position-sharing-prompt">
+      <p className="text-md font-semibold text-fg">Share your positions on Poolside?</p>
+      <p className="mt-1 text-base text-mute">
         People on Poolside would see when you open or close a pool, plus realized PnL when you close. Only new activity from now on, never your past positions. Your
         stats and rank stay public either way, and you can change this anytime on your profile.
       </p>
-      <div className="mt-3 flex flex-wrap items-center gap-2">
+      <div className="mt-4 flex flex-wrap items-center gap-2">
         <button
           type="button"
           disabled={saving}
           onClick={async () => {
             if (await save({ share: true })) setJustEnabled(true);
           }}
-          className="btn-primary h-8 px-3.5 text-[13px]"
+          className="btn-primary"
           data-testid="position-sharing-yes"
         >
           Share my positions
         </button>
-        <button type="button" disabled={saving} onClick={() => void save({ dismiss: true })} className="btn-ghost h-8 px-3 text-[13px]" data-testid="position-sharing-no">
+        <button type="button" disabled={saving} onClick={() => void save({ dismiss: true })} className="btn-ghost" data-testid="position-sharing-no">
           Not now
         </button>
       </div>
-      {error && <p className="mt-1.5 text-[12px] text-dn">{error}</p>}
+      {error && <p className="mt-2 text-sm text-dn">{error}</p>}
     </div>
   );
 }

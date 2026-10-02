@@ -197,7 +197,7 @@ function Tip({ label, content, className, children, testId }: { label: string; c
             id={id}
             role="tooltip"
             data-testid="badge-tooltip"
-            className="pointer-events-none fixed z-[60] w-max max-w-[240px] rounded-xl border border-border-strong bg-surface-raised px-3 py-2 shadow-lg shadow-black/40"
+            className="pointer-events-none fixed z-[60] w-max max-w-[240px] rounded-tile border border-border-strong bg-surface-raised px-3 py-2 shadow-lg shadow-black/40"
             style={{ left: pos?.left ?? -9999, top: pos?.top ?? -9999 }}
           >
             {content}
@@ -227,16 +227,16 @@ export function BadgeChip({ badge, size = "md" }: { badge: ApiBadge; size?: keyo
     <Tip
       label={`${def.name}${tier ? `, ${tier}` : ""}: ${how}`}
       testId="badge"
-      className={`inline-flex ${s.chip} shrink-0 items-center justify-center rounded-full border outline-none transition-colors ${chipTone(badge.id, badge.tier)}`}
+      className={`inline-flex ${s.chip} shrink-0 items-center justify-center rounded-full border transition-colors ${chipTone(badge.id, badge.tier)}`}
       content={
         <>
           <div className="flex items-center gap-1.5">
             <BadgeGlyph id={badge.id} size={12} className={badgeTone(badge.id, badge.tier)} />
-            <span className="text-[12.5px] font-semibold text-fg">{def.name}</span>
+            <span className="text-sm font-semibold text-fg">{def.name}</span>
           </div>
-          {tier && <div className="mt-0.5 text-[11px] text-fg-secondary">{tier}</div>}
-          <div className="mt-1 text-[12px] leading-snug text-fg-secondary">{how}</div>
-          <div className="mt-1 text-[11px] text-mute">Earned {fmtEarned(badge.earnedAt)}</div>
+          {tier && <div className="mt-0.5 text-xs text-fg-secondary">{tier}</div>}
+          <div className="mt-1 text-sm leading-snug text-fg-secondary">{how}</div>
+          <div className="mt-1 text-xs text-mute">Earned {fmtEarned(badge.earnedAt)}</div>
         </>
       }
     >
@@ -270,13 +270,13 @@ export function BadgeRow({
         <Tip
           label={`${rest.length} more badges: ${rest.map((b) => BADGES[b.id].name).join(", ")}`}
           testId="badge-more"
-          className={`inline-flex ${SIZES[size].more} shrink-0 items-center justify-center rounded-full border border-border bg-surface-raised px-1.5 text-[10.5px] font-semibold text-mute hover:border-border-strong hover:text-fg-secondary`}
+          className={`inline-flex ${SIZES[size].more} shrink-0 items-center justify-center rounded-full border border-border bg-surface-raised px-1.5 text-xs font-semibold text-mute transition-colors hover:border-border-strong hover:text-fg-secondary`}
           content={
             <ul className="space-y-1">
               {rest.map((b) => {
                 const tier = tierLabel(b.id, b.tier);
                 return (
-                  <li key={b.id} className="flex items-center gap-1.5 text-[12px] text-fg-secondary">
+                  <li key={b.id} className="flex items-center gap-1.5 text-sm text-fg-secondary">
                     <BadgeGlyph id={b.id} size={12} className={badgeTone(b.id, b.tier)} />
                     <span className="font-semibold text-fg">{BADGES[b.id].name}</span>
                     {tier && <span className="text-mute">· {tier.split(" · ")[0]}</span>}

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Avatar } from "@/components/ui";
+import { Avatar, binLabel } from "@/components/ui";
 import { ThesisLikeButton } from "@/components/ThesisLikeButton";
 import { fmtPct, fmtUsd, pnlClass, timeAgo } from "@/lib/format";
 import type { ThesisAuthor, ThesisPool, ThesisPost } from "@/lib/thesis-types";
@@ -21,7 +21,7 @@ function TokenDot({ icon, label, className = "" }: { icon: string | null; label:
     return <img src={icon} alt="" className={`h-4 w-4 rounded-full border border-surface bg-surface-raised object-cover ${className}`} loading="lazy" />;
   }
   return (
-    <span className={`flex h-4 w-4 items-center justify-center rounded-full border border-surface bg-border-strong text-[9px] font-bold ${className}`}>
+    <span className={`flex h-4 w-4 items-center justify-center rounded-full border border-surface bg-border-strong text-xs font-semibold ${className}`}>
       {label.slice(0, 1)}
     </span>
   );
@@ -30,17 +30,17 @@ function TokenDot({ icon, label, className = "" }: { icon: string | null; label:
 /** Tag for the pool a thesis was posted on; links to that pool's page in the app. */
 export function ThesisPoolTag({ pool, token }: { pool: ThesisPool | null; token: ThesisPost["token"] }) {
   const cls =
-    "inline-flex max-w-full items-center gap-1 rounded-full border border-border bg-surface-raised py-0.5 pl-1 pr-2 text-[12px] font-semibold text-fg transition hover:border-border-strong";
+    "inline-flex h-6 max-w-full items-center gap-1.5 rounded-full border border-border bg-surface-raised pl-1 pr-2 text-sm font-semibold text-fg transition hover:border-border-strong";
   if (pool) {
     const [x = "?", y = "?"] = pool.name.split("-");
     return (
-      <Link href={`/pools/${pool.address}`} className={cls} title={`${pool.name}${pool.binStep ? ` · bin step ${pool.binStep}` : ""}`} data-testid="thesis-pool-tag">
+      <Link href={`/pools/${pool.address}`} className={cls} title={`${pool.name}${pool.binStep ? ` · ${binLabel(pool.binStep)}` : ""}`} data-testid="thesis-pool-tag">
         <span className="flex shrink-0">
           <TokenDot icon={pool.xIcon} label={x} />
           <TokenDot icon={pool.yIcon} label={y} className="-ml-1.5" />
         </span>
         <span className="truncate">{pool.name}</span>
-        {pool.binStep != null && <span className="shrink-0 text-[11px] font-medium text-mute">· {pool.binStep}</span>}
+        {pool.binStep != null && <span className="shrink-0 font-medium text-mute">{binLabel(pool.binStep)}</span>}
       </Link>
     );
   }
@@ -57,7 +57,7 @@ function AuthorName({ author }: { author: ThesisAuthor }) {
   const primary = author.xHandle ? author.xName || `@${author.xHandle}` : author.anonName || "Pool Partier";
   const secondary = author.xHandle && author.xName ? `@${author.xHandle}` : null;
   const name = href ? (
-    <Link href={href} className="truncate font-semibold text-fg hover:underline" data-testid="thesis-author">
+    <Link href={href} className="truncate font-semibold text-fg transition hover:text-fg-secondary" data-testid="thesis-author">
       {primary}
     </Link>
   ) : (
@@ -66,7 +66,7 @@ function AuthorName({ author }: { author: ThesisAuthor }) {
   return (
     <span className="flex min-w-0 items-baseline gap-1.5">
       {name}
-      {secondary && <span className="truncate text-[13px] text-mute">{secondary}</span>}
+      {secondary && <span className="hidden truncate text-mute sm:inline">{secondary}</span>}
     </span>
   );
 }
@@ -74,14 +74,14 @@ function AuthorName({ author }: { author: ThesisAuthor }) {
 export function ThesisBody({ body, size = "md" }: { body: string; size?: "md" | "sm" }) {
   const long = body.length > CLAMP_CHARS || body.split("\n").length > CLAMP_LINES;
   const [open, setOpen] = useState(false);
-  const text = size === "md" ? "text-[15px] leading-[1.55]" : "text-[13.5px] leading-snug";
+  const text = size === "md" ? "text-md" : "text-base";
   return (
     <div>
       <p className={`whitespace-pre-wrap break-words text-fg-secondary ${text} ${long && !open ? "line-clamp-5" : ""}`} data-testid="thesis-body">
         {body}
       </p>
       {long && (
-        <button type="button" onClick={() => setOpen((o) => !o)} className="mt-1 text-[13px] font-semibold text-mute hover:text-fg" aria-expanded={open}>
+        <button type="button" onClick={() => setOpen((o) => !o)} className="mt-1 text-base font-semibold text-mute transition hover:text-fg" aria-expanded={open}>
           {open ? "Show less" : "Show more"}
         </button>
       )}
@@ -93,10 +93,10 @@ export function ThesisBody({ body, size = "md" }: { body: string; size?: "md" | 
 function AuthorPoolPnl({ pnl }: { pnl: ThesisPost["authorPoolPnl"] }) {
   if (!pnl) return null;
   return (
-    <span className={`num shrink-0 text-[12px] font-semibold ${pnlClass(pnl.usd)}`} title="Author's PnL in this pool (last sync)" data-testid="thesis-pool-pnl">
+    <span className={`num shrink-0 text-sm font-semibold ${pnlClass(pnl.usd)}`} title="Author's PnL in this pool (last sync)" data-testid="thesis-pool-pnl">
       {fmtUsd(pnl.usd, { signed: true })}
       {pnl.pct != null && (
-        <span className="ml-1 opacity-60">
+        <span className="ml-1 font-medium">
           {pnl.pct >= 0 ? "+" : "−"}
           {fmtPct(Math.abs(pnl.pct), 1)}
         </span>
@@ -123,25 +123,25 @@ export function ThesisCard({ post, onDelete, size = "md" }: { post: ThesisPost; 
         <span className="shrink-0">{avatar}</span>
       )}
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2 text-[14px]">
+        <div className="flex min-w-0 items-baseline gap-1.5 text-base">
           <AuthorName author={post.author} />
-          <span className="text-mute" aria-hidden>
+          <span className="shrink-0 text-mute" aria-hidden>
             ·
           </span>
-          <time dateTime={post.createdAt} title={new Date(post.createdAt).toLocaleString()} className="shrink-0 text-[13px] text-mute">
+          <time dateTime={post.createdAt} title={new Date(post.createdAt).toLocaleString()} className="shrink-0 text-mute">
             {timeAgo(post.createdAt)}
           </time>
           {onDelete && (
-            <button type="button" onClick={onDelete} className="ml-auto shrink-0 text-[12px] font-semibold text-dn hover:underline">
+            <button type="button" onClick={onDelete} className="btn-ghost ml-auto h-8 shrink-0 self-center px-3 text-dn hover:text-dn">
               Delete
             </button>
           )}
         </div>
-        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
           <ThesisPoolTag pool={post.pool} token={post.token} />
           <AuthorPoolPnl pnl={post.authorPoolPnl} />
           {post.pool && (
-            <span className="text-[12px] text-mute" title="From the author's last sync">
+            <span className="text-sm text-mute" title="From the author's last sync">
               {post.authorInPool ? "In this pool" : "Exited this pool"}
             </span>
           )}
@@ -160,11 +160,11 @@ export function ThesisCard({ post, onDelete, size = "md" }: { post: ThesisPost; 
 /** Thesis without the author header (the author is the page's subject, e.g. their profile). */
 export function ThesisCompact({ post }: { post: ThesisPost }) {
   return (
-    <article className="rounded-xl border border-border bg-bg p-3" data-testid="thesis-card" data-thesis-id={post.id}>
-      <div className="flex items-center gap-2">
+    <article className="tile p-3" data-testid="thesis-card" data-thesis-id={post.id}>
+      <div className="flex min-w-0 items-center gap-2">
         <ThesisPoolTag pool={post.pool} token={post.token} />
         <AuthorPoolPnl pnl={post.authorPoolPnl} />
-        <time dateTime={post.createdAt} title={new Date(post.createdAt).toLocaleString()} className="ml-auto shrink-0 text-[11px] text-mute">
+        <time dateTime={post.createdAt} title={new Date(post.createdAt).toLocaleString()} className="ml-auto shrink-0 text-sm text-mute">
           {timeAgo(post.createdAt)}
         </time>
       </div>
