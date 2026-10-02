@@ -121,17 +121,30 @@ export default function BadgesPage() {
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                     <h2 className="text-lg font-semibold">{def.name}</h2>
+                    {/* Status and progress all sit beside the name: what you hold, then what's next. */}
                     {next?.qualifies ? (
                       <span className="text-sm font-semibold text-accent" title="Badges are awarded when your stats sync">
                         {next.label} <span className="font-normal text-mute">· lands on your next sync</span>
                       </span>
-                    ) : have ? (
-                      <span className={`text-sm font-semibold ${def.tiered ? TIER_TEXT[have - 1] : "text-up"}`}>
-                        {def.tiered ? `You have ${TIER_NAME[have - 1]}` : "You have it"}
-                      </span>
-                    ) : data.mine ? (
-                      <span className="text-sm text-mute">Not yet</span>
-                    ) : null}
+                    ) : (
+                      <>
+                        {have ? (
+                          <span className={`text-sm font-semibold ${def.tiered ? TIER_TEXT[have - 1] : "text-up"}`}>
+                            {def.tiered ? `You have ${TIER_NAME[have - 1]}` : "You have it"}
+                          </span>
+                        ) : data.mine && !next ? (
+                          <span className="text-sm text-mute">Not yet</span>
+                        ) : null}
+                        {next && (
+                          <span className="inline-flex items-center gap-2 self-center text-sm text-fg-secondary" data-testid="badge-progress">
+                            <span className="num">{next.label}</span>
+                            <span className="h-1 w-16 overflow-hidden rounded-full bg-surface-raised" aria-hidden="true">
+                              <span className="block h-full rounded-full bg-accent" style={{ width: `${Math.max(4, Math.min(100, next.frac * 100))}%` }} />
+                            </span>
+                          </span>
+                        )}
+                      </>
+                    )}
                   </div>
                   <p className="mt-1 text-base text-fg-secondary">{guide.blurb}</p>
 
@@ -152,14 +165,6 @@ export default function BadgesPage() {
                     <span className="font-semibold text-fg-secondary">{pop.total.toLocaleString("en-US")}</span> {pop.total === 1 ? "member has it" : "members have it"}
                   </p>
 
-                  {next && !next.qualifies && (
-                    <div className="mt-3 max-w-md" data-testid="badge-progress">
-                      <p className="num text-sm text-fg-secondary">{next.label}</p>
-                      <div className="mt-1 h-1 overflow-hidden rounded-full bg-surface-raised">
-                        <span className="block h-full rounded-full bg-accent" style={{ width: `${Math.max(2, Math.min(100, next.frac * 100))}%` }} />
-                      </div>
-                    </div>
-                  )}
                   {id === "podium" && !have && data.mine && <p className="mt-3 text-sm text-fg-secondary">Climb the 30-day boards on the leaderboard to earn it.</p>}
                 </div>
               </li>
