@@ -48,7 +48,20 @@ const INITIAL_POOLS = 8;
  *
  * `refreshKey` (e.g. the snapshot's updatedAt) refetches after a sync finishes.
  */
-export function OpenPositions({ userId, compact, mine = false, refreshKey }: { userId?: number; compact?: boolean; mine?: boolean; refreshKey?: string | null }) {
+export function OpenPositions({
+  userId,
+  compact,
+  mine = false,
+  refreshKey,
+  syncing = false,
+}: {
+  userId?: number;
+  compact?: boolean;
+  mine?: boolean;
+  refreshKey?: string | null;
+  /** A stats sync is running: rows without a liquidity shape yet show a loading placeholder. */
+  syncing?: boolean;
+}) {
   const [data, setData] = useState<OpenPositionsData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -208,7 +221,7 @@ export function OpenPositions({ userId, compact, mine = false, refreshKey }: { u
       {header}
       <div className="space-y-1">
         {visible.map((pool) => (
-          <PositionCard key={pool.poolAddress} pool={pool} open={open} panelId={`${panelBase}-${pool.poolAddress}`} />
+          <PositionCard key={pool.poolAddress} pool={pool} open={open} panelId={`${panelBase}-${pool.poolAddress}`} syncing={syncing} />
         ))}
       </div>
       {data.pools.length > INITIAL_POOLS && (
@@ -383,32 +396,90 @@ function RangeBar({ d, scale, unit }: { d: OpenPositionDetail; scale: PriceScale
   );
 }
 
+/** Columns in the row's liquidity profile. */
+const PROFILE_COLS = 36;
+
 /**
- * Compact range strip for a pool row: one thin line per position on the pool's shared log scale, plus a
- * tick at the current price, and the overall bounds underneath. Reads as where (and how spread) the
- * liquidity sits without opening the per-position list.
+ * One liquidity profile for a pool row: every position's on-chain shape (lib/position-shape.ts) laid on
+ * the pool's shared log price scale and added up, each position weighted by its value (shapes are
+ * normalised per position). Null when no position has a shape yet.
  */
-function MiniRange({ details, scale, unit, className = "" }: { details: OpenPositionDetail[]; scale: PriceScale; unit: string; className?: string }) {
+function combinedProfile(details: OpenPositionDetail[], scale: PriceScale): number[] | null {
+  const cols = new Array<number>(PROFILE_COLS).fill(0);
+  let any = false;
+  for (const d of details) {
+    const bars = d.shape?.bars;
+    if (!bars || bars.length === 0 || !finitePos(d.minPrice) || !finitePos(d.maxPrice)) continue;
+    const total = bars.reduce((sum, h) => sum + h, 0);
+    if (total <= 0) continue;
+    any = true;
+    const weight = d.valueUsd > 0 ? d.valueUsd : 1;
+    const a = at(scale, d.minPrice);
+    const b = at(scale, d.maxPrice);
+    // Spread each bar over the columns it covers (by overlap), as liquidity density, so a position
+    // with fewer bars than columns doesn't leave gaps.
+    const colW = 100 / PROFILE_COLS;
+    const barW = (b - a) / bars.length;
+    bars.forEach((h, i) => {
+      const x0 = a + barW * i;
+      const x1 = x0 + barW;
+      const density = ((h / total) * weight) / Math.max(barW, 1e-9);
+      for (let c = Math.max(0, Math.floor(x0 / colW)); c <= Math.min(PROFILE_COLS - 1, Math.floor(x1 / colW)); c++) {
+        const overlap = Math.min(x1, (c + 1) * colW) - Math.max(x0, c * colW);
+        if (overlap > 0) cols[c] += (density * overlap) / colW;
+      }
+    });
+  }
+  const max = Math.max(...cols);
+  return any && max > 0 ? cols.map((v) => (v / max) * 100) : null;
+}
+
+/** Placeholder heights for the loading profile: a soft hump, so it reads as "a shape is coming". */
+const LOADING_PROFILE = Array.from({ length: PROFILE_COLS }, (_, i) => 30 + 55 * Math.sin((Math.PI * (i + 0.5)) / PROFILE_COLS));
+
+/**
+ * Compact range for a pool row: the liquidity profile (where the liquidity sits and how it's weighted)
+ * over the pool's price scale, a tick at the current price, and the overall bounds underneath. While a
+ * sync is still reading shapes from the chain it shows a pulsing placeholder; with no shape it falls
+ * back to one thin range line per position.
+ */
+function MiniRange({ details, scale, unit, pending = false, className = "" }: { details: OpenPositionDetail[]; scale: PriceScale; unit: string; pending?: boolean; className?: string }) {
   const price = poolPriceOf(details);
   const p = price != null ? at(scale, price) : null;
   const lo = Math.min(...details.map((d) => d.minPrice ?? Infinity));
   const hi = Math.max(...details.map((d) => d.maxPrice ?? -Infinity));
-  const label = `${details.length === 1 ? "Range" : `${details.length} ranges`} ${fmtPrice(lo)} to ${fmtPrice(hi)} ${unit}${price != null ? `, current ${fmtPrice(price)}` : ""}`;
+  const profile = combinedProfile(details, scale);
+  const loading = !profile && pending;
+  const label = `${details.length === 1 ? "Range" : `${details.length} ranges`} ${fmtPrice(lo)} to ${fmtPrice(hi)} ${unit}${price != null ? `, current ${fmtPrice(price)}` : ""}${loading ? ", liquidity shape loading" : ""}`;
   return (
-    <div role="img" aria-label={label} title={label} className={`min-w-0 ${className}`}>
-      <div className="relative flex flex-col justify-center gap-[3px] py-1" style={{ minHeight: 14 }}>
-        {details.map((d, i) => {
-          const a = at(scale, d.minPrice ?? 0);
-          const b = at(scale, d.maxPrice ?? 0);
-          return (
-            <div key={i} className="relative h-[3px] rounded-full bg-border">
-              <div className={`absolute inset-y-0 rounded-full ${d.inRange ? "bg-up/70" : "bg-mute/50"}`} style={{ left: `${a}%`, width: `${Math.max(b - a, 2)}%` }} />
-            </div>
-          );
-        })}
-        {p != null && <div className="absolute inset-y-0 w-0.5 -translate-x-1/2 rounded-full bg-fg" style={{ left: `${p}%` }} />}
-      </div>
-      <div className={`${NUM} mt-0.5 flex justify-between text-xs leading-none text-mute`} aria-hidden="true">
+    <div role="img" aria-label={label} title={label} className={`min-w-0 ${className}`} aria-busy={loading || undefined}>
+      {profile || loading ? (
+        <div className="relative h-6" data-testid={loading ? "position-shape-loading" : "position-profile"}>
+          <div className="absolute inset-0 flex items-end gap-px">
+            {(profile ?? LOADING_PROFILE).map((h, i) => {
+              // Bins above the pool price hold the base token, below it the quote token (same as the detail bars).
+              const above = p != null && ((i + 0.5) / PROFILE_COLS) * 100 > p;
+              const tone = loading ? "skeleton" : above ? "bg-fg-secondary/55" : "bg-mute/40";
+              return <div key={i} className={`min-w-0 flex-1 rounded-t-[1px] ${tone}`} style={{ height: `${h > 0 ? Math.max(h, 6) : 0}%` }} />;
+            })}
+          </div>
+          {p != null && !loading && <div className="absolute -bottom-0.5 -top-0.5 w-0.5 -translate-x-1/2 rounded-full bg-fg" style={{ left: `${p}%` }} />}
+        </div>
+      ) : (
+        <div className="relative flex flex-col justify-center gap-[3px] py-1" style={{ minHeight: 14 }}>
+          {details.map((d, i) => {
+            const a = at(scale, d.minPrice ?? 0);
+            const b = at(scale, d.maxPrice ?? 0);
+            return (
+              <div key={i} className="relative h-[3px] rounded-full bg-border">
+                <div className={`absolute inset-y-0 rounded-full ${d.inRange ? "bg-up/70" : "bg-mute/50"}`} style={{ left: `${a}%`, width: `${Math.max(b - a, 2)}%` }} />
+              </div>
+            );
+          })}
+          {p != null && <div className="absolute inset-y-0 w-0.5 -translate-x-1/2 rounded-full bg-fg" style={{ left: `${p}%` }} />}
+        </div>
+      )}
+      <div className={`${NUM} mt-1 flex justify-between text-xs leading-none text-mute`} aria-hidden="true">
         <span>{fmtPrice(lo)}</span>
         <span>{fmtPrice(hi)}</span>
       </div>
@@ -496,7 +567,7 @@ function hasPositionRows(pool: OpenPool): boolean {
   return (pool.positionCount || 1) > 1 && (pool.positions ?? []).length > 0;
 }
 
-function PositionCard({ pool, open, panelId }: { pool: OpenPool; open: boolean; panelId: string }) {
+function PositionCard({ pool, open, panelId, syncing = false }: { pool: OpenPool; open: boolean; panelId: string; syncing?: boolean }) {
   const count = pool.positionCount || 1;
   const details = pool.positions ?? [];
   const pair = `${pool.tokenX}-${pool.tokenY}`;
@@ -540,8 +611,8 @@ function PositionCard({ pool, open, panelId }: { pool: OpenPool; open: boolean; 
         </div>
       </div>
 
-      <div className="mt-4 flex items-end gap-5 sm:mt-0 sm:shrink-0 sm:gap-8 sm:text-right">
-        {scale && details.length > 0 && <MiniRange details={details} scale={scale} unit={unit} className="order-last ml-auto w-24 sm:order-first sm:ml-0 sm:w-36" />}
+      <div className="mt-4 flex flex-wrap items-end gap-x-5 gap-y-3 sm:mt-0 sm:shrink-0 sm:flex-nowrap sm:gap-8 sm:text-right">
+        {scale && details.length > 0 && <MiniRange details={details} scale={scale} unit={unit} pending={syncing} className="order-last w-full sm:order-first sm:w-36" />}
         <Stat label="Value">
           <span className="text-fg">{fmtUsd(pool.valueUsd ?? 0)}</span>
         </Stat>

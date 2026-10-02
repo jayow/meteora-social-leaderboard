@@ -403,7 +403,7 @@ function Profile() {
             )}
           </section>
 
-          <OpenPositions userId={user.id} mine={mine} refreshKey={snap?.updatedAt ?? null} />
+          <OpenPositions userId={user.id} mine={mine} refreshKey={snap?.updatedAt ?? null} syncing={syncing} />
 
           {!desktop && <CalendarCard userId={user.id} />}
 
