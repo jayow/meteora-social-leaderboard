@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState, useRef } from "react";
-import { Logo, XIcon, Avatar } from "@/components/ui";
+import { Logo, Avatar } from "@/components/ui";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { SignInModal, type SignInStep } from "@/components/SignInModal";
 import { useMe } from "@/components/MeProvider";
@@ -48,6 +48,16 @@ function NavLink({ href, active, children }: { href: string; active: boolean; ch
     </Link>
   );
 }
+
+/** Messages our own X callback sends; anything else in ?message= is shown as a generic failure, never verbatim. */
+const X_ERRORS = new Set([
+  "Missing code or state",
+  "Invalid state",
+  "Token exchange failed",
+  "Failed to fetch profile",
+  "This X account is already linked to another Pool Party account",
+  "Failed to save profile",
+]);
 
 function TabLink({ href, active, label, icon }: { href: string; active: boolean; label: string; icon: React.ReactNode }) {
   return (
@@ -121,7 +131,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const url = new URL(window.location.href);
     if (url.searchParams.get("x") !== "error") return;
-    setXError(url.searchParams.get("message") || "unknown error");
+    const message = url.searchParams.get("message") ?? "";
+    setXError(X_ERRORS.has(message) ? message : "Something went wrong. Try again.");
     url.searchParams.delete("x");
     url.searchParams.delete("message");
     window.history.replaceState(null, "", url.pathname + url.search);
@@ -208,7 +219,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <div className="min-h-screen pb-24 md:pb-0">
+    <div className={`min-h-screen md:pb-0 ${showNav ? "pb-[calc(6rem+env(safe-area-inset-bottom))]" : ""}`}>
       {/* Flush with the page: same background, one hairline underneath. */}
       <header className="sticky top-0 z-40 border-b border-border bg-bg">
         <div className="mx-auto flex h-[60px] max-w-[1320px] items-center gap-10 px-4 lg:px-6">
@@ -230,18 +241,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <button
                   type="button"
                   onClick={() => openSignIn("methods")}
-                  className="btn-secondary"
+                  className="btn-secondary h-8 px-3"
                   data-testid="header-entry"
                 >
                   Sign in
                 </button>
-                <Link href="/join" className="btn-primary" data-testid="header-signup">
+                <Link href="/join" className="btn-primary h-8 px-3" data-testid="header-signup">
                   Sign up
                 </Link>
               </div>
             )}
             {isSignedIn && !isMember && (
-              <Link href="/join" className="btn-primary" data-testid="header-entry">
+              <Link href="/join" className="btn-primary h-8 px-3" data-testid="header-entry">
                 Join beta
               </Link>
             )}
@@ -270,7 +281,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
                 {menuOpen && (
                   <div className="absolute right-0 z-50 mt-3 w-56 overflow-hidden rounded-tile border border-border bg-surface p-1 shadow-lg shadow-black/40">
-                    <div className="truncate px-3 pb-1.5 pt-2 text-sm font-medium text-mute" title={accountName}>
+                    {/* The trigger shows the name from lg, so the menu repeats it only below that. */}
+                    <div className="truncate px-3 pb-1.5 pt-2 text-sm font-medium text-mute lg:hidden" title={accountName}>
                       {accountName}
                     </div>
                     <Link href="/profile/me" onClick={() => setMenuOpen(false)} className={MENU_ITEM}>
@@ -283,7 +295,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     )}
                     {!hasX && (
                       <a href={`/api/x/login?link=true&returnTo=${encodeURIComponent("/profile/me")}`} className={MENU_ITEM}>
-                        <XIcon className="h-3.5 w-3.5" />
                         Link X account
                       </a>
                     )}
@@ -330,11 +341,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Mobile bottom tab bar */}
       {showNav && (
-      <nav className="fixed inset-x-3 bottom-3 z-40 md:hidden" aria-label="Main">
+      <nav className="fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-40 md:hidden" aria-label="Main">
         <div className="flex items-center justify-around rounded-card border border-border bg-surface px-1 py-1.5 shadow-lg shadow-black/40">
           <TabLink href="/poolside" active={onFeed} label="Poolside" icon={<IconWaves />} />
           <TabLink href="/pools" active={onPools} label="Pools" icon={<IconPool />} />
-          <TabLink href="/" active={onBoard} label="Ranks" icon={<IconTrophy />} />
+          <TabLink href="/" active={onBoard} label="Leaderboard" icon={<IconTrophy />} />
           {isMember && <TabLink href="/invites" active={onInvites} label="Invites" icon={<IconTicket />} />}
           {isSignedIn && <TabLink href="/profile/me" active={onMe} label="Me" icon={<IconUser />} />}
         </div>

@@ -7,7 +7,7 @@ import { useMe } from "@/components/MeProvider";
 import { fmtUsd } from "@/lib/format";
 import { DipLink } from "@/components/DipLink";
 import { EmptyState, PageHeader } from "@/components/EmptyState";
-import { Tag, binLabel } from "@/components/ui";
+import { binLabel } from "@/components/ui";
 import { PoolMemberAvatars } from "@/components/PoolMemberAvatars";
 import { onFollowChanged } from "@/lib/session-events";
 import {
@@ -100,6 +100,7 @@ function PoolsContent() {
   const [total, setTotal] = useState(0);
   const [hasMore, setHasMore] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [searchMiss, setSearchMiss] = useState<string | null>(null);
   const [sort, setSort] = useState<PoolSort>(isPoolSort(sortFromUrl) ? sortFromUrl : "members");
   // Token view: filter within the token's pools (server-side, debounced)
   const [poolQuery, setPoolQuery] = useState("");
@@ -221,26 +222,21 @@ function PoolsContent() {
     }
   };
 
-  const handleSearch = (term: string) => {
-    if (!term.trim()) {
-      if (tokenMint) {
-        router.push("/pools");
-      }
-      return;
-    }
-    
+  const handleSearch = (raw: string) => {
+    const term = raw.trim();
+    setSearchMiss(null);
+    if (!term) return;
     if (term.length >= 32 && /^[1-9A-HJ-NP-Za-km-z]+$/.test(term)) {
       router.push(`/pools?token=${encodeURIComponent(term)}`);
-    } else {
-      fetch(`/api/tokens/symbol/${encodeURIComponent(term)}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.mint) {
-            router.push(`/pools?token=${encodeURIComponent(data.mint)}`);
-          }
-        })
-        .catch(() => {});
+      return;
     }
+    fetch(`/api/tokens/symbol/${encodeURIComponent(term)}`)
+      .then((res) => res.json())
+      .then((data: { mint?: string }) => {
+        if (data.mint) router.push(`/pools?token=${encodeURIComponent(data.mint)}`);
+        else setSearchMiss(term);
+      })
+      .catch(() => setSearchMiss(term));
   };
 
   // All-pools view returns its full set (member pools, max 100): sort it here. Token view sorts server-side.
@@ -260,115 +256,97 @@ function PoolsContent() {
         </div>
       )}
       
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div className="flex-1">
-          {tokenInfo ? (
-            <div className="card flex items-center gap-4 p-5">
-              {tokenInfo.icon ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={tokenInfo.icon}
-                  alt={tokenInfo.symbol}
-                  className="h-14 w-14 shrink-0 rounded-full border border-border bg-surface-raised object-cover"
-                />
-              ) : (
-                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-border bg-surface-raised text-lg font-semibold text-mute">
-                  {tokenInfo.symbol.slice(0, 1)}
-                </div>
-              )}
-              <div className="min-w-0">
-                <h1 className="truncate text-2xl font-bold tracking-tight">{tokenInfo.symbol} pools</h1>
-                <div className="mt-1 overflow-hidden">
-                  <div className="num dot-list text-base text-mute">
-                    <span>{tokenInfo.poolCount.toLocaleString("en-US")} pools</span>
-                    <span>{fmtUsd(tokenInfo.totalTvl)} total TVL</span>
-                    {tokenInfo.lpCount > 0 && (
-                      <span>
-                        {tokenInfo.lpCount} member LP{tokenInfo.lpCount === 1 ? "" : "s"} ({fmtUsd(tokenInfo.memberLiquidity)})
-                      </span>
-                    )}
-                  </div>
-                </div>
+      {tokenInfo ? (
+        <div className="flex items-center gap-4">
+          {tokenInfo.icon ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={tokenInfo.icon}
+              alt={tokenInfo.symbol}
+              className="h-12 w-12 shrink-0 rounded-full border border-border bg-surface-raised object-cover"
+            />
+          ) : (
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-border bg-surface-raised text-lg font-semibold text-mute">
+              {tokenInfo.symbol.slice(0, 1)}
+            </div>
+          )}
+          <div className="min-w-0">
+            <h1 className="truncate text-2xl font-bold tracking-tight">{tokenInfo.symbol} pools</h1>
+            <div className="mt-1 overflow-hidden">
+              <div className="num dot-list text-base text-mute">
+                <span>{tokenInfo.poolCount.toLocaleString("en-US")} pools</span>
+                <span>{fmtUsd(tokenInfo.totalTvl)} total TVL</span>
+                {tokenInfo.lpCount > 0 && (
+                  <span>
+                    {tokenInfo.lpCount} member LP{tokenInfo.lpCount === 1 ? "" : "s"} ({fmtUsd(tokenInfo.memberLiquidity)})
+                  </span>
+                )}
               </div>
             </div>
-          ) : (
-            <PageHeader title="Pools" description="Every DLMM pool with active member LPs. See where your friends are providing liquidity." />
-          )}
-        </div>
-        {!tokenInfo && (
-          <div className="text-right">
-            <div className="text-sm text-mute">Active pools</div>
-            <div className="num mt-0.5 text-xl font-semibold">{pools ? pools.length : "—"}</div>
           </div>
-        )}
-      </div>
+        </div>
+      ) : (
+        <PageHeader
+          title={
+            <>
+              Pools{pools ? <span className="num font-medium text-mute"> {pools.length}</span> : null}
+            </>
+          }
+          description="Every DLMM pool with active member LPs. See where your friends are providing liquidity."
+        />
+      )}
 
-      <div className="mt-5">
-        <div className="flex gap-2">
+      {/* One search field: across all pools it finds a token (Enter); inside a token it filters that token's pools. */}
+      <div className="mt-5 flex flex-wrap items-center gap-2">
+        {tokenMint && tokenInfo ? (
           <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                handleSearch(searchTerm);
-              }
-            }}
-            placeholder="Filter by token symbol or mint address…"
-            aria-label="Filter by token symbol or mint address"
-            className="field h-9 flex-1 rounded-full bg-surface px-4"
+            type="search"
+            value={poolQuery}
+            onChange={(e) => setPoolQuery(e.target.value)}
+            placeholder={`Search ${tokenInfo.symbol} pools`}
+            title="Pair, token mint or pool address"
+            aria-label={`Search ${tokenInfo.symbol} pools`}
+            className="field h-9 min-w-0 flex-1 px-3 sm:max-w-sm"
           />
-          <button
-            type="button"
-            onClick={() => handleSearch(searchTerm)}
-            className="btn-primary"
+        ) : (
+          <input
+            type="search"
+            value={searchTerm}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setSearchMiss(null);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleSearch(searchTerm);
+            }}
+            placeholder="Find a token by symbol or mint, then Enter"
+            aria-label="Find a token by symbol or mint address"
+            className="field h-9 min-w-0 flex-1 px-3 sm:max-w-sm"
+          />
+        )}
+        <label className="ml-auto flex items-center gap-2 text-sm text-mute">
+          Sort
+          <select
+            value={sort}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (isPoolSort(v)) setSort(v);
+            }}
+            className="field h-9 w-auto px-3"
           >
-            Filter
-          </button>
-          {tokenMint && (
-            <button
-              type="button"
-              onClick={() => {
-                setSearchTerm("");
-                router.push("/pools");
-              }}
-              className="btn-secondary"
-            >
-              Clear
-            </button>
-          )}
-        </div>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          {tokenMint && tokenInfo && (
-            <input
-              type="search"
-              value={poolQuery}
-              onChange={(e) => setPoolQuery(e.target.value)}
-              placeholder={`Search ${tokenInfo.symbol} pools`}
-              title="Pair, token mint or pool address"
-              aria-label={`Search ${tokenInfo.symbol} pools`}
-              className="field h-9 flex-1 rounded-full bg-surface px-4 sm:max-w-sm"
-            />
-          )}
-          <label className="ml-auto flex items-center gap-2 text-sm text-mute">
-            Sort
-            <select
-              value={sort}
-              onChange={(e) => {
-                const v = e.target.value;
-                if (isPoolSort(v)) setSort(v);
-              }}
-              className="field h-9 w-auto rounded-full bg-surface px-3"
-            >
-              {POOL_SORTS.map((s) => (
-                <option key={s.value} value={s.value}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
+            {POOL_SORTS.map((s) => (
+              <option key={s.value} value={s.value}>
+                {s.label}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
+      {searchMiss && (
+        <p className="mt-2 text-sm text-mute" role="status">
+          No token called “{searchMiss}”. Try its mint address.
+        </p>
+      )}
 
       {loading && !pools ? (
         <PoolRowsSkeleton />
@@ -432,7 +410,7 @@ function PoolRow({
   const [x = "?", y = "?"] = [pool.tokenX, pool.tokenY];
 
   return (
-    <div className="relative flex flex-wrap items-center gap-x-3 gap-y-2 rounded-tile border border-border bg-surface px-3 py-3 transition hover:border-border-strong sm:flex-nowrap sm:px-4" data-testid="pool-row">
+    <div className="relative flex flex-wrap items-center gap-x-3 gap-y-2 rounded-tile border border-border bg-surface px-3 py-2.5 transition hover:border-border-strong sm:flex-nowrap sm:px-4" data-testid="pool-row">
       <Link href={`/pools/${pool.poolAddress}`} prefetch={false} className="absolute inset-0 rounded-tile" aria-label={`${x}-${y} pool`} />
 
       <div className="flex w-14 shrink-0">
@@ -455,7 +433,6 @@ function PoolRow({
               <span>{y}</span>
             )}
           </span>
-          <Tag>DLMM</Tag>
           {pool.binStep != null && <span className="shrink-0 text-sm font-medium text-mute">{binLabel(pool.binStep)}</span>}
         </div>
         <div className="mt-0.5 overflow-hidden">
@@ -487,7 +464,7 @@ function PoolRowsSkeleton() {
   return (
     <div className="mt-6 space-y-2" aria-busy="true" aria-label="Loading pools">
       {[0, 1, 2, 3, 4, 5].map((i) => (
-        <div key={i} className="flex items-center gap-3 rounded-tile border border-border bg-surface px-3 py-3 sm:px-4">
+        <div key={i} className="flex items-center gap-3 rounded-tile border border-border bg-surface px-3 py-2.5 sm:px-4">
           <div className="flex w-14 shrink-0">
             <span className="skeleton h-8 w-8 rounded-full" />
             <span className="skeleton -ml-2 h-8 w-8 rounded-full" />
@@ -508,7 +485,7 @@ function PoolsSkeleton() {
     <main className="mx-auto max-w-[1320px] px-4 pb-10 pt-6 lg:px-6">
       <span className="skeleton block h-8 w-32" />
       <span className="skeleton mt-2 block h-4 w-80 max-w-full" />
-      <span className="skeleton mt-5 block h-9 w-full rounded-full" />
+      <span className="skeleton mt-5 block h-9 w-full rounded-tile sm:max-w-sm" />
       <PoolRowsSkeleton />
     </main>
   );

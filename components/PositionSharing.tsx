@@ -94,13 +94,13 @@ export function PositionSharingToggle() {
           <span className={`block h-4 w-4 rounded-full transition-transform ${on ? "translate-x-[19px] bg-accent-fg" : "translate-x-[3px] bg-mute"}`} aria-hidden />
         </button>
       </div>
-      {error && <p className="mt-2 text-sm text-dn">{error}</p>}
+      {error && <p className="w-full text-sm text-dn">{error}</p>}
     </div>
   );
 }
 
 /**
- * One-time post-join prompt (own profile + Poolside). Shown to members who haven't answered yet;
+ * One-time post-join prompt (Poolside). Shown to members who haven't answered yet;
  * "Not now" counts as an answer, so it never comes back. Sharing stays off unless they say yes.
  */
 export function PositionSharingPrompt({ className = "" }: { className?: string }) {
@@ -110,40 +110,39 @@ export function PositionSharingPrompt({ className = "" }: { className?: string }
   if (justEnabled) {
     return (
       <div className={`card px-5 py-4 text-base text-fg-secondary ${className}`} role="status" data-testid="position-sharing-prompt-done">
-        Sharing is on. New opens and closes will show on Poolside. You can turn it off on{" "}
+        Sharing is on. New opens and closes will show on Poolside. Turn it off anytime in{" "}
         <Link href="/profile/me" className="link">
-          your profile
-        </Link>{" "}
-        anytime.
+          Edit profile
+        </Link>
+        .
       </div>
     );
   }
   if (!state?.joined || state.asked) return null;
 
   return (
-    <div className={`card p-5 ${className}`} data-testid="position-sharing-prompt">
-      <p className="text-md font-semibold text-fg">Share your positions on Poolside?</p>
-      <p className="mt-1 text-base text-mute">
-        People on Poolside would see when you open or close a pool, plus realized PnL when you close. Only new activity from now on, never your past positions. Your
-        stats and rank stay public either way, and you can change this anytime on your profile.
-      </p>
-      <div className="mt-4 flex flex-wrap items-center gap-2">
+    <div className={`tile flex flex-wrap items-center justify-between gap-x-4 gap-y-3 px-4 py-3 ${className}`} data-testid="position-sharing-prompt">
+      <div className="min-w-0 flex-1 basis-64">
+        <p className="text-base font-semibold text-fg">Share your opens and closes on Poolside?</p>
+        <p className="mt-0.5 text-sm text-mute">New activity only, with realized PnL on closes. Never past positions. Change it anytime.</p>
+      </div>
+      <div className="flex shrink-0 items-center gap-1">
         <button
           type="button"
           disabled={saving}
           onClick={async () => {
             if (await save({ share: true })) setJustEnabled(true);
           }}
-          className="btn-primary"
+          className="btn-secondary h-8 px-3"
           data-testid="position-sharing-yes"
         >
-          Share my positions
+          Share
         </button>
-        <button type="button" disabled={saving} onClick={() => void save({ dismiss: true })} className="btn-ghost" data-testid="position-sharing-no">
+        <button type="button" disabled={saving} onClick={() => void save({ dismiss: true })} className="btn-ghost h-8 px-3" data-testid="position-sharing-no">
           Not now
         </button>
       </div>
-      {error && <p className="mt-2 text-sm text-dn">{error}</p>}
+      {error && <p className="w-full text-sm text-dn">{error}</p>}
     </div>
   );
 }

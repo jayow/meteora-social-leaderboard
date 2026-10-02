@@ -52,7 +52,7 @@ export const PODIUM_GRID: Record<number, string> = { 1: "sm:max-w-[320px]", 2: "
  * an open column, #1 raised above #2 and #3, with a quiet surface on hover.
  */
 export const PODIUM_SLOT =
-  "group relative flex min-w-0 items-center gap-3.5 border-b border-border py-3 transition sm:flex-col sm:gap-0 sm:rounded-card sm:border-b-0 sm:px-4 sm:pb-6 sm:text-center sm:hover:bg-surface";
+  "group relative flex min-w-0 items-center gap-3.5 border-b border-border px-2 py-3 transition sm:flex-col sm:gap-0 sm:rounded-card sm:border-b-0 sm:px-4 sm:pb-6 sm:text-center sm:hover:bg-surface";
 export const PODIUM_LIFT: Record<MedalRank, string> = { 1: "sm:pt-5", 2: "sm:pt-14", 3: "sm:pt-14" };
 /** Podium wrapper: a hairline on top for the phone list; the open columns need none. */
 export const PODIUM_WRAP = "mx-auto mt-6 grid border-t border-border sm:mt-8 sm:items-start sm:gap-3 sm:border-t-0";
@@ -84,11 +84,13 @@ export function PodiumSkeleton({ testId = "board-skeleton" }: { testId?: string 
       <div className={`${PODIUM_WRAP} ${PODIUM_GRID[3]}`}>
         {([2, 1, 3] as const).map((r) => (
           <div key={r} className={`${PODIUM_SLOT} ${PODIUM_STACK_ORDER[r]} ${PODIUM_LIFT[r]} sm:hover:bg-transparent`}>
-            <span className={`skeleton shrink-0 rounded-full ${r === 1 ? "h-[58px] w-[58px] sm:h-[124px] sm:w-[124px]" : "h-[52px] w-[52px] sm:h-[96px] sm:w-[96px]"}`} />
+            <span className={`skeleton shrink-0 rounded-full ${r === 1 ? "h-[58px] w-[58px] sm:h-[122px] sm:w-[122px]" : "h-[52px] w-[52px] sm:h-[94px] sm:w-[94px]"}`} />
             <div className="flex min-w-0 flex-1 flex-col gap-2 sm:mt-6 sm:w-full sm:flex-none sm:items-center">
               <span className="skeleton block h-4 w-28" />
               <span className={`skeleton block w-24 ${r === 1 ? "h-7 sm:h-10 sm:w-36" : "h-7 sm:h-8 sm:w-28"}`} />
             </div>
+            {/* Follow button placeholder, so the loaded columns don't grow. */}
+            <span className="skeleton block h-8 w-20 shrink-0 rounded-full sm:mt-4" />
           </div>
         ))}
       </div>

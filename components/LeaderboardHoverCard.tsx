@@ -6,7 +6,6 @@ import { createPortal } from "react-dom";
 import type { LeaderboardEntry } from "@/lib/api-types";
 import { Avatar, Flag } from "@/components/ui";
 import { FollowButton } from "@/components/FollowButton";
-import { RankMedal, isMedalRank } from "@/components/RankMedal";
 import { BadgeRow } from "@/components/Badges";
 import type { FollowListKind } from "@/components/FollowListModal";
 import { displayName, fmtPct, fmtUsd } from "@/lib/format";
@@ -75,7 +74,8 @@ export function LeaderboardHoverCard({
     setPos({ left, top });
   }, [anchor]);
 
-  const name = entry.xName || displayName(entry);
+  // Same name as the row it previews.
+  const name = displayName(entry);
   const stats: { label: string; value: string; tone?: string }[] = [
     {
       label: "PnL",
@@ -132,7 +132,6 @@ export function LeaderboardHoverCard({
               <Flag code={entry.country} className="shrink-0" />
             </div>
             <div className="mt-0.5 flex min-w-0 items-center gap-1 text-sm text-mute">
-              {isMedalRank(entry.rank) && <RankMedal rank={entry.rank} size={15} />}
               <span className="truncate">{rankLabel}</span>
               {isMe && <span className="chip ml-1">You</span>}
             </div>
@@ -150,6 +149,7 @@ export function LeaderboardHoverCard({
           ))}
         </dl>
 
+        {/* Counts and actions share one line; "View profile" only on touch, where tapping the row opened this card. */}
         <div className={`mt-3 flex items-center gap-4 text-sm text-mute ${mode === "touch" ? "[&>button]:py-1.5" : ""}`}>
           <button type="button" onClick={() => onOpenList("followers")} className="transition hover:text-fg" data-testid="hover-followers">
             <span className="num font-semibold text-fg">{entry.followersCount ?? 0}</span> {entry.followersCount === 1 ? "follower" : "followers"}
@@ -157,14 +157,21 @@ export function LeaderboardHoverCard({
           <button type="button" onClick={() => onOpenList("following")} className="transition hover:text-fg" data-testid="hover-following">
             <span className="num font-semibold text-fg">{entry.followingCount ?? 0}</span> following
           </button>
+          {!isMe && mode !== "touch" && (
+            <span className="ml-auto">
+              <FollowButton targetUser={entry} size="sm" />
+            </span>
+          )}
         </div>
 
-        <div className="mt-3 flex items-center gap-2">
-          {!isMe && <FollowButton targetUser={entry} size="sm" />}
-          <Link href={`/profile/${entry.xHandle || entry.id}`} className="btn-secondary h-8 px-3">
-            View profile
-          </Link>
-        </div>
+        {mode === "touch" && (
+          <div className="mt-3 flex items-center gap-2">
+            {!isMe && <FollowButton targetUser={entry} size="sm" />}
+            <Link href={`/profile/${entry.xHandle || entry.id}`} className="btn-secondary h-8 px-3">
+              View profile
+            </Link>
+          </div>
+        )}
       </div>
     </>,
     document.body,

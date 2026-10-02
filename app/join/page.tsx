@@ -8,7 +8,7 @@ import { notifySessionChanged, requestSignIn } from "@/lib/session-events";
 import { TermsCheckbox } from "@/components/TermsCheckbox";
 import { TERMS_VERSION } from "@/lib/legal";
 
-type Step = "code" | "wallet" | "x" | "country" | "thesis" | "complete" | "member";
+type Step = "code" | "wallet" | "x" | "country" | "complete" | "member";
 
 interface JoinSession {
   userId: number | null;
@@ -91,7 +91,10 @@ function JoinFlow() {
         const s = session ?? (await fetchJoinSession());
         setSession(s);
         if (s.memberNumber) setMemberNumber(s.memberNumber);
-        setStep(stepAfterCode(s));
+        const next = stepAfterCode(s);
+        setStep(next);
+        // Signed out: open the sign-in modal straight away instead of a card with one button.
+        if (next === "wallet") openSignIn();
       }
     } catch {
       setError("Failed to validate code");
@@ -117,7 +120,7 @@ function JoinFlow() {
           setStep("country");
         } else {
           setStep(stepAfterCode(session));
-          if (xResult === "error") setError(searchParams.get("message") || "Couldn't connect X");
+          if (xResult === "error") setError("Couldn't connect X. Try again, or skip for now.");
         }
       } catch {
         setError("Failed to validate code");
@@ -137,10 +140,6 @@ function JoinFlow() {
 
   const skipX = () => {
     setStep("country");
-  };
-
-  const continueWithCountry = () => {
-    setStep("thesis");
   };
 
   const finishJoin = async () => {
@@ -178,7 +177,7 @@ function JoinFlow() {
 
   return (
     <main className="mx-auto max-w-[480px] px-4 pb-16 pt-10 sm:pt-16">
-      <div className="card p-6 sm:p-8">
+      <div className="card p-5 sm:p-6">
         {step !== "member" && step !== "complete" && (
           <div className="mb-6 text-center">
             <h1 className="text-2xl font-bold tracking-tight">Join Pool Party</h1>
@@ -189,9 +188,7 @@ function JoinFlow() {
                   ? "Sign in with your Solana wallet or X to continue."
                   : step === "x"
                     ? "Connect your X account (optional)."
-                    : step === "country"
-                      ? "Pick the country you rep on the leaderboard."
-                      : "Last step: add a one-line thesis if you like."}
+                    : "Last step: a few optional details for your profile."}
             </p>
           </div>
         )}
@@ -230,6 +227,7 @@ function JoinFlow() {
 
         {step === "x" && (
           <div className="space-y-2">
+            {errorLine}
             <a
               href={`/api/x/login?termsVersion=${encodeURIComponent(TERMS_VERSION)}&returnTo=${encodeURIComponent(`/join?code=${code.trim()}`)}`}
               className="btn-primary h-11 w-full"
@@ -242,28 +240,20 @@ function JoinFlow() {
           </div>
         )}
 
+        {/* One profile step: country, a one-liner and the terms, then Join. */}
         {step === "country" && (
           <div>
             <span className="mb-1.5 block text-sm font-medium text-mute">Country (optional)</span>
             <CountrySelect value={country} onChange={setCountry} className="h-11 w-full" />
-            {errorLine}
-            <button type="button" onClick={continueWithCountry} className="btn-primary mt-4 h-11 w-full">
-              Continue
-            </button>
-          </div>
-        )}
-
-        {step === "thesis" && (
-          <div>
-            <label htmlFor="join-thesis" className="mb-1.5 block text-sm font-medium text-mute">
-              One-line thesis (optional)
+            <label htmlFor="join-thesis" className="mb-1.5 mt-4 block text-sm font-medium text-mute">
+              Bio (optional)
             </label>
             <input
               id="join-thesis"
               type="text"
               value={thesis}
               onChange={(e) => setThesis(e.target.value)}
-              placeholder="Your trading philosophy…"
+              placeholder="How you LP, in a line…"
               className="field h-11"
               maxLength={200}
             />
@@ -313,7 +303,7 @@ export default function JoinPage() {
     <Suspense
       fallback={
         <main className="mx-auto max-w-[480px] px-4 pb-16 pt-10 sm:pt-16">
-          <div className="card p-6 sm:p-8" aria-busy="true">
+          <div className="card p-5 sm:p-6" aria-busy="true">
             <span className="skeleton mx-auto block h-7 w-48" />
             <span className="skeleton mx-auto mt-2 block h-4 w-64 max-w-full" />
             <span className="skeleton mt-6 block h-11 w-full" />

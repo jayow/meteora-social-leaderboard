@@ -120,6 +120,11 @@ export function SignInModal({ open, onClose, onSuccess, initialStep = "methods" 
   }, [pending, wallet, connected, connecting, publicKey, connect, signIn]);
 
   const handlePick = (name: WalletName) => {
+    // Check consent before the wallet pops up, not after the user has approved the connection.
+    if (!termsAccepted) {
+      setError("Tick the box above to accept the Terms and Privacy Policy first.");
+      return;
+    }
     setError(null);
     setPending(name);
     if (wallet?.adapter.name !== name) select(name);
@@ -140,9 +145,11 @@ export function SignInModal({ open, onClose, onSuccess, initialStep = "methods" 
     <Modal onClose={close} labelledBy="signin-title" className="max-w-md p-6">
       {step === "methods" ? (
         <>
-          <div className="mb-6 text-center">
-            <h2 id="signin-title" className="text-xl font-semibold tracking-tight text-fg">Sign in</h2>
-            <p className="mt-1 text-base text-mute">Choose how you want to sign in.</p>
+          <h2 id="signin-title" className="mb-5 text-center text-xl font-semibold tracking-tight text-fg">Sign in</h2>
+
+          {/* Consent first: both methods stay disabled until it's ticked. */}
+          <div className="tile mb-4 p-3">
+            <TermsCheckbox checked={termsAccepted} onChange={setTermsAccepted} id="signin-terms-consent" />
           </div>
 
           <div className="space-y-3">
@@ -152,6 +159,7 @@ export function SignInModal({ open, onClose, onSuccess, initialStep = "methods" 
                 setError(null);
                 setStep("wallets");
               }}
+              disabled={!termsAccepted}
               className="btn-primary h-11 w-full gap-2"
             >
               <WalletIcon />
@@ -161,6 +169,7 @@ export function SignInModal({ open, onClose, onSuccess, initialStep = "methods" 
             <button
               type="button"
               onClick={handleXConnect}
+              disabled={!termsAccepted}
               className="btn-secondary h-11 w-full gap-2"
             >
               <XIcon className="h-4 w-4" />
@@ -169,12 +178,8 @@ export function SignInModal({ open, onClose, onSuccess, initialStep = "methods" 
           </div>
 
           <p className="mt-4 text-center text-sm text-mute">
-            Pool Party only asks your wallet to sign a free message. We will never ask you to approve a transaction.
+            Wallets only sign a free message. We never ask you to approve a transaction.
           </p>
-
-          <div className="tile mt-5 p-3">
-            <TermsCheckbox checked={termsAccepted} onChange={setTermsAccepted} id="signin-terms-consent" />
-          </div>
         </>
       ) : (
         <>
@@ -199,13 +204,16 @@ export function SignInModal({ open, onClose, onSuccess, initialStep = "methods" 
               <h2 id="signin-title" className="text-xl font-semibold tracking-tight text-fg">
                 {initialStep === "wallets" ? "Change wallet" : "Connect a wallet"}
               </h2>
-              <p className="mt-0.5 text-base text-mute">Pick a wallet, then sign a free message to verify. We never ask you to approve a transaction.</p>
+              <p className="mt-0.5 text-base text-mute">Pick a wallet, then sign a free message to verify.</p>
             </div>
           </div>
+          {/* Reached directly (Change wallet) the consent box comes first; from the methods step it's already ticked. */}
+          {!termsAccepted && (
+            <div className="tile mb-4 p-3">
+              <TermsCheckbox checked={termsAccepted} onChange={setTermsAccepted} id="signin-terms-consent-wallets" />
+            </div>
+          )}
           <WalletPicker busyName={pending} onPick={handlePick} />
-          <div className="tile mt-4 p-3">
-            <TermsCheckbox checked={termsAccepted} onChange={setTermsAccepted} id="signin-terms-consent-wallets" />
-          </div>
         </>
       )}
 

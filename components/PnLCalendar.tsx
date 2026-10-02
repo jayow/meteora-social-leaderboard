@@ -112,7 +112,7 @@ export function PnLCalendar({ userId, compact = false }: { userId?: number | nul
   const map = useMemo(() => new Map(days.map((d) => [d.date, d])), [days]);
 
   if (empty) return <p className="text-base text-mute" data-testid="pnl-calendar-empty">No closed positions in the last {LOOKBACK_MONTHS} months.</p>;
-  if (!cursor) return <div className={`skeleton rounded-tile ${compact ? "h-[330px]" : "h-[420px] sm:h-[500px] md:h-[580px] md:max-w-[760px]"}`} />;
+  if (!cursor) return <div className={`skeleton rounded-tile ${compact ? "h-[330px]" : "h-[420px] sm:h-[500px] md:h-[580px]"}`} />;
 
   const y = cursor.getFullYear();
   const m = cursor.getMonth();
@@ -187,7 +187,6 @@ export function PnLCalendar({ userId, compact = false }: { userId?: number | nul
           })}
         </div>
         {error && <p className="mt-2 text-xs text-dn">{error}</p>}
-        {!compact && !error && <p className="mt-2 text-xs text-mute">Daily closed-position PnL · live from Meteora&apos;s portfolio calendar</p>}
     </>
   );
 
@@ -279,7 +278,7 @@ function DesktopMonth({
     "flex h-7 w-7 items-center justify-center rounded-tag text-mute transition hover:bg-surface-raised hover:text-fg disabled:pointer-events-none disabled:opacity-30";
 
   return (
-    <div data-layout="desktop" className="hidden max-w-[760px] md:block">
+    <div data-layout="desktop" className="hidden md:block">
       <div className="mb-5 flex items-start justify-between gap-6">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
@@ -318,7 +317,7 @@ function DesktopMonth({
           )}
         </div>
         <div className="shrink-0 text-right">
-          <div className={`text-xl font-semibold leading-none tracking-[-0.02em] tabular-nums ${total > 0 ? "text-up" : total < 0 ? "text-dn" : "text-mute"}`} data-testid="pnl-month-total">
+          <div className={`text-lg font-semibold leading-none tabular-nums ${total > 0 ? "text-up" : total < 0 ? "text-dn" : "text-mute"}`} data-testid="pnl-month-total">
             {signed(total)}
           </div>
           <div className="mt-1.5 text-sm text-mute">{monthName} PnL</div>
@@ -384,7 +383,6 @@ function DesktopMonth({
         })}
       </div>
       {error && <p className="mt-3 text-xs text-dn">{error}</p>}
-      {!error && <p className="mt-3 text-xs text-mute">Daily closed-position PnL · live from Meteora&apos;s portfolio calendar</p>}
     </div>
   );
 }

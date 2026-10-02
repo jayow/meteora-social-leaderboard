@@ -101,9 +101,9 @@ function PositionRow({ item }: { item: ActivityItem }) {
   return (
     <li className="flex items-start gap-3 py-2.5" data-testid="activity-row" data-kind={item.kind}>
       <Link href={profileHref(item.actor)} className="shrink-0" tabIndex={-1} aria-hidden>
-        <Avatar user={{ id: item.actor.id, xAvatarUrl: item.actor.xAvatarUrl }} size={32} />
+        <Avatar user={{ id: item.actor.id, xAvatarUrl: item.actor.xAvatarUrl }} size={24} />
       </Link>
-      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 gap-y-1 pt-1 text-base">
+      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 gap-y-1 pt-0.5 text-base">
         <span className="min-w-0 max-w-full truncate">
           <PersonLink person={item.actor} />
         </span>
@@ -127,10 +127,10 @@ function PositionRow({ item }: { item: ActivityItem }) {
           </span>
         )}
         {item.kind === "big_win" && (
-          <span className="chip text-up">Big win</span>
+          <span className="chip">Big win</span>
         )}
       </div>
-      <span className="pt-1">
+      <span className="pt-0.5">
         <RowTime iso={item.occurredAt} />
       </span>
     </li>
@@ -140,9 +140,9 @@ function PositionRow({ item }: { item: ActivityItem }) {
 export function EventRow({ item }: { item: ActivityItem }) {
   if (isPositionKind(item.kind)) return <PositionRow item={item} />;
   return (
-    <li className="flex items-center gap-3 py-2" data-testid="activity-row" data-kind={item.kind}>
-      <Link href={profileHref(item.actor)} className="flex w-8 shrink-0 justify-center" tabIndex={-1} aria-hidden>
-        <Avatar user={{ id: item.actor.id, xAvatarUrl: item.actor.xAvatarUrl }} size={20} />
+    <li className="flex items-center gap-3 py-2.5" data-testid="activity-row" data-kind={item.kind}>
+      <Link href={profileHref(item.actor)} className="shrink-0" tabIndex={-1} aria-hidden>
+        <Avatar user={{ id: item.actor.id, xAvatarUrl: item.actor.xAvatarUrl }} size={24} />
       </Link>
       {item.kind === "badge" && item.badge ? (
         <BadgeLine item={item} badge={item.badge} />

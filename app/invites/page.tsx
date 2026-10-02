@@ -52,9 +52,13 @@ export default function InvitesPage() {
     };
   }, [sessionChecked, userId, router]);
 
-  const copyLink = (code: string) => {
+  const copyLink = async (code: string) => {
     const link = `${window.location.origin}/join?code=${code}`;
-    navigator.clipboard.writeText(link);
+    try {
+      await navigator.clipboard.writeText(link);
+    } catch {
+      return; // "Copied" only when it really was
+    }
     setCopiedCode(code);
     setTimeout(() => setCopiedCode(null), 2000);
   };
@@ -108,19 +112,26 @@ export default function InvitesPage() {
           <p className="py-6 text-center text-base text-mute">No invite codes yet.</p>
         ) : (
           <div className="space-y-2">
-            {codes.map((code) => {
+            {/* Unused codes first; a used code is just a quiet row with a "Used" chip. */}
+            {[...codes].sort((a, b) => Number(a.uses >= a.maxUses) - Number(b.uses >= b.maxUses)).map((code) => {
               const usedUp = code.uses >= code.maxUses;
               return (
                 <div key={code.id} className="tile flex items-center justify-between gap-3 px-4 py-3">
                   <div className="min-w-0">
                     <p className={`num truncate text-md font-semibold ${usedUp ? "text-mute" : "text-fg"}`}>{code.code}</p>
-                    <p className="num mt-0.5 text-sm text-mute">
-                      {code.uses} / {code.maxUses} used
-                    </p>
+                    {code.maxUses > 1 && (
+                      <p className="num mt-0.5 text-sm text-mute">
+                        {code.uses} / {code.maxUses} used
+                      </p>
+                    )}
                   </div>
-                  <button type="button" onClick={() => copyLink(code.code)} disabled={usedUp} className="btn-secondary h-8 shrink-0 px-3">
-                    {copiedCode === code.code ? "Copied" : usedUp ? "Used" : "Copy link"}
-                  </button>
+                  {usedUp ? (
+                    <span className="chip shrink-0">Used</span>
+                  ) : (
+                    <button type="button" onClick={() => void copyLink(code.code)} className="btn-secondary h-8 shrink-0 px-3">
+                      {copiedCode === code.code ? "Copied" : "Copy link"}
+                    </button>
+                  )}
                 </div>
               );
             })}

@@ -28,6 +28,11 @@ function membersText(e: CountryLeaderboardEntry, m: Metric): string {
   if (m === "winrate" && e.winRateMembers !== e.members) return `avg of ${e.winRateMembers} of ${plural(e.members, "member")}`;
   return plural(e.members, "member");
 }
+/** Podium meta: what the figure adds up, in one line ("Total of 4 members", "Avg of 3 of 4 members"). */
+function podiumMeta(e: CountryLeaderboardEntry, m: Metric): string {
+  if (m !== "winrate") return `Total of ${plural(e.members, "member")}`;
+  return e.winRateMembers !== e.members ? `Avg of ${e.winRateMembers} of ${plural(e.members, "member")}` : `Avg of ${plural(e.members, "member")}`;
+}
 const lpHref = (lp: NonNullable<CountryLeaderboardEntry["topLp"]>) => `/profile/${lp.xHandle || lp.id}`;
 
 function FlagImg({ code, className }: { code: string; className: string }) {
@@ -60,18 +65,15 @@ function TopLp({ lp, size = 20, className = "" }: { lp: CountryLeaderboardEntry[
 export function CountryBoard({
   range,
   metric,
-  metricLabel,
-  rangeShort,
   onPick,
 }: {
   range: Range;
   metric: Metric;
-  metricLabel: string;
-  rangeShort: string;
   onPick: (code: string) => void;
 }) {
   const [data, setData] = useState<CountryLeaderboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [reload, setReload] = useState(0);
 
   useEffect(() => {
     let live = true;
@@ -91,7 +93,7 @@ export function CountryBoard({
     return () => {
       live = false;
     };
-  }, [range, metric]);
+  }, [range, metric, reload]);
 
   if (loading && !data) return <PodiumSkeleton testId="country-skeleton" />;
   const entries = data?.entries ?? [];
@@ -100,12 +102,21 @@ export function CountryBoard({
   const order = [2, 1, 3].flatMap((r) => podium.filter((e) => e.rank === r));
   const twoCols = rest.length >= 6;
   const rowsPerCol = twoCols ? Math.ceil(rest.length / 2) : rest.length;
-  const caption = `${metric === "winrate" ? "Avg win rate" : `Total ${metricLabel === "PnL" ? "PnL" : metricLabel.toLowerCase()}`} · ${rangeShort}`;
   const missing = data?.noCountryMembers ?? 0;
 
   return (
     <div data-testid="country-board" aria-busy={loading || undefined}>
-      {entries.length === 0 ? (
+      {data?.error && entries.length === 0 ? (
+        <EmptyState
+          className="mt-6"
+          title="Couldn't load countries"
+          action={
+            <button type="button" onClick={() => setReload((n) => n + 1)} className="btn-secondary">
+              Try again
+            </button>
+          }
+        />
+      ) : entries.length === 0 ? (
         <EmptyState className="mt-6" testId="country-empty" title="No countries on the board yet">
           Countries show up once members set one in their profile and their Meteora stats sync.
         </EmptyState>
@@ -114,7 +125,7 @@ export function CountryBoard({
           {podium.length > 0 && (
             <div className={`${PODIUM_WRAP} ${PODIUM_GRID[podium.length]}`} data-testid="country-podium">
               {order.map((e) => (
-                <CountryPodiumCard key={e.country} e={e} metric={metric} caption={caption} onPick={onPick} />
+                <CountryPodiumCard key={e.country} e={e} metric={metric} onPick={onPick} />
               ))}
             </div>
           )}
@@ -136,12 +147,11 @@ export function CountryBoard({
           {plural(missing, "active member")} without a country {missing === 1 ? "isn't" : "aren't"} counted here.
         </p>
       )}
-      {data?.error && <p className="mt-4 text-base text-dn">{data.error}</p>}
     </div>
   );
 }
 
-function CountryPodiumCard({ e, metric, caption, onPick }: { e: Ranked; metric: Metric; caption: string; onPick: (code: string) => void }) {
+function CountryPodiumCard({ e, metric, onPick }: { e: Ranked; metric: Metric; onPick: (code: string) => void }) {
   const name = countryName(e.country);
   const first = e.rank === 1;
   const medal = MEDAL[e.rank];
@@ -165,8 +175,7 @@ function CountryPodiumCard({ e, metric, caption, onPick }: { e: Ranked; metric: 
         >
           {valueText(e.value, metric)}
         </div>
-        <div className="pointer-events-none mt-1 hidden text-sm text-mute sm:block">{caption}</div>
-        <div className="pointer-events-none mt-0.5 text-sm text-mute sm:mt-1">{membersText(e, metric)}</div>
+        <div className="pointer-events-none mt-0.5 text-sm text-mute sm:mt-1">{podiumMeta(e, metric)}</div>
         {e.topLp && (
           <div className="mt-1.5 flex min-w-0 items-center gap-1.5 text-sm sm:mt-3 sm:justify-center">
             <span className="pointer-events-none shrink-0 text-mute">Top LP</span>

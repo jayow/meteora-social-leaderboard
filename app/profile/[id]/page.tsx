@@ -12,12 +12,12 @@ import type { ThesisPost } from "@/lib/thesis-types";
 import { Avatar, Flag, Pills, StatTile, XIcon } from "@/components/ui";
 import { PnLCalendar } from "@/components/PnLCalendar";
 import { CountrySelect } from "@/components/CountrySelect";
-import { Modal } from "@/components/Modal";
+import { Modal, ModalClose } from "@/components/Modal";
 import { OpenPositions } from "@/components/OpenPositions";
 import { FollowButton } from "@/components/FollowButton";
 import { FollowListModal, type FollowListKind } from "@/components/FollowListModal";
 import { SharePnLModal } from "@/components/SharePnLModal";
-import { PositionSharingPrompt, PositionSharingToggle } from "@/components/PositionSharing";
+import { PositionSharingToggle } from "@/components/PositionSharing";
 import { EmptyState } from "@/components/EmptyState";
 import { displayName, fmtPct, fmtUsd, shortAddr, timeAgo } from "@/lib/format";
 import { patchCachedProfile } from "@/lib/storage";
@@ -74,6 +74,8 @@ function Profile() {
   const [range, setRange] = useState<Range>("30d");
   const [xNotice, setXNotice] = useState<string | null>(null);
   const [shareModalOpen, setShareModalOpen] = useState(false);
+  // Owner settings (X, country, Poolside sharing) live in a modal so the public card stays a profile.
+  const [editOpen, setEditOpen] = useState(() => search.get("connect") === "x");
   const [followList, setFollowList] = useState<FollowListKind | null>(null);
   const closeFollowList = useCallback(() => setFollowList(null), []);
 
@@ -264,19 +266,20 @@ function Profile() {
               {timeAgo(snap?.updatedAt)}
             </span>
           )}
-          {canRefresh && (
+          {/* Shown only when a refresh can run: a disabled "Refresh in 4m" next to "Updated 1m ago" said the same thing twice. */}
+          {canRefresh && (syncing || !coolingDown) && (
             <button
               type="button"
               onClick={() => {
                 setNow(Date.now());
                 if (user?.wallet) void sync(user.wallet, user.id);
               }}
-              disabled={syncing || coolingDown}
-              title={coolingDown ? "Stats can be refreshed every 5 minutes" : "Pull fresh stats from Meteora"}
+              disabled={syncing}
+              title="Pull fresh stats from Meteora"
               className="btn-secondary h-8 shrink-0 px-3"
               data-testid="profile-refresh"
             >
-              {syncing ? "Refreshing…" : coolingDown ? `Refresh in ${Math.ceil((nextSyncAt - now) / 60000)}m` : "Refresh"}
+              {syncing ? "Refreshing…" : "Refresh"}
             </button>
           )}
         </div>
@@ -298,7 +301,6 @@ function Profile() {
               <span className="shrink-0 text-mute">→</span>
             </Link>
           )}
-          {user.memberNumber ? <PositionSharingPrompt className="mb-4" /> : null}
           {(user.walletCount === undefined || user.walletCount === 0) && user.wallet && user.wallet.startsWith("temp_") && (
             <div className="tile mb-4 px-4 py-3 text-base">
               <span className="font-semibold text-fg">Link a wallet</span>
@@ -325,41 +327,41 @@ function Profile() {
                     Share PnL
                   </button>
                 )}
+                {mine && (
+                  <button type="button" onClick={() => setEditOpen(true)} className="btn-secondary shrink-0" data-testid="edit-profile">
+                    Edit profile
+                  </button>
+                )}
                 {!mine && <FollowButton targetUser={user} />}
               </div>
             </div>
             <div className="mt-3 flex min-w-0 items-center gap-2">
-              <h1 className="min-w-0 truncate text-xl font-bold tracking-tight" title={user.xName || displayName(user)}>{user.xName || displayName(user)}</h1>
+              <h1 className="min-w-0 truncate text-xl font-semibold tracking-tight" title={user.xName || displayName(user)}>{user.xName || displayName(user)}</h1>
               <Flag code={user.country} className="shrink-0" />
-              {mine && <span className="chip">You</span>}
             </div>
             {user.xHandle && (
               <a href={`https://x.com/${user.xHandle}`} target="_blank" rel="noreferrer" className="mt-0.5 inline-flex items-center gap-1 text-base text-mute transition hover:text-fg">
-                <XIcon className="h-3 w-3" />@{user.xHandle}
+                <XIcon className="h-3.5 w-3.5" />@{user.xHandle}
               </a>
             )}
             <BadgeRow badges={badges} className="mt-3" />
             {(user.followersCount !== undefined || user.followingCount !== undefined) && (
               <div className="mt-3 flex gap-4 text-base">
                 {user.followersCount !== undefined && (
-                  <button type="button" onClick={() => setFollowList("followers")} className="transition hover:text-fg" data-testid="followers-count">
-                    <span className="num font-semibold text-fg">{user.followersCount}</span> <span className="text-mute">{user.followersCount === 1 ? "follower" : "followers"}</span>
+                  <button type="button" onClick={() => setFollowList("followers")} className="group" data-testid="followers-count">
+                    <span className="num font-semibold text-fg">{user.followersCount}</span> <span className="text-mute transition group-hover:text-fg">{user.followersCount === 1 ? "follower" : "followers"}</span>
                   </button>
                 )}
                 {user.followingCount !== undefined && (
-                  <button type="button" onClick={() => setFollowList("following")} className="transition hover:text-fg" data-testid="following-count">
-                    <span className="num font-semibold text-fg">{user.followingCount}</span> <span className="text-mute">following</span>
+                  <button type="button" onClick={() => setFollowList("following")} className="group" data-testid="following-count">
+                    <span className="num font-semibold text-fg">{user.followingCount}</span> <span className="text-mute transition group-hover:text-fg">following</span>
                   </button>
                 )}
               </div>
             )}
 
-            {mine && <OwnerControls user={user} focusX={search.get("connect") === "x"} onSaved={(u) => setUser(u)} />}
-
             {/* WalletsSection hidden for now - multi-wallet feature parked */}
             {/* {mine && <WalletsSection />} */}
-
-            <RecentTheses userId={user.id} />
           </div>
         </section>
 
@@ -379,17 +381,18 @@ function Profile() {
                     <div className="text-sm text-mute">{RANGE_LABEL[range]} PnL</div>
                     <div className={`num mt-1 text-3xl font-bold tracking-tight ${(pnlBy[range] ?? 0) >= 0 ? "text-up" : "text-dn"}`}>{fmtUsd(pnlBy[range], { signed: true, compact: false })}</div>
                   </div>
-                  <div className="pb-1.5 text-base text-mute">
-                    Lifetime DLMM PnL <span className={`num font-semibold ${(snap.totalPnlUsd ?? 0) >= 0 ? "text-up" : "text-dn"}`}>{fmtUsd(snap.totalPnlUsd, { signed: true })}</span>
-                  </div>
+                  {range !== "all" && (
+                    <div className="pb-1.5 text-base text-mute">
+                      All time <span className={`num font-semibold ${(snap.totalPnlUsd ?? 0) >= 0 ? "text-up" : "text-dn"}`}>{fmtUsd(snap.totalPnlUsd, { signed: true })}</span>
+                    </div>
+                  )}
                 </div>
-                <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {/* Open / closed counts live with Open positions below; the range label sits on the toggle. */}
+                <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
                   <StatTile label="Total value" value={fmtUsd(snap.portfolioValueUsd)} sub="open positions" />
-                  <StatTile label={`Win rate (${RANGE_LABEL[range]})`} value={fmtPct(winBy[range], 1)} />
-                  <StatTile label={`Volume (${RANGE_LABEL[range]})`} value={fmtUsd(volBy[range])} sub="deposited" />
-                  <StatTile label={range === "all" ? "Fees earned" : "Fees earned (30D)"} value={fmtUsd(range === "all" ? snap.feesUsd : snap.fees30dUsd)} tone="up" />
-                  <StatTile label="Open positions" value={`${snap.positionsOpen ?? 0}`} />
-                  <StatTile label="Closed positions" value={`${snap.positionsClosed ?? 0}`} sub="DLMM lifetime" />
+                  <StatTile label="Win rate" value={fmtPct(winBy[range], 1)} />
+                  <StatTile label="Volume" value={fmtUsd(volBy[range])} sub="deposited" />
+                  <StatTile label="Fees earned" value={fmtUsd(range === "all" ? snap.feesUsd : snap.fees30dUsd)} sub={range === "7d" ? "last 30 days" : undefined} tone="up" />
                 </div>
                 {user.walletCount !== undefined && user.walletCount > 1 && (
                   <div className="mt-3 text-sm text-mute">Combined across {user.walletCount} wallets</div>
@@ -401,11 +404,13 @@ function Profile() {
           </div>
 
           <div className="card p-5">
-            <h2 className="mb-4 text-lg font-semibold">PnL calendar</h2>
+            <h2 className="mb-4 text-lg font-semibold" title="Daily closed-position PnL, live from Meteora's portfolio calendar">PnL calendar</h2>
             <PnLCalendar userId={user.id} />
           </div>
 
           <OpenPositions userId={user.id} mine={mine} refreshKey={snap?.updatedAt ?? null} />
+
+          <RecentTheses userId={user.id} />
         </section>
       </div>
 
@@ -414,8 +419,18 @@ function Profile() {
           user={user}
           snap={snap}
           isOpen={shareModalOpen}
+          initialRange={range}
           onClose={() => setShareModalOpen(false)}
         />
+      )}
+      {mine && editOpen && (
+        <Modal onClose={() => setEditOpen(false)} labelledBy="edit-profile-title" className="max-w-md p-6">
+          <ModalClose onClick={() => setEditOpen(false)} />
+          <h2 id="edit-profile-title" className="text-xl font-semibold">
+            Edit profile
+          </h2>
+          <OwnerControls user={user} focusX={search.get("connect") === "x"} onSaved={(u) => setUser(u)} />
+        </Modal>
       )}
       {followList && <FollowListModal key={`${user.id}-${followList}`} userId={user.id} kind={followList} onClose={closeFollowList} />}
     </main>
@@ -428,7 +443,7 @@ function NoActivityStats({ mine }: { mine: boolean }) {
     <div data-testid="no-activity">
       <div className="text-sm text-mute">PnL</div>
       <div className="num mt-1 text-3xl font-bold tracking-tight text-fg-secondary">{fmtUsd(0, { compact: false })}</div>
-      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
         <StatTile label="Total value" value={fmtUsd(0)} sub="open positions" />
         <StatTile label="Volume" value={fmtUsd(0)} sub="deposited" />
         <StatTile label="Fees earned" value={fmtUsd(0)} tone="up" />
@@ -690,7 +705,7 @@ function ProfileBanner({ user, mine, onUpdated }: { user: ApiUser; mine: boolean
 
   return (
     <>
-      <div className="relative aspect-[3/1] w-full overflow-hidden rounded-t-card">
+      <div className="relative aspect-[3/1] max-h-36 w-full overflow-hidden rounded-t-card">
         {bannerUrl ? (
           <img src={bannerUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
         ) : (
@@ -702,7 +717,7 @@ function ProfileBanner({ user, mine, onUpdated }: { user: ApiUser; mine: boolean
             onClick={handleEditClick}
             className="btn-secondary absolute right-3 top-3 z-10 h-8 px-3"
           >
-            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
@@ -724,8 +739,16 @@ function ProfileBanner({ user, mine, onUpdated }: { user: ApiUser; mine: boolean
           labelledBy="banner-modal-title"
           className="max-w-lg p-6"
         >
-            <h3 id="banner-modal-title" className="text-lg font-semibold">Profile banner</h3>
-            <p className="mt-1 text-base text-mute">Upload a JPG, PNG, or WebP up to 5MB. It will be cropped to 3:1 aspect ratio.</p>
+            <ModalClose
+              onClick={() => {
+                if (uploading) return;
+                setEditing(false);
+                setPreview(null);
+                setFileName(null);
+                setError(null);
+              }}
+            />
+            <h3 id="banner-modal-title" className="text-xl font-semibold">Profile banner</h3>
 
             <div className="mt-4">
               <div
@@ -772,16 +795,6 @@ function ProfileBanner({ user, mine, onUpdated }: { user: ApiUser; mine: boolean
                 aria-label="Upload banner image"
               />
 
-              {/* Upload button */}
-              <button
-                type="button"
-                onClick={handleClickDropzone}
-                disabled={uploading}
-                className="btn-secondary mt-3 w-full"
-              >
-                {preview ? "Replace image" : "Upload image"}
-              </button>
-
               {/* Filename display */}
               {fileName && (
                 <p className="mt-2 truncate text-sm text-mute">
@@ -815,7 +828,7 @@ function ProfileBanner({ user, mine, onUpdated }: { user: ApiUser; mine: boolean
                     setError(null);
                   }}
                   disabled={uploading}
-                  className="btn-secondary"
+                  className="btn-ghost"
                 >
                   Cancel
                 </button>
@@ -1041,14 +1054,14 @@ function RecentTheses({ userId }: { userId: number }) {
   }, [userId]);
 
   const heading = (
-    <h2 className="text-base font-semibold text-fg">
-      Theses{total > 0 ? <span className="num font-normal text-mute"> {total}</span> : null}
+    <h2 className="text-lg font-semibold text-fg">
+      Theses{total > 0 ? <span className="num font-medium text-mute"> {total}</span> : null}
     </h2>
   );
 
   if (loading) {
     return (
-      <div className="mt-5 border-t border-border pt-4" aria-busy="true">
+      <div className="card p-5" aria-busy="true">
         {heading}
         <div className="mt-3 space-y-2" aria-hidden>
           <div className="skeleton h-[92px] rounded-tile" />
@@ -1059,7 +1072,7 @@ function RecentTheses({ userId }: { userId: number }) {
 
   if (theses.length === 0) {
     return (
-      <div className="mt-5 border-t border-border pt-4">
+      <div className="card p-5">
         {heading}
         <p className="mt-1 text-base text-mute">No theses posted yet.</p>
       </div>
@@ -1068,9 +1081,9 @@ function RecentTheses({ userId }: { userId: number }) {
 
   const shown = showAll ? theses : theses.slice(0, 3);
   return (
-    <div className="mt-5 border-t border-border pt-4" data-testid="profile-theses">
+    <div className="card p-5" data-testid="profile-theses">
       {heading}
-      <div className="mt-3 space-y-2">
+      <div className="mt-4 grid gap-2 md:grid-cols-2">
         {shown.map((thesis) => (
           <ThesisCompact key={thesis.id} post={thesis} />
         ))}
@@ -1102,7 +1115,7 @@ function ProfileSkeleton({ note = null }: { note?: string | null }) {
       </div>
       <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[380px_minmax(0,1fr)]" aria-hidden>
         <section className="card h-fit overflow-hidden">
-          <div className="aspect-[3/1] w-full bg-surface-raised" />
+          <div className="aspect-[3/1] max-h-36 w-full bg-surface-raised" />
           <div className="px-5 pb-5">
             <div className="-mt-12 h-[104px] w-[104px] rounded-full border-4 border-surface bg-surface-raised" />
             <div className="skeleton mt-3 h-6 w-40" />
@@ -1117,15 +1130,15 @@ function ProfileSkeleton({ note = null }: { note?: string | null }) {
               <div className="skeleton h-9 w-36 rounded-full" />
             </div>
             <div className="skeleton mt-5 h-10 w-56" />
-            <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {Array.from({ length: 6 }, (_, i) => (
+            <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {Array.from({ length: 4 }, (_, i) => (
                 <div key={i} className="skeleton h-[76px] rounded-tile" />
               ))}
             </div>
           </div>
           <div className="card p-5">
             <div className="skeleton h-5 w-28" />
-            <div className="skeleton mt-5 h-[320px] rounded-tile" />
+            <div className="skeleton mt-5 h-[420px] rounded-tile sm:h-[500px] md:h-[580px]" />
           </div>
         </section>
       </div>

@@ -14,17 +14,19 @@ interface SharePnLModalProps {
   user: ApiUser;
   snap: ApiSnapshot;
   isOpen: boolean;
+  /** The range the page is showing, so the shared number matches what's on screen. */
+  initialRange?: Range;
   onClose: () => void;
 }
 
-export function SharePnLModal({ user, snap, isOpen, onClose }: SharePnLModalProps) {
+export function SharePnLModal({ user, snap, isOpen, initialRange, onClose }: SharePnLModalProps) {
   if (!isOpen) return null;
-  return <ShareDialog user={user} snap={snap} onClose={onClose} />;
+  return <ShareDialog user={user} snap={snap} initialRange={initialRange} onClose={onClose} />;
 }
 
-function ShareDialog({ user, snap, onClose }: Omit<SharePnLModalProps, "isOpen">) {
+function ShareDialog({ user, snap, initialRange = "30d", onClose }: Omit<SharePnLModalProps, "isOpen">) {
   const { userId } = useMe();
-  const [range, setRange] = useState<Range>("30d");
+  const [range, setRange] = useState<Range>(initialRange);
   const [copying, setCopying] = useState(false);
   const [downloading, setDownloading] = useState(false);
 

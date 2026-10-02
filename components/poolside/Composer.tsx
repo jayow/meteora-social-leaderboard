@@ -18,6 +18,7 @@ export function Composer({ onPosted }: { onPosted: (post: ThesisPost) => void })
   const [text, setText] = useState("");
   const [posting, setPosting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [focused, setFocused] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -100,6 +101,9 @@ export function Composer({ onPosted }: { onPosted: (post: ThesisPost) => void })
   const selected = info.pools.find((p) => p.address === poolAddress) ?? info.pools[0];
   const trimmed = text.trim();
 
+  // Collapsed to one line until focused or holding text, so the feed starts higher.
+  const expanded = focused || text.length > 0 || posting;
+
   const post = async () => {
     if (!trimmed || posting || !selected) return;
     setPosting(true);
@@ -132,7 +136,14 @@ export function Composer({ onPosted }: { onPosted: (post: ThesisPost) => void })
   return shell(
     <div className="flex gap-3">
       {info.me && <Avatar user={{ id: info.me.id, xAvatarUrl: info.me.xAvatarUrl }} size={40} className="hidden sm:inline-block" />}
-      <div className="min-w-0 flex-1">
+      <div
+        className="min-w-0 flex-1"
+        onFocus={() => setFocused(true)}
+        onBlur={(ev) => {
+          // Stay open while focus moves between the text, pool picker and Post.
+          if (!ev.currentTarget.contains(ev.relatedTarget as Node | null)) setFocused(false);
+        }}
+      >
         <label className="sr-only" htmlFor="poolside-text">
           Your thesis
         </label>
@@ -141,13 +152,13 @@ export function Composer({ onPosted }: { onPosted: (post: ThesisPost) => void })
           value={text}
           onChange={(e) => setText(e.target.value)}
           maxLength={THESIS_MAX_LENGTH}
-          rows={3}
+          rows={expanded ? 3 : 1}
           placeholder={`What's your thesis on ${selected.name}?`}
           disabled={posting}
           className="field block h-auto resize-y py-2.5"
           data-testid="composer-text"
         />
-        <div className="mt-2 flex items-center gap-2">
+        <div className={`mt-2 items-center gap-2 ${expanded ? "flex" : "hidden"}`}>
           <label className="sr-only" htmlFor="poolside-pool">
             Pool
           </label>
@@ -156,7 +167,8 @@ export function Composer({ onPosted }: { onPosted: (post: ThesisPost) => void })
             value={selected.address}
             onChange={(e) => setPoolAddress(e.target.value)}
             disabled={posting}
-            className="field h-9 min-w-0 flex-1 truncate rounded-full px-3 font-medium sm:w-auto sm:max-w-[60%] sm:flex-none"
+            title="Only pools you hold are listed. Your post is tagged with the pool."
+            className="field h-9 min-w-0 flex-1 truncate px-3 font-medium sm:w-auto sm:max-w-[60%] sm:flex-none"
             data-testid="composer-pool"
           >
             {info.pools.map((p) => (
@@ -167,9 +179,7 @@ export function Composer({ onPosted }: { onPosted: (post: ThesisPost) => void })
               </option>
             ))}
           </select>
-          <span className="num ml-auto shrink-0 text-sm text-mute">
-            {text.length}/{THESIS_MAX_LENGTH}
-          </span>
+          <span className="num ml-auto shrink-0 text-sm text-mute">{text.length >= THESIS_MAX_LENGTH - 100 ? `${text.length}/${THESIS_MAX_LENGTH}` : ""}</span>
           <button
             type="button"
             onClick={() => void post()}
@@ -180,7 +190,6 @@ export function Composer({ onPosted }: { onPosted: (post: ThesisPost) => void })
             {posting ? "Posting…" : "Post"}
           </button>
         </div>
-        <p className="mt-2 text-sm text-mute">Only pools you hold are listed. Your post is tagged with the pool.</p>
         {error && (
           <p role="alert" className="mt-1.5 text-base text-dn">
             {error}

@@ -54,15 +54,10 @@ export function WalletPicker({ busyName, onPick }: WalletPickerProps) {
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={w.adapter.icon} alt="" className="h-7 w-7 rounded-tag" />
                   <span className="flex-1 truncate">{name}</span>
-                  <span className={`shrink-0 text-sm font-medium ${isCurrent && !busy ? "text-up" : "text-mute"}`}>
-                    {busy
-                      ? "Check your wallet…"
-                      : isCurrent
-                        ? "Connected"
-                        : w.readyState === WalletReadyState.Installed
-                          ? "Detected"
-                          : "Available"}
-                  </span>
+                  {/* Status only when it says something: busy or connected. */}
+                  {(busy || isCurrent) && (
+                    <span className={`shrink-0 text-sm font-medium ${busy ? "text-mute" : "text-fg"}`}>{busy ? "Check your wallet…" : "Connected"}</span>
+                  )}
                 </button>
               </li>
             );
@@ -76,9 +71,15 @@ export function WalletPicker({ busyName, onPick }: WalletPickerProps) {
       )}
 
       {(notDetected.length > 0 || suggestions.length > 0) && (
-        <div>
-          <p className="mb-1.5 px-3 text-sm font-medium text-mute">Not detected</p>
-          <ul className="space-y-1.5">
+        // Collapsed when a wallet was found: install links matter only when there's nothing to pick.
+        <details open={detected.length === 0} className="group">
+          <summary className="flex h-8 cursor-pointer list-none items-center gap-1.5 rounded-tag px-3 text-sm font-medium text-mute transition hover:text-fg">
+            Other wallets
+            <svg viewBox="0 0 20 20" className="h-3.5 w-3.5 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" strokeWidth={1.75} aria-hidden="true">
+              <path d="M5 7.5l5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </summary>
+          <ul className="mt-1.5 space-y-1.5">
             {notDetected.map((w) => (
               <li key={w.adapter.name}>
                 <a
@@ -113,7 +114,7 @@ export function WalletPicker({ busyName, onPick }: WalletPickerProps) {
                 </li>
               ))}
           </ul>
-        </div>
+        </details>
       )}
     </div>
   );

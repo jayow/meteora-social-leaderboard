@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useMe } from "@/components/MeProvider";
-import { Avatar, Flag, Tag } from "@/components/ui";
+import { Avatar, Flag, Tag, binLabel } from "@/components/ui";
 import { EmptyState } from "@/components/EmptyState";
 import { FollowButton } from "@/components/FollowButton";
 import { avatarFor, displayName, fmtPositions, fmtUsd } from "@/lib/format";
@@ -173,6 +173,7 @@ export default function PoolDetailPage() {
 
   const pool = data?.pool;
   const lps = data?.lps ?? [];
+  const memberLiquidity = lps.reduce((sum, lp) => sum + (lp.valueUsd ?? 0), 0);
 
   if (loading && !data) {
     return (
@@ -234,7 +235,7 @@ export default function PoolDetailPage() {
               <TokenDot icon={pool.tokenYIcon} label={y} className="-ml-3" />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="flex min-w-0 items-center gap-2 text-lg font-bold tracking-tight sm:text-xl">
+              <div className="flex min-w-0 items-center gap-2 text-2xl font-bold tracking-tight">
                 <span className="min-w-0 truncate" data-testid="pool-pair">
                   {pool.tokenXMint ? (
                     <Link href={`/pools?token=${pool.tokenXMint}`} className="underline-offset-2 hover:underline">{x}</Link>
@@ -250,9 +251,15 @@ export default function PoolDetailPage() {
                 </span>
                 <Tag>DLMM</Tag>
               </div>
-              {pool.binStep != null && (
-                <div className="num mt-1 whitespace-nowrap text-base text-mute">Bin step {pool.binStep}</div>
-              )}
+              <div className="mt-1 overflow-hidden">
+                <div className="num dot-list text-base text-mute">
+                  {pool.binStep != null && <span>{binLabel(pool.binStep)}</span>}
+                  <span>
+                    {lps.length} member LP{lps.length === 1 ? "" : "s"}
+                  </span>
+                  {memberLiquidity > 0 && <span>{fmtUsd(memberLiquidity)} member liquidity</span>}
+                </div>
+              </div>
             </div>
           </div>
           <a
@@ -285,8 +292,8 @@ export default function PoolDetailPage() {
         </section>
 
         {pool.tokenXMint && (
-          <section className="card p-5 sm:p-6">
-            <h2 className="mb-4 text-lg font-semibold">
+          <section>
+            <h2 className="mb-3 text-lg font-semibold">
               {pool.tokenX} theses <span className="num font-medium text-mute">{comments?.total ?? comments?.comments.length ?? 0}</span>
             </h2>
 
@@ -294,7 +301,6 @@ export default function PoolDetailPage() {
               <CommentComposer
                 poolAddress={pool.poolAddress}
                 poolName={`${pool.tokenX}-${pool.tokenY}`}
-                protocol={pool.protocol}
                 tokenSymbol={pool.tokenX}
                 user={user}
                 commentText={commentText}
@@ -314,7 +320,7 @@ export default function PoolDetailPage() {
             ) : (
               <div className="divide-y divide-border border-t border-border">
                 {comments?.comments.map((comment) => (
-                  <div key={comment.id} className="py-4 last:pb-0">
+                  <div key={comment.id} className="py-4">
                     <ThesisCard post={comment} onDelete={comment.isOwn ? () => deleteComment(comment.id) : undefined} />
                   </div>
                 ))}
@@ -340,13 +346,15 @@ function LPRow({ lp }: { lp: LP }) {
           <span className="truncate">{displayName(lp)}</span>
           <Flag code={lp.country} />
         </div>
-        <div className="mt-0.5 overflow-hidden">
-          <div className="num dot-list text-sm text-mute">
-            <span>Value {fmtUsd(lp.valueUsd)}</span>
-            {(lp.positionCount ?? 1) > 1 && <span data-testid="lp-position-count">{fmtPositions(lp.positionCount ?? 1)}</span>}
-            {lp.totalPnl != null && <span className={pnlTone}>PnL {fmtUsd(lp.totalPnl, { signed: true })}</span>}
+        {(lp.positionCount ?? 1) > 1 && (
+          <div className="num mt-0.5 text-sm text-mute" data-testid="lp-position-count">
+            {fmtPositions(lp.positionCount ?? 1)}
           </div>
-        </div>
+        )}
+      </div>
+      <div className="shrink-0 text-right">
+        <div className="num text-md font-semibold text-fg">{fmtUsd(lp.valueUsd)}</div>
+        {lp.totalPnl != null && <div className={`num text-sm ${pnlTone}`}>{fmtUsd(lp.totalPnl, { signed: true })} PnL</div>}
       </div>
       <div className="relative z-10">
         <FollowButton targetUser={lp} size="sm" />
@@ -358,7 +366,6 @@ function LPRow({ lp }: { lp: LP }) {
 function CommentComposer({
   poolAddress,
   poolName,
-  protocol,
   tokenSymbol,
   user,
   commentText,
@@ -369,7 +376,6 @@ function CommentComposer({
 }: {
   poolAddress: string;
   poolName: string;
-  protocol: string | null;
   tokenSymbol: string;
   user: { id: number; xHandle: string | null; xName: string | null; xAvatarUrl: string | null };
   commentText: string;
@@ -413,9 +419,6 @@ function CommentComposer({
     return (
       <div className="tile mb-5 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 px-4 py-3 text-base text-mute">
         <span>Hold a position in {poolName} to post a thesis on this pool.</span>
-        <a href={meteoraPoolUrl(poolAddress, protocol)} target="_blank" rel="noopener noreferrer" className="whitespace-nowrap rounded-tag text-sm font-semibold text-mute transition hover:text-fg">
-          Meteora ↗
-        </a>
       </div>
     );
   }
@@ -440,9 +443,8 @@ function CommentComposer({
             className="field block h-auto resize-y py-2.5"
           />
           <div className="mt-2 flex items-center justify-between">
-            <span className="num text-sm text-mute">
-              {commentText.length}/500
-            </span>
+            {/* The counter appears only near the limit. */}
+            <span className="num text-sm text-mute">{commentText.length >= 400 ? `${commentText.length}/500` : ""}</span>
             <button
               type="button"
               onClick={onPost}

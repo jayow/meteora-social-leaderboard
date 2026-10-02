@@ -1,9 +1,9 @@
 "use client";
 
 /**
- * Leaderboard heading. A compact control line sits first and never moves ("30 days ▾ · ranked by PnL ▾",
- * the range word reserves the width of its longest option), the playful headline sits under it
- * ("Biggest splashes"), then a quiet live status and the Members / Countries, country and Following controls.
+ * Leaderboard heading. The playful headline ("Biggest splashes") sits first, then a compact control line
+ * that never moves ("30 days ▾ · ranked by PnL ▾", the range word reserves the width of its longest
+ * option), then a quiet live status and the Members / Countries, country and Following controls.
  */
 
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
@@ -34,7 +34,7 @@ export const RANGE_OPTIONS: MenuOption<BoardRange>[] = [
 /** The metric as it reads mid-sentence. */
 const METRIC_WORD: Record<BoardMetric, string> = { pnl: "PnL", fees: "fees", volume: "volume", winrate: "win rate" };
 
-/** Playful headline, one per metric. The plain metric name sits in the control line right above it. */
+/** Playful headline, one per metric. The plain metric name sits in the control line right below it. */
 const PLAYFUL: Record<BoardView, Record<BoardMetric, string>> = {
   members: {
     pnl: "Biggest splashes",
@@ -162,15 +162,18 @@ export function WordMenu<T extends string>({
         {/* No resting underline (it read like a spellcheck mark): orange + chevron, a thin solid line on hover / focus. */}
         <span className="inline-grid">
           {reserve?.map((r) => (
-            <span key={r} className="invisible col-start-1 row-start-1" aria-hidden="true">
+            <span key={r} className="invisible col-start-1 row-start-1 pr-[1.05em]" aria-hidden="true">
               {r}
             </span>
           ))}
-          <span className="col-start-1 row-start-1 decoration-accent/50 decoration-1 underline-offset-[0.25em] group-hover/word:underline group-focus-visible/word:underline">{children}</span>
+          {/* The chevron sits inside the live word's cell so it hugs short options too. */}
+          <span className="col-start-1 row-start-1 inline-flex items-baseline gap-1">
+            <span className="decoration-accent/50 decoration-1 underline-offset-[0.25em] group-hover/word:underline group-focus-visible/word:underline">{children}</span>
+            <svg viewBox="0 0 20 20" className="h-[0.8em] w-[0.8em] shrink-0 self-center transition-transform group-aria-expanded/word:rotate-180" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+              <path d="M5 7.5l5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </span>
         </span>
-        <svg viewBox="0 0 20 20" className="h-[0.8em] w-[0.8em] shrink-0 self-center transition-transform group-aria-expanded/word:rotate-180" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">
-          <path d="M5 7.5l5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
       </button>
       {open &&
         createPortal(
@@ -198,7 +201,7 @@ export function WordMenu<T extends string>({
                     // detail is 0 for Enter / Space, the click count for a real pointer click.
                     close(true, ev.detail > 0);
                   }}
-                  className={`flex h-9 w-full items-center justify-between gap-3 rounded-[8px] px-3 text-left text-base font-medium transition-colors hover:bg-surface-raised focus-visible:bg-surface-raised ${on ? "text-fg" : "text-mute hover:text-fg"}`}
+                  className={`flex h-9 w-full items-center justify-between gap-3 rounded-tag px-3 text-left text-base font-medium transition-colors hover:bg-surface-raised focus-visible:bg-surface-raised ${on ? "text-fg" : "text-mute hover:text-fg"}`}
                 >
                   {o.label}
                   {on && (
@@ -219,17 +222,26 @@ export function WordMenu<T extends string>({
 /* -------------------------------------------------------------------------------------------------- */
 
 /** "Fresh from Meteora · 2m ago": a quiet status, not a subtitle. Re-renders each 30s so the age stays true. */
-export function LiveStatus({ updatedAt, className = "" }: { updatedAt: string | null; className?: string }) {
+export function LiveStatus({ updatedAt, loading = false, className = "" }: { updatedAt: string | null; loading?: boolean; className?: string }) {
   const [, tick] = useState(0);
   useEffect(() => {
     const t = window.setInterval(() => tick((n) => n + 1), 30_000);
     return () => window.clearInterval(t);
   }, []);
+  // Green only while the newest snapshot is under an hour old; older data gets a quiet grey dot.
+  const fresh = updatedAt !== null && Date.now() - new Date(updatedAt).getTime() < 60 * 60 * 1000;
   return (
     <p className={`flex items-center gap-2 text-sm text-mute ${className}`} data-testid="live-status" title={updatedAt ? new Date(updatedAt).toLocaleString() : undefined}>
-      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-up" aria-hidden="true" />
-      <span>
-        Fresh from Meteora{updatedAt && <span className="num"> · {timeAgo(updatedAt)}</span>}
+      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${fresh && !loading ? "bg-up" : "bg-mute"}`} aria-hidden="true" />
+      <span aria-live="polite">
+        {loading ? "Updating…" : updatedAt ? (
+          <>
+            {fresh ? "Fresh from Meteora" : "From Meteora"}
+            <span className="num"> · {timeAgo(updatedAt)}</span>
+          </>
+        ) : (
+          "Syncing with Meteora"
+        )}
       </span>
     </p>
   );
@@ -247,6 +259,8 @@ interface HeadingProps {
   onMetric: (m: BoardMetric) => void;
   onRange: (r: BoardRange) => void;
   updatedAt: string | null;
+  /** A refetch (range / metric / filter change) is in flight. */
+  loading?: boolean;
   /** Members / Countries switch. */
   viewToggle: ReactNode;
   /** Country filter + Following, each followed by a Sep (members only; may be null). Rendered before the view toggle on desktop. */
@@ -264,7 +278,7 @@ export function BoardHeading(p: HeadingProps) {
   return (
     <div>
       {/* Phones reserve two lines so the controls below don't jump between metrics. */}
-      <h1 className="min-h-[2.3em] text-2xl font-bold leading-[1.15] tracking-tight text-fg [text-wrap:balance] sm:min-h-0 md:text-3xl" data-testid={p.testId}>
+      <h1 className="min-h-[4.25rem] text-2xl font-bold tracking-tight text-fg [text-wrap:balance] sm:min-h-0" data-testid={p.testId}>
         {PLAYFUL[p.view][p.metric]}
         <span className="sr-only">
           , {rangeLabel.toLowerCase()}, ranked by {METRIC_WORD[p.metric]}
@@ -283,11 +297,11 @@ export function BoardHeading(p: HeadingProps) {
         </WordMenu>
       </div>
       <div className="mt-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
-        <LiveStatus updatedAt={p.updatedAt} />
+        <LiveStatus updatedAt={p.updatedAt} loading={p.loading} />
         {/* Members / Countries is anchored (right end on desktop, first on its own row on phones), so the
             filters that only exist in Members can come and go without moving it. */}
         <div className="flex w-full min-w-0 flex-wrap items-center gap-x-5 gap-y-2 sm:w-auto" data-testid="board-filters">
-          <div className="order-first sm:order-last">{p.viewToggle}</div>
+          <div className="order-first basis-full sm:order-last sm:basis-auto">{p.viewToggle}</div>
           {p.filters}
         </div>
       </div>

@@ -38,9 +38,9 @@ function toBlocks(items: FeedItem[]): Block[] {
 }
 
 /** Underline tabs (scope) or a segmented toggle (filter); same components as the leaderboard. */
-function Tabs<T extends string>({ value, options, onChange, label, variant = "tabs" }: { value: T; options: { value: T; label: string }[]; onChange: (v: T) => void; label: string; variant?: "tabs" | "seg" }) {
+function Tabs<T extends string>({ value, options, onChange, label }: { value: T; options: { value: T; label: string }[]; onChange: (v: T) => void; label: string }) {
   return (
-    <div role="tablist" aria-label={label} className={variant === "tabs" ? "flex items-end gap-6" : "seg"}>
+    <div role="tablist" aria-label={label} className="flex items-end gap-6">
       {options.map((o) => (
         <button
           key={o.value}
@@ -48,7 +48,7 @@ function Tabs<T extends string>({ value, options, onChange, label, variant = "ta
           role="tab"
           aria-selected={value === o.value}
           onClick={() => onChange(o.value)}
-          className={variant === "tabs" ? "tab" : "seg-item"}
+          className="tab"
         >
           {o.label}
         </button>
@@ -181,7 +181,7 @@ export function ActivityFeed() {
       <div className="mb-5">
         <PageHeader
           title="Poolside"
-          description="Theses from LPs on the pools they're in, plus what members are up to. Opened and closed positions appear only for members who share them."
+          description="Theses from LPs on the pools they're in, plus what members are up to."
         />
       </div>
 
@@ -198,10 +198,9 @@ export function ActivityFeed() {
             { value: "following", label: "Following" },
           ]}
         />
-        <div className="mb-2">
+        {/* Same underline tabs as the scope, on the same hairline: one control style per row. */}
         <Tabs
           label="Show"
-          variant="seg"
           value={filter}
           onChange={setFilter}
           options={[
@@ -209,7 +208,6 @@ export function ActivityFeed() {
             { value: "posts", label: "Posts" },
           ]}
         />
-        </div>
       </div>
 
       <div className="card mt-4 overflow-hidden" data-testid="activity-feed">
@@ -239,7 +237,7 @@ export function ActivityFeed() {
               {shownScope === "following"
                 ? filter === "posts"
                   ? "People you follow haven't posted a thesis yet."
-                  : "People you follow haven't posted or done anything new yet. Opened and closed positions only show for members who share them."
+                  : "People you follow haven't posted or done anything new yet."
                 : filter === "posts"
                   ? "When LPs share why they're in a pool, it shows up here."
                   : "Theses, follows and badges show up here as they happen, plus opened and closed positions from members who choose to share them."}

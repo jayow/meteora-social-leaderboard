@@ -131,26 +131,28 @@ export function ThesisCard({ post, onDelete, size = "md" }: { post: ThesisPost; 
           <time dateTime={post.createdAt} title={new Date(post.createdAt).toLocaleString()} className="shrink-0 text-mute">
             {timeAgo(post.createdAt)}
           </time>
-          {onDelete && (
-            <button type="button" onClick={onDelete} className="btn-ghost ml-auto h-8 shrink-0 self-center px-3 text-dn hover:text-dn">
-              Delete
-            </button>
-          )}
         </div>
         <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
           <ThesisPoolTag pool={post.pool} token={post.token} />
           <AuthorPoolPnl pnl={post.authorPoolPnl} />
-          {post.pool && (
+          {/* "In this pool" is the default (the PnL beside it says so); only an exit is worth a word. */}
+          {post.pool && !post.authorInPool && (
             <span className="text-sm text-mute" title="From the author's last sync">
-              {post.authorInPool ? "In this pool" : "Exited this pool"}
+              Exited this pool
             </span>
           )}
         </div>
         <div className="mt-2">
           <ThesisBody body={post.body} size={size} />
         </div>
-        <div className="-ml-2 mt-1">
+        {/* Delete sits on the like row so your own posts' bodies line up with everyone else's. */}
+        <div className="-ml-2 mt-1 flex items-center justify-between">
           <ThesisLikeButton thesisId={post.id} likeCount={post.likeCount} liked={post.likedByViewer} isOwn={post.isOwn} />
+          {onDelete && (
+            <button type="button" onClick={onDelete} className="btn-ghost h-8 shrink-0 px-3 text-dn hover:text-dn">
+              Delete
+            </button>
+          )}
         </div>
       </div>
     </article>

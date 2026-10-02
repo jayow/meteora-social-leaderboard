@@ -21,10 +21,10 @@ import { isCountryCode } from "@/lib/countries";
 type Range = "7d" | "30d" | "all";
 type Metric = "pnl" | "fees" | "volume" | "winrate";
 
-const RANGE_SHORT: Record<Range, string> = {
-  "7d": "7D",
-  "30d": "30D",
-  all: "All-time",
+const RANGE_LABEL: Record<Range, string> = {
+  "7d": "7 days",
+  "30d": "30 days",
+  all: "all time",
 };
 /** Each metric is its own leaderboard: the API ranks by it, and the cards show only it. */
 const METRICS: { value: Metric; label: string; heading: string }[] = [
@@ -355,7 +355,7 @@ function LeaderboardBoard() {
     ) : null;
 
   return (
-    <main className="mx-auto max-w-[1320px] px-4 pb-10 pt-6 lg:px-6">
+    <main className="mx-auto max-w-[1320px] px-4 pb-10 pt-6 lg:px-6" aria-busy={loading || undefined}>
       <BoardHeading
         view={view}
         metric={metric}
@@ -363,6 +363,7 @@ function LeaderboardBoard() {
         onMetric={setMetric}
         onRange={setRange}
         updatedAt={updatedAt}
+        loading={loading && Boolean(data)}
         viewToggle={viewToggle}
         filters={quietFilters}
         testId="board-heading"
@@ -382,8 +383,6 @@ function LeaderboardBoard() {
         <CountryBoard
           range={range}
           metric={metric}
-          metricLabel={metricInfo.label}
-          rangeShort={RANGE_SHORT[range]}
           onPick={(code) => {
             // One history entry, so Back returns to the Countries view.
             setUrl({ view: "members", country: code });
@@ -392,12 +391,42 @@ function LeaderboardBoard() {
         />
       ) : loading && !data ? (
         <PodiumSkeleton />
+      ) : data?.error && entries.length === 0 ? (
+        <EmptyState
+          className="mt-6"
+          testId="board-error"
+          title="Couldn't load the leaderboard"
+          action={
+            <button type="button" onClick={load} className="btn-secondary">
+              Try again
+            </button>
+          }
+        />
       ) : followingOnly && entries.length === 0 ? (
-        <EmptyState className="mt-6" testId="following-empty" title="No one you follow is on this board">
+        <EmptyState
+          className="mt-6"
+          testId="following-empty"
+          title="No one you follow is on this board"
+          action={
+            <button type="button" onClick={() => setWho("all")} className="btn-secondary">
+              Show everyone
+            </button>
+          }
+        >
           Hit Follow on an LP to see them here.
         </EmptyState>
       ) : entries.length === 0 ? (
-        <EmptyState className="mt-6" title={country ? "No LPs from here yet" : "No LPs on the board yet"}>
+        <EmptyState
+          className="mt-6"
+          title={country ? "No LPs from here yet" : "No LPs on the board yet"}
+          action={
+            country ? (
+              <button type="button" onClick={() => onCountryChange("")} className="btn-secondary">
+                Show global
+              </button>
+            ) : undefined
+          }
+        >
           Members show up here once their Meteora stats sync.
         </EmptyState>
       ) : (
@@ -411,7 +440,6 @@ function LeaderboardBoard() {
                   rank={e.rank}
                   isMe={e.id === myId}
                   metric={metric}
-                  caption={`${metricInfo.label} · ${RANGE_SHORT[range]}`}
                   {...hoverHandlers}
                 />
               ))}
@@ -430,13 +458,12 @@ function LeaderboardBoard() {
           )}
         </>
       )}
-      {view === "members" && data?.error && <p className="mt-4 text-base text-dn">{data.error}</p>}
 
       {hover && hovered && (
         <LeaderboardHoverCard
           entry={hovered}
           anchor={hover.rect}
-          rankLabel={hovered.rank !== null ? `#${hovered.rank} by ${metricInfo.heading} · ${RANGE_SHORT[range]}` : "Not ranked yet"}
+          rankLabel={hovered.rank !== null ? `#${hovered.rank} by ${metricInfo.heading} · ${RANGE_LABEL[range]}` : "Not ranked yet"}
           isMe={hovered.id === myId}
           mode={hover.mode}
           onPointerEnter={keepPreview}
@@ -539,14 +566,12 @@ function PodiumCard({
   rank,
   isMe,
   metric,
-  caption,
   ...handlers
 }: {
   e: LeaderboardEntry;
   rank: MedalRank;
   isMe: boolean;
   metric: Metric;
-  caption: string;
 } & HoverHandlers) {
   const hp = hoverProps(e, handlers);
   const name = displayName(e);
@@ -580,7 +605,6 @@ function PodiumCard({
         >
           {metricValue(e, metric)}
         </div>
-        <div className="mt-1 hidden text-sm text-mute sm:block">{caption}</div>
       </div>
       {!isMe && (
         <div className="relative z-10 shrink-0 sm:mt-4">

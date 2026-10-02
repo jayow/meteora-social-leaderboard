@@ -108,23 +108,29 @@ export default function AdminPage() {
 
       <div className="card mb-4 p-5">
         <h2 className="mb-3 text-lg font-semibold">Generate codes</h2>
-        <div className="flex flex-wrap gap-2">
-          <input
-            type="number"
-            value={count}
-            onChange={(e) => setCount(Number(e.target.value))}
-            min={1}
-            max={100}
-            className="field num h-9 w-24"
-          />
-          <input
-            type="number"
-            value={maxUses}
-            onChange={(e) => setMaxUses(Number(e.target.value))}
-            min={1}
-            max={1000}
-            className="field num h-9 w-24"
-          />
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="block">
+            <span className="mb-1 block text-sm text-mute">Codes</span>
+            <input
+              type="number"
+              value={count}
+              onChange={(e) => setCount(Number(e.target.value))}
+              min={1}
+              max={100}
+              className="field num h-9 w-24"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-sm text-mute">Uses each</span>
+            <input
+              type="number"
+              value={maxUses}
+              onChange={(e) => setMaxUses(Number(e.target.value))}
+              min={1}
+              max={1000}
+              className="field num h-9 w-24"
+            />
+          </label>
           <button onClick={generateCodes} disabled={generating} className="btn-primary">
             {generating ? "Generating…" : "Generate"}
           </button>
@@ -133,12 +139,10 @@ export default function AdminPage() {
 
       <div className="card mb-4 p-5">
         <h2 className="mb-3 text-lg font-semibold">Recent joins</h2>
-        <div className="space-y-2">
+        <div className="divide-y divide-border">
           {data.recentJoins.slice(0, 20).map((u) => (
-            <div key={u.id} className="tile px-4 py-3">
-              <span className="num font-semibold">
-                #{u.memberNumber} {displayName(u)}
-              </span>
+            <div key={u.id} className="py-2.5 text-base">
+              <span className="num text-mute">#{u.memberNumber}</span> <span className="font-semibold">{displayName(u)}</span>
             </div>
           ))}
         </div>
@@ -151,15 +155,16 @@ export default function AdminPage() {
         <div className="space-y-2">
           {data.codes.map((code) => (
             <div key={code.id} className="tile flex items-center justify-between gap-3 px-4 py-3">
-              <div>
-                <span className="num font-semibold">{code.code}</span>
+              <div className="flex min-w-0 items-center">
+                <span className={`num font-semibold ${code.disabled ? "text-mute" : ""}`}>{code.code}</span>
+                {code.disabled ? <span className="chip ml-2">Disabled</span> : null}
                 <span className="num ml-3 text-base text-mute">
                   {code.uses}/{code.maxUses} · {code.createdByUserId ? `User ${code.createdByUserId}` : "Admin"}
                 </span>
               </div>
               <button
                 onClick={() => toggleCode(code.id, !code.disabled)}
-                className={`${code.disabled ? "btn-primary" : "btn-secondary"} h-8 px-3`}
+                className="btn-secondary h-8 px-3"
               >
                 {code.disabled ? "Enable" : "Disable"}
               </button>
