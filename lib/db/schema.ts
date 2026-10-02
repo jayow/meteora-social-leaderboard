@@ -390,3 +390,22 @@ export const dailyStats = pgTable("daily_stats", {
   syncFailed: integer("sync_failed").notNull().default(0),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+/**
+ * Product analytics: one row per user action (lib/events.ts). Server actions are logged in their API
+ * routes; page views and clicks come from the browser (/api/events). No wallet addresses, no IPs.
+ */
+export const events = pgTable(
+  "events",
+  {
+    id: serial("id").primaryKey(),
+    at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
+    userId: integer("user_id").references(() => users.id, { onDelete: "set null" }),
+    /** Random per-browser id (localStorage) so signed-out visitors can be counted; not a person. */
+    visitorId: varchar("visitor_id", { length: 40 }),
+    name: varchar("name", { length: 48 }).notNull(),
+    path: varchar("path", { length: 200 }),
+    props: jsonb("props"),
+  },
+  (t) => [index("events_at_idx").on(t.at), index("events_name_at_idx").on(t.name, t.at), index("events_user_at_idx").on(t.userId, t.at)]
+);

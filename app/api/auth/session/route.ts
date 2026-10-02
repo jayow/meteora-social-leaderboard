@@ -4,6 +4,7 @@ import { getDb, hasDb } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { getUserWalletAddresses } from "@/lib/users";
 import { clearSession, getSessionUserId, getSessionWallet, revokeUserSessions } from "@/lib/session";
+import { trackEvent } from "@/lib/events";
 
 export const dynamic = "force-dynamic";
 
@@ -49,7 +50,10 @@ export async function GET(): Promise<NextResponse> {
 export async function DELETE(): Promise<NextResponse> {
   // Revoke server-side too, so a copied session cookie stops working (on every device).
   const userId = hasDb() ? await getSessionUserId() : null;
-  if (userId) await revokeUserSessions(userId);
+  if (userId) {
+    await revokeUserSessions(userId);
+    trackEvent("sign_out", userId);
+  }
   await clearSession();
   return NextResponse.json({ ok: true });
 }

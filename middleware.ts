@@ -10,8 +10,9 @@ const CANONICAL = "https://lppool.party";
  * sign-in / join, the legal pages, share-card images (link previews), health and cron.
  */
 const PUBLIC_PAGES = ["/beta", "/join", "/terms", "/privacy"];
-// /api/admin/stats does its own auth (admin session or Bearer CRON_SECRET for monitoring scripts).
-const PUBLIC_API = ["/api/auth/", "/api/x/", "/api/join/", "/api/countries", "/api/health", "/api/cron/", "/api/card/", "/api/admin/stats"];
+// Metrics reads (/api/admin/stats|events|users) do their own auth: admin session or Bearer METRICS_TOKEN
+// (lib/metrics-auth.ts), else 404. /api/events is write-only intake.
+const PUBLIC_API = ["/api/auth/", "/api/x/", "/api/join/", "/api/countries", "/api/health", "/api/cron/", "/api/card/", "/api/admin/stats", "/api/admin/events", "/api/admin/users", "/api/events"];
 const STATIC_FILE = /\.(?:png|jpe?g|gif|svg|ico|webp|txt|xml|webmanifest)$/;
 /** Link-preview crawlers only read meta tags; the data behind a page stays members-only. */
 const PREVIEW_BOT = /Twitterbot|facebookexternalhit|Discordbot|TelegramBot|Slackbot|LinkedInBot|WhatsApp/i;

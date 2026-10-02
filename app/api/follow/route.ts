@@ -5,6 +5,7 @@ import { follows, users } from "@/lib/db/schema";
 import { getSessionUser } from "@/lib/session";
 import { getFollowCounts } from "@/lib/users";
 import { recordActivity } from "@/lib/activity";
+import { trackEvent } from "@/lib/events";
 
 export const dynamic = "force-dynamic";
 
@@ -52,6 +53,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       followeeUserId: body.targetId,
     }).onConflictDoNothing();
     await recordActivity({ actorUserId: currentUser.id, kind: "followed", targetUserId: body.targetId, dedupeKey: `followed:${currentUser.id}:${body.targetId}` });
+    trackEvent("follow", currentUser.id, { targetUserId: body.targetId });
 
     const [{ followersCount }, { followingCount }] = await Promise.all([
       getFollowCounts(body.targetId, currentUser.id),
@@ -94,6 +96,7 @@ export async function DELETE(req: NextRequest): Promise<NextResponse> {
       eq(follows.followeeUserId, body.targetId)
     )
   );
+  trackEvent("unfollow", currentUser.id, { targetUserId: body.targetId });
 
   const [{ followersCount }, { followingCount }] = await Promise.all([
     getFollowCounts(body.targetId, currentUser.id),

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/session";
 import { isAdminUser, createAdminCodes } from "@/lib/invite";
+import { trackEvent } from "@/lib/events";
 
 export const dynamic = "force-dynamic";
 
@@ -23,5 +24,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Invalid maxUses" }, { status: 400 });
   }
   const codes = await createAdminCodes(count, maxUses);
+  trackEvent("admin_invite_codes", user?.id ?? null, { count, maxUses });
   return NextResponse.json({ codes }, { status: 200 });
 }

@@ -6,6 +6,7 @@ import { setSessionUserId } from "@/lib/session";
 import { verifyWalletProof } from "@/lib/wallet-proof";
 import { toPublicUser, upsertUser } from "@/lib/users";
 import { TERMS_VERSION } from "@/lib/legal";
+import { trackEvent } from "@/lib/events";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +34,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const db = getDb();
   let user = null;
+  let created = false;
 
   const [linkedWallet] = await db.select().from(userWallets).where(eq(userWallets.address, wallet)).limit(1);
   if (linkedWallet) {
@@ -40,10 +42,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     user = owner;
   } else {
     const [primaryUser] = await db.select().from(users).where(eq(users.wallet, wallet)).limit(1);
+    created = !primaryUser;
     user = primaryUser || (await upsertUser(wallet));
   }
 
   await db.update(users).set({ termsVersionAccepted: TERMS_VERSION, termsAcceptedAt: new Date() }).where(eq(users.id, user.id));
   await setSessionUserId(user.id);
+  trackEvent("sign_in", user.id, { method: "wallet", newAccount: created });
   return NextResponse.json({ ok: true, user: toPublicUser(user) });
 }

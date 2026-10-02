@@ -6,6 +6,7 @@ import { getSessionUser, getSessionUserId } from "@/lib/session";
 import { recordThesisActivity } from "@/lib/activity";
 import { checkCanPost, countTheses, listTheses } from "@/lib/theses";
 import { THESIS_MAX_LENGTH, type ThesisPost } from "@/lib/thesis-types";
+import { trackEvent } from "@/lib/events";
 
 export const dynamic = "force-dynamic";
 
@@ -109,6 +110,7 @@ export async function POST(
     })
     .returning();
   await recordThesisActivity(user.id, comment.id, mint, comment.createdAt);
+  trackEvent("thesis_post", user.id, { thesisId: comment.id, pool: check.pool.name, length: text.length });
 
   const [post] = await listTheses({ ids: [comment.id], viewerId: user.id, limit: 1 });
   if (!post) return NextResponse.json({ error: "Posted, but couldn't load it back" }, { status: 500 });
@@ -162,6 +164,7 @@ export async function DELETE(
     .update(tokenComments)
     .set({ deletedAt: new Date() })
     .where(eq(tokenComments.id, Number(commentId)));
+  trackEvent("thesis_delete", user.id, { thesisId: Number(commentId) });
 
   return NextResponse.json({ success: true });
 }

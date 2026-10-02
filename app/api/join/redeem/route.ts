@@ -4,6 +4,7 @@ import { redeemCode } from "@/lib/invite";
 import { toPublicUser } from "@/lib/users";
 import { recordActivity } from "@/lib/activity";
 import { refreshBadges } from "@/lib/badges/compute";
+import { trackEvent } from "@/lib/events";
 
 export const dynamic = "force-dynamic";
 
@@ -25,8 +26,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
   const result = await redeemCode(userId, code.trim(), country, thesis, termsVersion);
   if (!result.ok || !result.user) {
+    trackEvent("join", userId, { ok: false, reason: result.error || "Failed to join" });
     return NextResponse.json({ error: result.error || "Failed to join" }, { status: 400 });
   }
+  trackEvent("join", userId, { ok: true, memberNumber: result.user.memberNumber ?? null });
   await recordActivity({ actorUserId: result.user.id, kind: "joined", dedupeKey: `joined:${result.user.id}`, occurredAt: result.user.joinedAt });
   // Badges for data we already have (earlier syncs before joining). Silent: "joined" is the event here.
   await refreshBadges(result.user.id, { announce: false });

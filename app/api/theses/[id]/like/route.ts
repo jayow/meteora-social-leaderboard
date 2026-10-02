@@ -3,6 +3,7 @@ import { hasDb } from "@/lib/db";
 import { getSessionUser } from "@/lib/session";
 import { setThesisLike } from "@/lib/theses";
 import type { ThesisLikeResponse } from "@/lib/thesis-types";
+import { trackEvent } from "@/lib/events";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,7 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ id: string }> }
   if (!user) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
   const result = await setThesisLike(user, commentId, like);
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status });
+  trackEvent(like ? "thesis_like" : "thesis_unlike", user.id, { thesisId: commentId });
   return NextResponse.json({ liked: result.liked, likeCount: result.likeCount }, { headers: { "Cache-Control": "private, no-store" } });
 }
 

@@ -3,6 +3,7 @@ import { eq, and, sql } from "drizzle-orm";
 import { getDb, hasDb } from "@/lib/db";
 import { users, userWallets } from "@/lib/db/schema";
 import { getSessionUser } from "@/lib/session";
+import { trackEvent } from "@/lib/events";
 
 export const dynamic = "force-dynamic";
 
@@ -58,6 +59,7 @@ export async function PATCH(
   }
 
   if (Object.keys(updates).length === 0) {
+    trackEvent("wallet_update", user.id);
     return NextResponse.json({ ok: true, wallet: { id: wallet.id, address: wallet.address, label: wallet.label, isPrimary: Boolean(wallet.isPrimary) } });
   }
 
@@ -127,5 +129,6 @@ export async function DELETE(
     }
   }
 
+  trackEvent("wallet_remove", user.id);
   return NextResponse.json({ ok: true });
 }

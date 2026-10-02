@@ -6,6 +6,7 @@ import { profileBanners, users } from "@/lib/db/schema";
 import { findUser } from "@/lib/users";
 import { canViewUser } from "@/lib/visibility";
 import { getSessionUser } from "@/lib/session";
+import { trackEvent } from "@/lib/events";
 
 export const dynamic = "force-dynamic";
 
@@ -118,6 +119,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       .set({ bannerUpdatedAt: new Date() })
       .where(eq(users.id, user.id));
 
+    trackEvent("banner_upload", sessionUser?.id ?? null);
     return NextResponse.json({ ok: true, version: Date.now() });
   } catch (error) {
     console.error("Banner upload error:", error);
@@ -149,5 +151,6 @@ export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: str
   await db.delete(profileBanners).where(eq(profileBanners.userId, user.id));
   await db.update(users).set({ bannerUpdatedAt: null }).where(eq(users.id, user.id));
 
+  trackEvent("banner_remove", sessionUser?.id ?? null);
   return NextResponse.json({ ok: true });
 }

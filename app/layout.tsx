@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { WalletProviders } from "@/components/WalletProviders";
 import { AppShell } from "@/components/AppShell";
+import { EventTracker } from "@/components/EventTracker";
 import { THEME } from "@/lib/theme";
 
 // The one UI typeface (THEME.md): screen-tuned, with true tabular numerals for every figure.
@@ -47,6 +48,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-screen font-sans text-fg antialiased">
         <WalletProviders>
           <AppShell>{children}</AppShell>
+          <EventTracker />
         </WalletProviders>
       </body>
     </html>

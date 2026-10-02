@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { validateCode } from "@/lib/invite";
+import { trackEvent } from "@/lib/events";
+import { getSessionUserId } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +17,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Missing code" }, { status: 400 });
   }
   const result = await validateCode(code.trim());
+  trackEvent("invite_check", await getSessionUserId(), { valid: result.valid, ...(result.valid ? {} : { reason: result.reason ?? null }) });
   if (!result.valid) {
     return NextResponse.json({ valid: false, reason: result.reason }, { status: 200 });
   }

@@ -6,6 +6,7 @@ import { ensureAnonName, findUser, getFollowCounts, getUserWalletAddresses, isUs
 import { getSessionUserId } from "@/lib/session";
 import { isCountryCode } from "@/lib/countries";
 import { listBadges } from "@/lib/badges/compute";
+import { trackEvent } from "@/lib/events";
 
 export const dynamic = "force-dynamic";
 
@@ -90,5 +91,6 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     .where(eq(users.id, user.id))
     .returning();
   const updated = body.unlinkX && rows[0] ? await ensureAnonName(rows[0]) : rows[0];
+  trackEvent("profile_update", user.id, { fields: Object.keys(set).join(",") });
   return NextResponse.json({ user: toPublicUser(updated, true) });
 }

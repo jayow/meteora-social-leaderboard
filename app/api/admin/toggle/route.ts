@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/session";
 import { isAdminUser, disableCode, enableCode } from "@/lib/invite";
+import { trackEvent } from "@/lib/events";
 
 export const dynamic = "force-dynamic";
 
@@ -24,5 +25,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   } else {
     await enableCode(codeId);
   }
+  trackEvent("admin_invite_toggle", user?.id ?? null, { codeId, disabled: Boolean(disabled) });
   return NextResponse.json({ ok: true }, { status: 200 });
 }

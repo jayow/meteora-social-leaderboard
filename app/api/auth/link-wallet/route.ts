@@ -4,6 +4,7 @@ import { getDb } from "@/lib/db";
 import { userWallets, users } from "@/lib/db/schema";
 import { getSessionUserId } from "@/lib/session";
 import { verifyWalletProof } from "@/lib/wallet-proof";
+import { trackEvent } from "@/lib/events";
 
 export const dynamic = "force-dynamic";
 
@@ -51,6 +52,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   // If user's primary wallet is a temp placeholder, replace it
   if (currentUser.wallet.startsWith("temp_")) {
     await db.update(users).set({ wallet }).where(eq(users.id, userId));
+    trackEvent("wallet_link", userId);
     return NextResponse.json({ ok: true, message: "Wallet linked successfully" });
   }
 
@@ -65,5 +67,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     isPrimary: 0,
   });
 
+  trackEvent("wallet_link", userId);
   return NextResponse.json({ ok: true, message: "Wallet linked successfully" });
 }

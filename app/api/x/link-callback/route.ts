@@ -4,6 +4,7 @@ import { getDb } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { getSessionUserId } from "@/lib/session";
 import { validateOAuthState, exchangeCodeForToken, fetchXProfile, oauthReturnUrl, getCallbackUrl } from "@/lib/x-oauth";
+import { trackEvent } from "@/lib/events";
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const { searchParams } = new URL(req.url);
@@ -93,6 +94,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         xAvatarUrl: profile.avatarUrl ? profile.avatarUrl.replace("_normal.", "_400x400.") : null,
       })
       .where(eq(users.id, userId));
+    trackEvent("link_x", userId, { via: "link" });
 
     return NextResponse.redirect(oauthReturnUrl(returnTo, "link=success", baseUrl));
   } catch (e) {

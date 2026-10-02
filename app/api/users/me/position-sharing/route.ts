@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getPool, hasDb } from "@/lib/db";
 import { getSessionUserId } from "@/lib/session";
 import type { PositionSharingState } from "@/lib/activity-types";
+import { trackEvent } from "@/lib/events";
 
 export const dynamic = "force-dynamic";
 
@@ -76,5 +77,6 @@ export async function PATCH(req: NextRequest): Promise<NextResponse<PositionShar
     [userId, share ?? null]
   );
   if (!rows[0]) return NextResponse.json({ error: "Join the beta to share your activity" }, { status: 403 });
+  trackEvent("position_sharing", userId, share !== undefined ? { share } : { dismissed: true });
   return NextResponse.json(toState(rows[0]), { headers: NO_STORE });
 }

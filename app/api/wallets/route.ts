@@ -4,6 +4,7 @@ import { getDb, hasDb } from "@/lib/db";
 import { users, userWallets } from "@/lib/db/schema";
 import { getSessionUser } from "@/lib/session";
 import { verifyWalletProof } from "@/lib/wallet-proof";
+import { trackEvent } from "@/lib/events";
 
 export const dynamic = "force-dynamic";
 
@@ -90,6 +91,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     })
     .returning();
 
+  trackEvent("wallet_add", user.id);
   return NextResponse.json({
     ok: true,
     wallet: {

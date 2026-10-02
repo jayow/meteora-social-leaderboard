@@ -12,6 +12,7 @@ import { getDb, hasDb } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { setSessionUserId, getSessionUserId } from "@/lib/session";
 import { TERMS_VERSION } from "@/lib/legal";
+import { trackEvent } from "@/lib/events";
 
 /** Error redirect for a failed sign-in; logs the reason (never tokens) so failures show in the server logs. */
 function failRedirect(url: URL): NextResponse {
@@ -114,12 +115,14 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
             })
             .where(eq(users.id, currentUserId));
           // Keep the current session (don't switch users)
+          trackEvent("link_x", currentUserId, { via: "sign_in" });
           return NextResponse.redirect(oauthReturnUrl(returnTo, "x=connected", baseUrl));
         }
       }
 
       // No existing session: X-first auth (find by xId, fall back to legacy xHandle, or create new)
       let [user] = await db.select().from(users).where(eq(users.xId, xId)).limit(1);
+      let created = false;
       
       if (!user) {
         // Fall back to case-insensitive xHandle match for users with null xId (legacy users)
@@ -143,6 +146,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
             .returning();
         } else {
           // Create new user with X identity (no wallet yet)
+          created = true;
           [user] = await db
             .insert(users)
             .values({
@@ -174,6 +178,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
       // Set user-ID session
       await setSessionUserId(user.id);
+      trackEvent("sign_in", user.id, { method: "x", newAccount: created });
     } catch (e) {
       console.error("Failed to create/update user:", e);
       return failRedirect(

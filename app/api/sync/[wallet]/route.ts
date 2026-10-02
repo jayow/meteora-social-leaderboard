@@ -7,6 +7,7 @@ import { findUserByWallet, toPublicSnapshot, upsertUser } from "@/lib/users";
 import { getSnapshot, syncUser, todayUtc } from "@/lib/sync";
 import { getSessionUserId } from "@/lib/session";
 import { SYNC_COOLDOWN_MS, SYNC_RETRY_MS } from "@/lib/sync-limits";
+import { trackEvent } from "@/lib/events";
 
 export const dynamic = "force-dynamic";
 
@@ -33,13 +34,22 @@ async function handle(req: NextRequest, wallet: string): Promise<NextResponse> {
   }
   if (!force && user.lastSyncedAt && Date.now() - user.lastSyncedAt.getTime() < SYNC_COOLDOWN_MS) {
     const snap = await getSnapshot(user.id, todayUtc());
-    if (snap) return NextResponse.json({ ok: true, cached: true, snapshot: toPublicSnapshot(snap) });
+    if (snap) {
+      trackEvent("stats_refresh", user.id, { result: "cached" });
+      return NextResponse.json({ ok: true, cached: true, snapshot: toPublicSnapshot(snap) });
+    }
   }
   if (!force) {
-    if (inFlight.has(user.id)) return tooSoon("A sync is already running", SYNC_RETRY_MS);
+    if (inFlight.has(user.id)) {
+      trackEvent("stats_refresh", user.id, { result: "rate_limited" });
+      return tooSoon("A sync is already running", SYNC_RETRY_MS);
+    }
     // A failed attempt (success also stamps lastAttemptedAt, but is caught by the cooldown above).
     const sinceAttempt = user.lastAttemptedAt ? Date.now() - user.lastAttemptedAt.getTime() : Infinity;
-    if (sinceAttempt < SYNC_RETRY_MS) return tooSoon("Last sync failed, try again shortly", SYNC_RETRY_MS - sinceAttempt);
+    if (sinceAttempt < SYNC_RETRY_MS) {
+      trackEvent("stats_refresh", user.id, { result: "rate_limited" });
+      return tooSoon("Last sync failed, try again shortly", SYNC_RETRY_MS - sinceAttempt);
+    }
   }
 
   if (!force) inFlight.add(user.id);
@@ -51,9 +61,11 @@ async function handle(req: NextRequest, wallet: string): Promise<NextResponse> {
   }
   if (!result.ok) {
     await getDb().update(users).set({ lastAttemptedAt: sql`now()` }).where(eq(users.id, user.id));
+    if (!force) trackEvent("stats_refresh", user.id, { result: "failed" });
     return NextResponse.json({ ok: false, error: result.error }, { status: 502 });
   }
   const snap = await getSnapshot(user.id, result.date);
+  if (!force) trackEvent("stats_refresh", user.id, { result: "synced" });
   return NextResponse.json({ ok: true, cached: false, snapshot: snap ? toPublicSnapshot(snap) : null });
 }
 

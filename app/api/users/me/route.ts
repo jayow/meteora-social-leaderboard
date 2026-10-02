@@ -5,6 +5,7 @@ import { users } from "@/lib/db/schema";
 import { getSessionUserId } from "@/lib/session";
 import { isCountryCode } from "@/lib/countries";
 import { ensureAnonName, toPublicUser } from "@/lib/users";
+import { trackEvent } from "@/lib/events";
 
 export const dynamic = "force-dynamic";
 
@@ -62,5 +63,6 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
   let [updated] = await db.update(users).set(updates).where(eq(users.id, user.id)).returning();
   // Without X the generated beach name is what people see, so make sure there is one.
   if (body.unlinkX === true && updated) updated = await ensureAnonName(updated);
+  trackEvent("profile_update", user.id, { fields: Object.keys(updates).join(",") });
   return NextResponse.json({ ok: true, user: toPublicUser(updated) });
 }
