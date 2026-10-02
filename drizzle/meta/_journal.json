@@ -134,6 +134,13 @@
       "when": 1790841271954,
       "tag": "0018_open_position_details",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1790920308638,
+      "tag": "0019_wallet_nonces",
+      "breakpoints": true
     }
   ]
 }

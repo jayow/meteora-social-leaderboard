@@ -3,8 +3,7 @@ import { eq, sql } from "drizzle-orm";
 import { getDb, hasDb } from "@/lib/db";
 import { users, userWallets } from "@/lib/db/schema";
 import { getSessionUser } from "@/lib/session";
-import { isValidWallet } from "@/lib/wallet";
-import { verifyWalletSignature, loginMessage } from "@/lib/session";
+import { verifyWalletProof } from "@/lib/wallet-proof";
 
 export const dynamic = "force-dynamic";
 
@@ -34,10 +33,8 @@ export async function GET(): Promise<NextResponse> {
 }
 
 interface AddWalletBody {
-  address?: string;
   label?: string;
-  signature?: string;
-  issuedAt?: string;
+  proof?: unknown;
 }
 
 // POST /api/wallets - Add a wallet (requires signature proof of ownership)
@@ -55,20 +52,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { address, label, signature, issuedAt } = body;
-  if (!isValidWallet(address) || !signature || !issuedAt) {
-    return NextResponse.json({ error: "Missing or invalid fields" }, { status: 400 });
-  }
-
-  const ts = Date.parse(issuedAt);
-  if (!Number.isFinite(ts) || Math.abs(Date.now() - ts) > 10 * 60 * 1000) {
-    return NextResponse.json({ error: "Signature expired" }, { status: 400 });
-  }
-
-  // Verify signature (proof of ownership)
-  if (!verifyWalletSignature(address, loginMessage(address, issuedAt), signature)) {
-    return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
-  }
+  const { label } = body;
+  // Proof of ownership: a Sign-In With Solana signature for this site and a fresh nonce.
+  const proof = await verifyWalletProof(req, body.proof);
+  if (!proof.ok) return NextResponse.json({ error: proof.error }, { status: proof.status });
+  const address = proof.address;
 
   // Check wallet limit (max 5 per user)
   const [{ count }] = await db

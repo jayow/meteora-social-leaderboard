@@ -338,3 +338,13 @@ export const userBadges = pgTable(
 );
 
 export type UserBadgeRow = typeof userBadges.$inferSelect;
+
+/** Single-use nonces for wallet sign-in proofs (lib/wallet-proof.ts); a row is deleted when used. */
+export const walletNonces = pgTable(
+  "wallet_nonces",
+  {
+    nonce: varchar("nonce", { length: 64 }).primaryKey(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  },
+  (t) => [index("wallet_nonces_expires_at_idx").on(t.expiresAt)]
+);

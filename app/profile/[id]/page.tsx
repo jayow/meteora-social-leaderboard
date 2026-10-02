@@ -21,7 +21,7 @@ import { PositionSharingPrompt, PositionSharingToggle } from "@/components/Posit
 import { EmptyState } from "@/components/EmptyState";
 import { displayName, fmtPct, fmtUsd, shortAddr, timeAgo } from "@/lib/format";
 import { patchCachedProfile } from "@/lib/storage";
-import { loginMessage } from "@/lib/login-message";
+import { proveWallet } from "@/lib/wallet-proof-client";
 import { meteoraHomeUrl } from "@/lib/meteora-links";
 import { applyFollowChange, onFollowChanged, onSessionChanged, requestSignIn } from "@/lib/session-events";
 import { SYNC_COOLDOWN_MS } from "@/lib/sync-limits";
@@ -845,7 +845,7 @@ interface UserWallet {
 
 function WalletsSection() {
   const { ensureSession } = useMe();
-  const { publicKey, signMessage } = useWallet();
+  const { publicKey, signMessage, signIn } = useWallet();
   const [wallets, setWallets] = useState<UserWallet[]>([]);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
@@ -881,15 +881,17 @@ function WalletsSection() {
         return;
       }
 
-      const address = publicKey.toBase58();
-      const issuedAt = new Date().toISOString();
-      const sig = await signMessage(new TextEncoder().encode(loginMessage(address, issuedAt)));
-      const signature = btoa(String.fromCharCode(...sig));
+      const proof = await proveWallet({
+        address: publicKey.toBase58(),
+        statement: "Add this wallet to your Pool Party account. This is free and does not send a transaction.",
+        signIn,
+        signMessage,
+      });
 
       const res = await fetch("/api/wallets", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ address, signature, issuedAt }),
+        body: JSON.stringify({ proof }),
       });
 
       if (res.ok) {

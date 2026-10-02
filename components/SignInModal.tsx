@@ -6,15 +6,9 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import { Modal } from "@/components/Modal";
 import { XIcon } from "@/components/ui";
 import { WalletPicker } from "@/components/WalletPicker";
-import { loginMessage } from "@/lib/login-message";
+import { proveWallet } from "@/lib/wallet-proof-client";
 import { TermsCheckbox } from "@/components/TermsCheckbox";
 import { TERMS_VERSION } from "@/lib/legal";
-
-function toBase64(bytes: Uint8Array): string {
-  let s = "";
-  for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
-  return btoa(s);
-}
 
 function errorMessage(err: unknown, fallback: string): string {
   if (err instanceof Error && err.message) return err.message;
@@ -32,7 +26,7 @@ interface SignInModalProps {
 }
 
 export function SignInModal({ open, onClose, onSuccess, initialStep = "methods" }: SignInModalProps) {
-  const { wallet, select, connect, connected, connecting, publicKey, signMessage } = useWallet();
+  const { wallet, select, connect, connected, connecting, publicKey, signMessage, signIn: walletSignIn } = useWallet();
   const [step, setStep] = useState<SignInStep>(initialStep);
   const [pending, setPending] = useState<WalletName | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -54,17 +48,20 @@ export function SignInModal({ open, onClose, onSuccess, initialStep = "methods" 
       return;
     }
     if (!publicKey) return;
-    if (!signMessage) {
+    if (!signMessage && !walletSignIn) {
       setError("This wallet can't sign messages. Pick another wallet.");
       return;
     }
-    const wallet58 = publicKey.toBase58();
-    const issuedAt = new Date().toISOString();
-    const sig = await signMessage(new TextEncoder().encode(loginMessage(wallet58, issuedAt)));
+    const proof = await proveWallet({
+      address: publicKey.toBase58(),
+      statement: "Sign in to Pool Party. This is free and does not send a transaction.",
+      signIn: walletSignIn,
+      signMessage,
+    });
     const res = await fetch("/api/auth/wallet", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ wallet: wallet58, issuedAt, signature: toBase64(sig), termsVersion: TERMS_VERSION }),
+      body: JSON.stringify({ proof, termsVersion: TERMS_VERSION }),
     });
     if (!res.ok) {
       const data = (await res.json().catch(() => ({}))) as { error?: string };
@@ -73,7 +70,7 @@ export function SignInModal({ open, onClose, onSuccess, initialStep = "methods" 
     onSuccess?.();
     onClose();
     window.location.reload();
-  }, [publicKey, signMessage, onSuccess, onClose, termsAccepted]);
+  }, [publicKey, signMessage, walletSignIn, onSuccess, onClose, termsAccepted]);
 
   // Drive the explicitly picked wallet: select -> connect -> sign. Nothing happens until the user picks.
   useEffect(() => {

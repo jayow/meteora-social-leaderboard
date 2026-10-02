@@ -2,17 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { getDb, hasDb } from "@/lib/db";
 import { userWallets, users } from "@/lib/db/schema";
-import { isValidWallet } from "@/lib/wallet";
-import { loginMessage, setSessionUserId, verifyWalletSignature } from "@/lib/session";
+import { setSessionUserId } from "@/lib/session";
+import { verifyWalletProof } from "@/lib/wallet-proof";
 import { toPublicUser, upsertUser } from "@/lib/users";
 import { TERMS_VERSION } from "@/lib/legal";
 
 export const dynamic = "force-dynamic";
 
 interface Body {
-  wallet?: string;
-  issuedAt?: string;
-  signature?: string;
+  proof?: unknown;
   termsVersion?: string;
 }
 
@@ -24,16 +22,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
-  const { wallet, issuedAt, signature, termsVersion } = body;
-  if (termsVersion !== TERMS_VERSION) return NextResponse.json({ error: "Please accept the current Terms and Privacy Policy" }, { status: 400 });
-  if (!isValidWallet(wallet) || !issuedAt || !signature) return NextResponse.json({ error: "Missing fields" }, { status: 400 });
-  const ts = Date.parse(issuedAt);
-  if (!Number.isFinite(ts) || Math.abs(Date.now() - ts) > 10 * 60 * 1000) {
-    return NextResponse.json({ error: "Signature expired, try again" }, { status: 400 });
-  }
-  if (!verifyWalletSignature(wallet, loginMessage(wallet, issuedAt), signature)) {
-    return NextResponse.json({ error: "Bad signature" }, { status: 401 });
-  }
+  if (body.termsVersion !== TERMS_VERSION) return NextResponse.json({ error: "Please accept the current Terms and Privacy Policy" }, { status: 400 });
+  const proof = await verifyWalletProof(req, body.proof);
+  if (!proof.ok) return NextResponse.json({ error: proof.error }, { status: proof.status });
+  const wallet = proof.address;
   
   if (!hasDb()) {
     return NextResponse.json({ ok: true, wallet, user: null });

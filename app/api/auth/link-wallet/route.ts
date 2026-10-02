@@ -2,15 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { userWallets, users } from "@/lib/db/schema";
-import { isValidWallet } from "@/lib/wallet";
-import { loginMessage, verifyWalletSignature, getSessionUserId } from "@/lib/session";
+import { getSessionUserId } from "@/lib/session";
+import { verifyWalletProof } from "@/lib/wallet-proof";
 
 export const dynamic = "force-dynamic";
 
 interface Body {
-  wallet?: string;
-  issuedAt?: string;
-  signature?: string;
+  proof?: unknown;
 }
 
 /** Link a wallet to the current user's account (must be signed in). */
@@ -27,19 +25,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { wallet, issuedAt, signature } = body;
-  if (!isValidWallet(wallet) || !issuedAt || !signature) {
-    return NextResponse.json({ error: "Missing fields" }, { status: 400 });
-  }
-
-  const ts = Date.parse(issuedAt);
-  if (!Number.isFinite(ts) || Math.abs(Date.now() - ts) > 10 * 60 * 1000) {
-    return NextResponse.json({ error: "Signature expired, try again" }, { status: 400 });
-  }
-
-  if (!verifyWalletSignature(wallet, loginMessage(wallet, issuedAt), signature)) {
-    return NextResponse.json({ error: "Bad signature" }, { status: 401 });
-  }
+  const proof = await verifyWalletProof(req, body.proof);
+  if (!proof.ok) return NextResponse.json({ error: proof.error }, { status: proof.status });
+  const wallet = proof.address;
 
   const db = getDb();
 

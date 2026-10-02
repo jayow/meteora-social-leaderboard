@@ -1,10 +1,8 @@
-import { createHmac, createPublicKey, timingSafeEqual, verify } from "crypto";
+import { createHmac, timingSafeEqual } from "crypto";
 import { cookies } from "next/headers";
-import { PublicKey } from "@solana/web3.js";
 import { getDb, hasDb } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
-export { loginMessage } from "@/lib/login-message";
 
 export const SESSION_COOKIE = "pp_session";
 const MAX_AGE = 60 * 60 * 24 * 30; // 30 days
@@ -15,7 +13,7 @@ function secret(): string {
   return s;
 }
 
-function sign(payload: string): string {
+export function sign(payload: string): string {
   return createHmac("sha256", secret()).update(payload).digest("base64url");
 }
 
@@ -133,15 +131,4 @@ export async function setSessionWallet(wallet: string): Promise<void> {
 export async function clearSession(): Promise<void> {
   const store = await cookies();
   store.delete(SESSION_COOKIE);
-}
-
-/** Verify an ed25519 signature (base64) of `message` by the Solana `wallet`. */
-export function verifyWalletSignature(wallet: string, message: string, signatureB64: string): boolean {
-  try {
-    const raw = Buffer.from(new PublicKey(wallet).toBytes());
-    const key = createPublicKey({ key: { kty: "OKP", crv: "Ed25519", x: raw.toString("base64url") }, format: "jwk" });
-    return verify(null, Buffer.from(message, "utf8"), key, Buffer.from(signatureB64, "base64"));
-  } catch {
-    return false;
-  }
 }
