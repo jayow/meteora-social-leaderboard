@@ -17,7 +17,7 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ id: string }> }
   if (!user) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
   const result = await setThesisLike(user, commentId, like);
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status });
-  trackEvent(like ? "thesis_like" : "thesis_unlike", user.id, { thesisId: commentId });
+  trackEvent(like ? "lp_idea_like" : "lp_idea_unlike", user.id, { lpIdeaId: commentId });
   return NextResponse.json({ liked: result.liked, likeCount: result.likeCount }, { headers: { "Cache-Control": "private, no-store" } });
 }
 

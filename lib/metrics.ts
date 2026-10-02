@@ -90,7 +90,7 @@ export interface UserMetrics {
   lastSeenAt: string | null;
   lastSyncedAt: string | null;
   wallets: number;
-  theses: number;
+  lpIdeas: number;
   likesGiven: number;
   followers: number;
   following: number;
@@ -110,7 +110,7 @@ export async function getUserMetrics(): Promise<UserMetrics[]> {
            (SELECT coalesce(sum(c.uses), 0) FROM invite_codes c WHERE c.created_by_user_id = u.id)::int AS invites_used,
            u.last_seen_at, u.last_synced_at,
            (1 + (SELECT count(*) FROM user_wallets w WHERE w.user_id = u.id AND w.address <> u.wallet))::int AS wallets,
-           (SELECT count(*) FROM token_comments t WHERE t.user_id = u.id AND t.deleted_at IS NULL)::int AS theses,
+           (SELECT count(*) FROM token_comments t WHERE t.user_id = u.id AND t.deleted_at IS NULL)::int AS lp_ideas,
            (SELECT count(*) FROM thesis_likes l WHERE l.user_id = u.id)::int AS likes_given,
            (SELECT count(*) FROM follows f WHERE f.followee_user_id = u.id)::int AS followers,
            (SELECT count(*) FROM follows f WHERE f.follower_user_id = u.id)::int AS following,
@@ -138,7 +138,7 @@ export async function getUserMetrics(): Promise<UserMetrics[]> {
     lastSeenAt: iso(r.last_seen_at),
     lastSyncedAt: iso(r.last_synced_at),
     wallets: Number(r.wallets),
-    theses: Number(r.theses),
+    lpIdeas: Number(r.lp_ideas),
     likesGiven: Number(r.likes_given),
     followers: Number(r.followers),
     following: Number(r.following),

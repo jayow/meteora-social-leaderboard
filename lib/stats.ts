@@ -17,8 +17,8 @@ export interface AdminStats {
   engagement: {
     active24h: number;
     active7d: number;
-    theses: number;
-    theses7d: number;
+    lpIdeas: number;
+    lpIdeas7d: number;
     likes: number;
     follows: number;
   };
@@ -50,8 +50,8 @@ export async function getAdminStats(): Promise<AdminStats> {
       (SELECT coalesce(sum(greatest(max_uses - uses, 0)), 0) FROM invite_codes WHERE disabled = 0)::int AS invites_available,
       (SELECT count(*) FROM m WHERE last_seen_at > now() - interval '24 hours')::int AS active24h,
       (SELECT count(*) FROM m WHERE last_seen_at > now() - interval '7 days')::int AS active7d,
-      (SELECT count(*) FROM token_comments WHERE deleted_at IS NULL)::int AS theses,
-      (SELECT count(*) FROM token_comments WHERE deleted_at IS NULL AND created_at > now() - interval '7 days')::int AS theses7d,
+      (SELECT count(*) FROM token_comments WHERE deleted_at IS NULL)::int AS lp_ideas,
+      (SELECT count(*) FROM token_comments WHERE deleted_at IS NULL AND created_at > now() - interval '7 days')::int AS lp_ideas_7d,
       (SELECT count(*) FROM thesis_likes)::int AS likes,
       (SELECT count(*) FROM follows)::int AS follows,
       (SELECT max(last_synced_at) FROM m) AS last_sync_at,
@@ -81,8 +81,8 @@ export async function getAdminStats(): Promise<AdminStats> {
     engagement: {
       active24h: n("active24h"),
       active7d: n("active7d"),
-      theses: n("theses"),
-      theses7d: n("theses7d"),
+      lpIdeas: n("lp_ideas"),
+      lpIdeas7d: n("lp_ideas_7d"),
       likes: n("likes"),
       follows: n("follows"),
     },

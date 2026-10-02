@@ -110,7 +110,7 @@ export async function POST(
     })
     .returning();
   await recordThesisActivity(user.id, comment.id, mint, comment.createdAt);
-  trackEvent("thesis_post", user.id, { thesisId: comment.id, pool: check.pool.name, length: text.length });
+  trackEvent("lp_idea_post", user.id, { lpIdeaId: comment.id, pool: check.pool.name, length: text.length });
 
   const [post] = await listTheses({ ids: [comment.id], viewerId: user.id, limit: 1 });
   if (!post) return NextResponse.json({ error: "Posted, but couldn't load it back" }, { status: 500 });
@@ -164,7 +164,7 @@ export async function DELETE(
     .update(tokenComments)
     .set({ deletedAt: new Date() })
     .where(eq(tokenComments.id, Number(commentId)));
-  trackEvent("thesis_delete", user.id, { thesisId: Number(commentId) });
+  trackEvent("lp_idea_delete", user.id, { lpIdeaId: Number(commentId) });
 
   return NextResponse.json({ success: true });
 }

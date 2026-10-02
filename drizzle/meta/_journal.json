@@ -183,6 +183,13 @@
       "when": 1790941757572,
       "tag": "0025_events",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1790943752584,
+      "tag": "0026_lp_idea_events",
+      "breakpoints": true
     }
   ]
 }

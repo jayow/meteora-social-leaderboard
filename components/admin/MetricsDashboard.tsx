@@ -150,13 +150,13 @@ function Status({ ok, label, detail }: { ok: boolean; label: string; detail: str
 /* Users table                                                                                       */
 /* ------------------------------------------------------------------------------------------------ */
 
-type SortKey = "memberNumber" | "joinedAt" | "lastSeenAt" | "events7d" | "theses" | "followers" | "openValueUsd" | "invitesUsed";
+type SortKey = "memberNumber" | "joinedAt" | "lastSeenAt" | "events7d" | "lpIdeas" | "followers" | "openValueUsd" | "invitesUsed";
 const USER_COLS: { key: SortKey; label: string }[] = [
   { key: "memberNumber", label: "#" },
   { key: "joinedAt", label: "Joined" },
   { key: "lastSeenAt", label: "Last seen" },
   { key: "events7d", label: "Actions 7D" },
-  { key: "theses", label: "Theses" },
+  { key: "lpIdeas", label: "LP ideas" },
   { key: "followers", label: "Followers" },
   { key: "invitesUsed", label: "Invites used" },
   { key: "openValueUsd", label: "Open value" },
@@ -206,7 +206,7 @@ function UsersTable({ users }: { users: UserMetrics[] }) {
               <td className={`${NUM} py-2 pr-3 text-right text-fg-secondary`}>{u.joinedAt ? shortDate(u.joinedAt.slice(0, 10)) : "–"}</td>
               <td className={`${NUM} py-2 pr-3 text-right text-fg-secondary`}>{u.lastSeenAt ? timeAgo(u.lastSeenAt) : "–"}</td>
               <td className={`${NUM} py-2 pr-3 text-right`}>{fmtInt(u.events7d)}</td>
-              <td className={`${NUM} py-2 pr-3 text-right`}>{fmtInt(u.theses)}</td>
+              <td className={`${NUM} py-2 pr-3 text-right`}>{fmtInt(u.lpIdeas)}</td>
               <td className={`${NUM} py-2 pr-3 text-right`}>{fmtInt(u.followers)}</td>
               <td className={`${NUM} py-2 pr-3 text-right`}>
                 {u.invitesUsed}/{u.invitesCreated}
@@ -324,7 +324,7 @@ export function MetricsDashboard() {
         <Kpi label="Active today" value={fmtInt(today?.activeUsers ?? 0)} sub={`${e.active7d} active in 7D`} trend={series.activeUsers.map((d) => d.value)} />
         <Kpi label="Visitors today" value={fmtInt(today?.visitors ?? 0)} sub="incl. signed out" trend={series.visitors.map((d) => d.value)} />
         <Kpi label="Actions today" value={fmtInt(todayActions)} sub="excl. views & clicks" trend={series.actions.map((d) => d.value)} />
-        <Kpi label="Theses" value={fmtInt(e.theses)} sub={`+${e.theses7d} in 7D · ${e.likes} likes`} />
+        <Kpi label="LP ideas" value={fmtInt(e.lpIdeas)} sub={`+${e.lpIdeas7d} in 7D · ${e.likes} likes`} />
         <Kpi label="Value tracked" value={fmtUsd(h.openValueUsd)} sub={`${h.openPositions} positions · ${h.openPools} pools`} />
       </div>
 
