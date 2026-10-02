@@ -18,10 +18,17 @@ const PARTS = [
   { value: "fees", label: "Fees" },
   { value: "volume", label: "Volume" },
   { value: "rank", label: "Leaderboard rank" },
-  { value: "shape", label: "Pool shape backdrop" },
 ] as const;
 type Part = (typeof PARTS)[number]["value"];
-const DEFAULT_PARTS: Part[] = ["name", "winrate", "fees", "rank", "pool", "shape"];
+const DEFAULT_PARTS: Part[] = ["name", "winrate", "fees", "rank", "pool"];
+
+/** Card background (the route's `bg` param). */
+type Bg = "photo" | "shape" | "plain";
+const BGS: { value: Bg; label: string }[] = [
+  { value: "photo", label: "Night pool" },
+  { value: "shape", label: "Liquidity shape" },
+  { value: "plain", label: "Plain" },
+];
 
 interface SharePnLModalProps {
   user: ApiUser;
@@ -42,6 +49,7 @@ function ShareDialog({ user, snap, initialRange = "30d", onClose }: Omit<SharePn
   const [range, setRange] = useState<Range>(initialRange);
   const [copying, setCopying] = useState(false);
   const [parts, setParts] = useState<Part[]>(DEFAULT_PARTS);
+  const [bg, setBg] = useState<Bg>("photo");
   // The card renders on the server; show a placeholder until each new version has loaded.
   const [loadedUrl, setLoadedUrl] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
@@ -61,7 +69,7 @@ function ShareDialog({ user, snap, initialRange = "30d", onClose }: Omit<SharePn
   // Same origin as the page (prod, or the local preview), so the card shows this deployment's numbers.
   const origin = window.location.origin;
   const show = PARTS.map((p) => p.value).filter((v) => parts.includes(v)).join(",");
-  const cardUrl = `/api/card/${encodeURIComponent(slug)}?range=${range}&show=${show}`;
+  const cardUrl = `/api/card/${encodeURIComponent(slug)}?range=${range}&show=${show}&bg=${bg}`;
   const cardLoading = loadedUrl !== cardUrl;
   const togglePart = (v: Part) => setParts((prev) => (prev.includes(v) ? prev.filter((x) => x !== v) : [...prev, v]));
   const profileUrl = `${origin}/profile/${encodeURIComponent(slug)}`;
@@ -136,6 +144,17 @@ function ShareDialog({ user, snap, initialRange = "30d", onClose }: Omit<SharePn
           data-testid="share-card"
         />
         {cardLoading && <div className="skeleton absolute inset-0 rounded-none" aria-hidden="true" />}
+      </div>
+
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <span className="text-sm font-medium text-mute">Background</span>
+        <div className="seg" role="group" aria-label="Card background">
+          {BGS.map((b) => (
+            <button key={b.value} type="button" aria-pressed={bg === b.value} onClick={() => setBg(b.value)} className="seg-item">
+              {b.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* What to include; the PnL is always on the card. */}

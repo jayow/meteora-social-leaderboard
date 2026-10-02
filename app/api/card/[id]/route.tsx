@@ -54,9 +54,22 @@ async function getUserRank(userId: number, range: LeaderboardRange): Promise<num
 }
 
 /** What the sharer chose to include (Share PnL checkboxes). PnL itself is always on the card. */
-const CARD_PARTS = ["name", "winrate", "fees", "volume", "rank", "pool", "shape"] as const;
+const CARD_PARTS = ["name", "winrate", "fees", "volume", "rank", "pool"] as const;
 type CardPart = (typeof CARD_PARTS)[number];
-const DEFAULT_PARTS: CardPart[] = ["name", "winrate", "fees", "rank", "pool", "shape"];
+const DEFAULT_PARTS: CardPart[] = ["name", "winrate", "fees", "rank", "pool"];
+
+/** Card background (`bg` param): the night pool photo, the member's liquidity shape, or plain. */
+type CardBg = "photo" | "shape" | "plain";
+const parseBg = (raw: string | null): CardBg => (raw === "shape" || raw === "plain" ? raw : "photo");
+
+/** The night pool photo (assets/share/pool-night.jpg), read once and inlined as a data URI. */
+let photoPromise: Promise<string | null> | null = null;
+function poolPhoto(): Promise<string | null> {
+  photoPromise ??= readFile(path.join(process.cwd(), "assets/share/pool-night.jpg"))
+    .then((b) => `data:image/jpeg;base64,${b.toString("base64")}`)
+    .catch(() => null);
+  return photoPromise;
+}
 
 function parseParts(raw: string | null): Set<CardPart> {
   if (raw === null) return new Set(DEFAULT_PARTS);
@@ -110,6 +123,7 @@ export async function GET(
       return new Response("Invalid range", { status: 400 });
     }
     const parts = parseParts(req.nextUrl.searchParams.get("show"));
+    const bg = parseBg(req.nextUrl.searchParams.get("bg"));
     const has = (p: CardPart) => parts.has(p);
 
     const user = await findUser(decodeURIComponent(id));
@@ -132,10 +146,11 @@ export async function GET(
     const topPool = snap.topPool;
 
     const origin = requestOrigin(req);
-    const [rank, bars, fonts] = await Promise.all([
+    const [rank, bars, fonts, photo] = await Promise.all([
       has("rank") ? getUserRank(user.id, range as LeaderboardRange) : Promise.resolve(null),
-      has("shape") ? poolBackdrop(user.id) : Promise.resolve(null),
+      bg === "shape" ? poolBackdrop(user.id) : Promise.resolve(null),
       interFonts(),
+      bg === "photo" ? poolPhoto() : Promise.resolve(null),
     ]);
 
     const rangeLabel = range === "7d" ? "7-day PnL" : range === "30d" ? "30-day PnL" : "All-time PnL";
@@ -143,6 +158,8 @@ export async function GET(
     // X photo when there is one; otherwise the name's initial (remote SVG avatars don't render here).
     const avatar = user.xAvatarUrl ? user.xAvatarUrl.replace("_normal", "_400x400") : null;
     const pnlColor = pnl >= 0 ? THEME.up : THEME.dn;
+    // Labels step up from mute on the photo, where the water behind them is brighter.
+    const labelColor = photo ? THEME.fgSecondary : THEME.mute;
     const pnlText = fmtUsd(pnl, { signed: true, compact: false });
     const pnlFontSize = pnlText.length > 12 ? 104 : pnlText.length > 10 ? 120 : 136;
 
@@ -156,6 +173,8 @@ export async function GET(
       (
         <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", position: "relative", backgroundColor: THEME.bg, padding: "56px 64px", fontFamily: "Inter", color: THEME.fg }}>
           {/* Backdrop: the top pool's liquidity shape, rising from the bottom right beside the figure. */}
+          {/* Photo background: the lit pool sits on the right; its dark left half carries the text. */}
+          {photo && <img src={photo} width={1200} height={630} alt="" style={{ position: "absolute", left: 0, top: 0, width: 1200, height: 630, objectFit: "cover" }} />}
           {bars && (
             <div style={{ position: "absolute", right: 64, bottom: 0, width: 440, height: 240, display: "flex", alignItems: "flex-end", gap: 4 }}>
               {bars.map((h, i) => (
@@ -229,13 +248,13 @@ export async function GET(
 
           {/* The figure */}
           <div style={{ display: "flex", flexDirection: "column", marginTop: 56 }}>
-            <div style={{ display: "flex", fontSize: 28, fontWeight: 500, color: THEME.mute }}>{rangeLabel}</div>
+            <div style={{ display: "flex", fontSize: 28, fontWeight: 500, color: labelColor }}>{rangeLabel}</div>
             <div style={{ display: "flex", fontSize: pnlFontSize, fontWeight: 700, color: pnlColor, lineHeight: 1, letterSpacing: "-0.03em", marginTop: 8 }}>{pnlText}</div>
             {has("pool") && topPool && (
               <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 20, fontSize: 26, fontWeight: 500, color: THEME.fgSecondary }}>
-                <span style={{ color: THEME.mute }}>Top pool</span>
+                <span style={{ color: labelColor }}>Top pool</span>
                 <span style={{ fontWeight: 600, color: THEME.fg }}>{topPool.name}</span>
-                {topPool.binStep != null && <span style={{ color: THEME.mute }}>{`Bin ${topPool.binStep}`}</span>}
+                {topPool.binStep != null && <span style={{ color: labelColor }}>{`Bin ${topPool.binStep}`}</span>}
               </div>
             )}
           </div>
@@ -245,14 +264,14 @@ export async function GET(
             <div style={{ display: "flex", gap: 64, marginTop: 40 }}>
               {stats.map((st) => (
                 <div key={st.label} style={{ display: "flex", flexDirection: "column" }}>
-                  <div style={{ display: "flex", fontSize: 22, fontWeight: 500, color: THEME.mute }}>{st.label}</div>
+                  <div style={{ display: "flex", fontSize: 22, fontWeight: 500, color: labelColor }}>{st.label}</div>
                   <div style={{ display: "flex", fontSize: 42, fontWeight: 600, color: st.color, marginTop: 4 }}>{st.value}</div>
                 </div>
               ))}
             </div>
           )}
 
-          <div style={{ display: "flex", position: "absolute", left: 64, bottom: 44, fontSize: 22, fontWeight: 600, color: THEME.mute }}>lppool.party</div>
+          <div style={{ display: "flex", position: "absolute", left: 64, bottom: 44, fontSize: 22, fontWeight: 600, color: labelColor }}>lppool.party</div>
         </div>
       ),
       { width: 1200, height: 630, fonts }

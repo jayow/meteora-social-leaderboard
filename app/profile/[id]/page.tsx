@@ -77,6 +77,23 @@ function Profile() {
   // Owner settings (X, country, Poolside sharing) live in a modal so the public card stays a profile.
   const [editOpen, setEditOpen] = useState(() => search.get("connect") === "x");
   const [bannerEditing, setBannerEditing] = useState(false);
+  const editWrap = useRef<HTMLDivElement>(null);
+  // The edit panel closes on Esc or a click outside it (and its button).
+  useEffect(() => {
+    if (!editOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (editWrap.current && !editWrap.current.contains(e.target as Node)) setEditOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setEditOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [editOpen]);
   const [followList, setFollowList] = useState<FollowListKind | null>(null);
   const desktop = useIsDesktop();
   const theses = useUserTheses(user?.id ?? null);
@@ -319,7 +336,7 @@ function Profile() {
           <div className="relative">
             <div className="relative -mt-12 flex items-end justify-between pl-4">
               <Avatar user={user} size={96} ring />
-              <div className="mb-1 flex gap-2">
+              <div ref={editWrap} className="relative mb-1 flex gap-2">
                 {snap && hasActivity(snap) && (
                   <button
                     type="button"
@@ -342,6 +359,35 @@ function Profile() {
                   </button>
                 )}
                 {!mine && <FollowButton targetUser={user} />}
+                {/* Edit profile opens right under its button, like a menu (floating panels may have a box). */}
+                {mine && editOpen && (
+                  <div
+                    id="edit-profile-panel"
+                    role="dialog"
+                    aria-label="Edit profile"
+                    className="absolute right-0 top-full z-30 mt-2 w-[min(20rem,calc(100vw-2rem))] rounded-tile border border-border-strong bg-surface p-4 shadow-lg shadow-black/40"
+                    data-testid="edit-profile-panel"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-base text-fg-secondary">Banner</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!me.verified) {
+                            window.location.href = `/api/x/login?returnTo=${encodeURIComponent(window.location.pathname + window.location.search)}`;
+                            return;
+                          }
+                          setEditOpen(false);
+                          setBannerEditing(true);
+                        }}
+                        className="btn-secondary h-8 px-3"
+                      >
+                        {user.bannerUpdatedAt ? "Change banner" : "Add banner"}
+                      </button>
+                    </div>
+                    <OwnerControls user={user} focusX={search.get("connect") === "x"} onSaved={(u) => setUser(u)} />
+                  </div>
+                )}
               </div>
             </div>
             <div className="mt-3 flex min-w-0 items-center gap-2">
@@ -366,30 +412,6 @@ function Profile() {
                     <span className="num font-semibold text-fg">{user.followingCount}</span> <span className="text-mute transition group-hover:text-fg">following</span>
                   </button>
                 )}
-              </div>
-            )}
-
-            {/* Editing opens in place, under the profile it changes, instead of a separate screen. */}
-            {mine && editOpen && (
-              <div id="edit-profile-panel" className="mt-6 border-t border-border pt-5" data-testid="edit-profile-panel">
-                <h2 className="text-md font-semibold">Edit profile</h2>
-                <div className="mt-3 flex items-center justify-between gap-3">
-                  <span className="text-base text-fg-secondary">Banner</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!me.verified) {
-                        window.location.href = `/api/x/login?returnTo=${encodeURIComponent(window.location.pathname + window.location.search)}`;
-                        return;
-                      }
-                      setBannerEditing(true);
-                    }}
-                    className="btn-secondary h-8 px-3"
-                  >
-                    {user.bannerUpdatedAt ? "Change banner" : "Add banner"}
-                  </button>
-                </div>
-                <OwnerControls user={user} focusX={search.get("connect") === "x"} onSaved={(u) => setUser(u)} />
               </div>
             )}
 

@@ -581,15 +581,23 @@ function PositionCard({ pool, open, panelId, syncing = false, thesis = null }: {
   const price = poolPriceOf(details);
   // Pools with several positions list a row each; a single position shows its range bar inline.
   const expandable = hasPositionRows(pool);
+  const thesisMeta = thesis ? (
+    <>
+      <span className="text-sm font-medium text-mute">Thesis</span>
+      <span className="whitespace-nowrap text-sm text-mute"> · {timeAgo(thesis.createdAt)}</span>
+    </>
+  ) : null;
   return (
-    // Not a box: spacing separates rows, and hover fills the whole row so it reads as one link.
+    // Desktop: the position on the left, its latest thesis in a side column. Phones: thesis under the row.
+    <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_14rem] lg:items-start lg:gap-10">
+    {/* Not a box: spacing separates rows, and hover fills the whole row so it reads as one link. */}
     <div className="group relative -mx-3 rounded-tile px-3 py-3.5 transition hover:bg-accent-tint" data-testid="open-position-row">
       {/* Whole-card overlay (not a wrapper) so the token links aren't nested in it. */}
       <Link href={`/pools/${pool.poolAddress}`} aria-label={`${pair} pool, ${fmtPositions(count)}`} className="absolute inset-0 rounded-tile" />
 
-      {/* One line from sm: pool on the left, its figures right-aligned before Dip in; stacked on phones. */}
-      <div className="sm:flex sm:items-center sm:gap-6 sm:pr-16">
-      <div className="flex min-w-0 flex-1 items-center gap-3 pr-16 sm:pr-0">
+      {/* Pool and status on top, then its figures and liquidity profile (lined up past the token icons). */}
+      <div>
+      <div className="flex min-w-0 flex-1 items-center gap-3 pr-16">
         <PoolIcons pool={pool} size="md" />
         <div className="min-w-0">
           <div className="flex items-center gap-2">
@@ -615,8 +623,7 @@ function PositionCard({ pool, open, panelId, syncing = false, thesis = null }: {
         </div>
       </div>
 
-      <div className="mt-4 flex flex-wrap items-end gap-x-5 gap-y-3 sm:mt-0 sm:shrink-0 sm:flex-nowrap sm:gap-8 sm:text-right">
-        {scale && details.length > 0 && <MiniRange details={details} scale={scale} unit={unit} pending={syncing} className="order-last w-full sm:order-first sm:w-36" />}
+      <div className="mt-3 flex flex-wrap items-end gap-x-6 gap-y-3 sm:flex-nowrap sm:pl-[68px]">
         <Stat label="Value">
           <span className="text-fg">{fmtUsd(pool.valueUsd ?? 0)}</span>
         </Stat>
@@ -630,12 +637,13 @@ function PositionCard({ pool, open, panelId, syncing = false, thesis = null }: {
             </Stat>
           </>
         )}
+        {scale && details.length > 0 && <MiniRange details={details} scale={scale} unit={unit} pending={syncing} className="w-full sm:ml-auto sm:w-44" />}
       </div>
       </div>
 
       {thesis && (
         // The member's latest word on this pool, lined up with the pool name (past the token icons).
-        <p className="mt-3 line-clamp-2 text-base text-fg-secondary sm:ml-[68px] sm:mr-16" title={thesis.body} data-testid="position-thesis">
+        <p className="mt-3 line-clamp-2 text-base text-fg-secondary sm:ml-[68px] lg:hidden" title={thesis.body} data-testid="position-thesis">
           <span className="mr-1.5 text-sm font-medium text-mute">Thesis</span>
           {thesis.body}
           <span className="whitespace-nowrap text-sm text-mute"> · {timeAgo(thesis.createdAt)}</span>
@@ -678,7 +686,21 @@ function PositionCard({ pool, open, panelId, syncing = false, thesis = null }: {
         </div>
       )}
 
-      <DipLink poolAddress={pool.poolAddress} protocol={pool.protocol} className="!absolute right-3 top-4 sm:top-[1.6rem]" />
+      <DipLink poolAddress={pool.poolAddress} protocol={pool.protocol} className="!absolute right-3 top-4" />
+    </div>
+
+    <aside className="hidden pt-3.5 lg:block" data-testid="position-thesis-side">
+      {thesis ? (
+        <>
+          <p>{thesisMeta}</p>
+          <p className="mt-1 line-clamp-4 text-base text-fg-secondary" title={thesis.body}>
+            {thesis.body}
+          </p>
+        </>
+      ) : (
+        <p className="text-sm text-mute">No thesis on this pool yet</p>
+      )}
+    </aside>
     </div>
   );
 }
