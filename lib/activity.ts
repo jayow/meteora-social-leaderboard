@@ -369,6 +369,9 @@ async function feedKeys(opts: FeedQuery): Promise<{ rank: number; id: number; ts
   const followSql = (actorCol: string) =>
     following ? `AND ${actorCol} IN (SELECT followee_user_id FROM follows WHERE follower_user_id = ${following})` : "";
   const limit = add(opts.limit);
+  // Bind the kinds only when the events branch is in the query: an unused parameter makes Postgres
+  // reject the statement ("bind message supplies N parameters ...").
+  const kindsParam = opts.filter === "posts" ? null : add(kinds.length ? kinds : ["none"]);
 
   const posts = `
     SELECT ${RANK_POST} AS rank, tc.id, tc.created_at AS ts
@@ -379,7 +382,7 @@ async function feedKeys(opts: FeedQuery): Promise<{ rank: number; id: number; ts
     FROM activity a
     JOIN users u ON u.id = a.actor_user_id AND u.joined_at IS NOT NULL
     LEFT JOIN users t ON t.id = a.target_user_id
-    WHERE a.kind = ANY(${add(kinds.length ? kinds : ["none"])}::text[])
+    WHERE a.kind = ANY(${kindsParam}::text[])
       AND (a.kind <> 'followed' OR (t.joined_at IS NOT NULL AND EXISTS (
         SELECT 1 FROM follows f WHERE f.follower_user_id = a.actor_user_id AND f.followee_user_id = a.target_user_id)))
       AND ${positionShareSql("a", "u")}
