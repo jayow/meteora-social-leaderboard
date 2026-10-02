@@ -24,9 +24,12 @@ interface SignInModalProps {
   onSuccess?: () => void;
   /** Open straight on the wallet picker (used by "Change wallet"). */
   initialStep?: SignInStep;
+  /** "link": add a wallet to the signed-in account (e.g. X sign-ups) instead of signing in with it. */
+  mode?: "signin" | "link";
 }
 
-export function SignInModal({ open, onClose, onSuccess, initialStep = "methods" }: SignInModalProps) {
+export function SignInModal({ open, onClose, onSuccess, initialStep = "methods", mode = "signin" }: SignInModalProps) {
+  const linking = mode === "link";
   const { wallet, select, connect, disconnect, connected, connecting, publicKey, signMessage, signIn: walletSignIn } = useWallet();
   const [step, setStep] = useState<SignInStep>(initialStep);
   const [pending, setPending] = useState<WalletName | null>(null);
@@ -37,14 +40,15 @@ export function SignInModal({ open, onClose, onSuccess, initialStep = "methods" 
 
   useEffect(() => {
     if (!open) return;
-    setStep(initialStep);
+    setStep(linking ? "wallets" : initialStep);
     setPending(null);
     setError(null);
     setTermsAccepted(false);
-  }, [open, initialStep]);
+  }, [open, initialStep, linking]);
 
   const signIn = useCallback(async (): Promise<void> => {
-    if (!termsAccepted) {
+    // Linking happens inside an account that already accepted the terms at sign-up.
+    if (!linking && !termsAccepted) {
       setError("Please accept the Terms and Privacy Policy to continue.");
       return;
     }
@@ -55,18 +59,22 @@ export function SignInModal({ open, onClose, onSuccess, initialStep = "methods" 
     }
     const proof = await proveWallet({
       address: publicKey.toBase58(),
-      statement: "Sign in to Pool Party. This is free and does not send a transaction.",
+      statement: linking
+        ? "Link this wallet to your Pool Party account. This is free and does not send a transaction."
+        : "Sign in to Pool Party. This is free and does not send a transaction.",
       signIn: walletSignIn,
       signMessage,
     });
-    const res = await fetch("/api/auth/wallet", {
+    const res = await fetch(linking ? "/api/auth/link-wallet" : "/api/auth/wallet", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ proof, termsVersion: TERMS_VERSION }),
+      body: JSON.stringify(linking ? { proof } : { proof, termsVersion: TERMS_VERSION }),
     });
     if (!res.ok) {
       const data = (await res.json().catch(() => ({}))) as { error?: string };
-      throw new Error(data.error || "Sign in failed");
+      // Don't leave the wallet connected after a refused link either.
+      if (linking) await disconnect().catch(() => undefined);
+      throw new Error(data.error || (linking ? "Couldn't link this wallet" : "Sign in failed"));
     }
     // The session cookie identifies the user from here on: don't leave the wallet connected to the site.
     await disconnect().catch(() => undefined);
@@ -74,7 +82,7 @@ export function SignInModal({ open, onClose, onSuccess, initialStep = "methods" 
     onSuccess?.();
     onClose();
     window.location.reload();
-  }, [publicKey, signMessage, walletSignIn, disconnect, onSuccess, onClose, termsAccepted]);
+  }, [publicKey, signMessage, walletSignIn, disconnect, onSuccess, onClose, termsAccepted, linking]);
 
   // Closing without signing in also drops any connection made in this modal.
   const close = useCallback(() => {
@@ -179,7 +187,7 @@ export function SignInModal({ open, onClose, onSuccess, initialStep = "methods" 
       ) : (
         <>
           <div className="mb-5 flex items-center gap-3">
-            {initialStep === "methods" && (
+            {!linking && initialStep === "methods" && (
               <button
                 type="button"
                 onClick={() => {
@@ -197,15 +205,21 @@ export function SignInModal({ open, onClose, onSuccess, initialStep = "methods" 
             )}
             <div className="min-w-0">
               <h2 id="signin-title" className="text-xl font-semibold tracking-tight text-fg">
-                {initialStep === "wallets" ? "Change wallet" : "Connect a wallet"}
+                {linking ? "Link a wallet" : initialStep === "wallets" ? "Change wallet" : "Connect a wallet"}
               </h2>
-              <p className="mt-0.5 text-base text-mute">Pick a wallet, then sign a free message to verify. We never ask you to approve a transaction.</p>
+              <p className="mt-0.5 text-base text-mute">
+                {linking
+                  ? "Pick the wallet you LP with and sign a free message. It's added to your account so your Meteora stats show up. We never ask you to approve a transaction."
+                  : "Pick a wallet, then sign a free message to verify. We never ask you to approve a transaction."}
+              </p>
             </div>
           </div>
           <WalletPicker busyName={pending} onPick={handlePick} />
-          <div className="tile mt-4 p-3">
-            <TermsCheckbox checked={termsAccepted} onChange={setTermsAccepted} id="signin-terms-consent-wallets" />
-          </div>
+          {!linking && (
+            <div className="tile mt-4 p-3">
+              <TermsCheckbox checked={termsAccepted} onChange={setTermsAccepted} id="signin-terms-consent-wallets" />
+            </div>
+          )}
         </>
       )}
 
@@ -222,7 +236,8 @@ export function SignInModal({ open, onClose, onSuccess, initialStep = "methods" 
   );
 }
 
-function WalletIcon() {
+/** The wallet glyph used on "Connect wallet" (sign-in, and linking a wallet from Edit profile). */
+export function WalletIcon() {
   return (
     <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinejoin="round" aria-hidden="true">
       <path d="M3 6.5A2.5 2.5 0 0 1 5.5 4H15v2.5" />

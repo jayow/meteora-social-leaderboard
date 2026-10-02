@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
-import { getDb } from "@/lib/db";
+import { getDb, getPool } from "@/lib/db";
 import { userWallets, users } from "@/lib/db/schema";
 import { getSessionUserId } from "@/lib/session";
 import { verifyWalletProof } from "@/lib/wallet-proof";
@@ -10,6 +10,19 @@ export const dynamic = "force-dynamic";
 
 interface Body {
   proof?: unknown;
+}
+
+/** An account with nothing in it: never joined, no X, no seed flag, no LP ideas, likes or follows. */
+async function isThrowawayAccount(u: typeof users.$inferSelect): Promise<boolean> {
+  if (u.joinedAt || u.xId || u.memberNumber || u.seeded) return false;
+  const { rows } = await getPool().query<{ n: number }>(
+    `SELECT (SELECT count(*) FROM token_comments WHERE user_id = $1)
+          + (SELECT count(*) FROM thesis_likes WHERE user_id = $1)
+          + (SELECT count(*) FROM follows WHERE follower_user_id = $1 OR followee_user_id = $1)
+          + (SELECT count(*) FROM user_wallets WHERE user_id = $1) AS n`,
+    [u.id]
+  );
+  return Number(rows[0]?.n ?? 0) === 0;
 }
 
 /** Link a wallet to the current user's account (must be signed in). */
@@ -40,7 +53,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const [existingPrimary] = await db.select().from(users).where(eq(users.wallet, wallet)).limit(1);
   if (existingPrimary && existingPrimary.id !== userId) {
-    return NextResponse.json({ error: "This wallet is already linked to another account" }, { status: 409 });
+    // The signer owns this wallet. If its account is an empty throwaway (e.g. an earlier wallet
+    // sign-in that never joined), absorb it; a real account (joined, X, posts, follows) is refused.
+    if (!(await isThrowawayAccount(existingPrimary))) {
+      return NextResponse.json(
+        { error: "This wallet already has its own Pool Party account. Sign in with that wallet instead, or link a different one." },
+        { status: 409 }
+      );
+    }
+    await db.delete(users).where(eq(users.id, existingPrimary.id));
   }
 
   // Check if current user already has a wallet
@@ -49,10 +70,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
-  // If user's primary wallet is a temp placeholder, replace it
+  // If user's primary wallet is a temp placeholder, replace it. Clear the sync cooldown so the new
+  // wallet's stats load on the next page view instead of up to 5 minutes later.
   if (currentUser.wallet.startsWith("temp_")) {
-    await db.update(users).set({ wallet }).where(eq(users.id, userId));
-    trackEvent("wallet_link", userId);
+    await db.update(users).set({ wallet, lastSyncedAt: null, lastAttemptedAt: null }).where(eq(users.id, userId));
+    trackEvent("wallet_link", userId, { primary: true });
     return NextResponse.json({ ok: true, message: "Wallet linked successfully" });
   }
 
@@ -66,6 +88,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     address: wallet,
     isPrimary: 0,
   });
+  await db.update(users).set({ lastSyncedAt: null, lastAttemptedAt: null }).where(eq(users.id, userId));
 
   trackEvent("wallet_link", userId);
   return NextResponse.json({ ok: true, message: "Wallet linked successfully" });

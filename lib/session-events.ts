@@ -30,6 +30,20 @@ export function onSignInRequested(listener: () => void): () => void {
   return () => window.removeEventListener(SIGN_IN_REQUESTED_EVENT, listener);
 }
 
+/** Ask the app shell to open the wallet picker in "link" mode (adds a wallet to the signed-in account). */
+export const WALLET_LINK_REQUESTED_EVENT = "pp:wallet-link-requested";
+
+export function requestWalletLink(): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event(WALLET_LINK_REQUESTED_EVENT));
+}
+
+export function onWalletLinkRequested(listener: () => void): () => void {
+  if (typeof window === "undefined") return () => undefined;
+  window.addEventListener(WALLET_LINK_REQUESTED_EVENT, listener);
+  return () => window.removeEventListener(WALLET_LINK_REQUESTED_EVENT, listener);
+}
+
 /**
  * Follow state changed for `targetId`. Fired optimistically on click (no count), again with the
  * server's follower count on success, and with the reverted state on failure. Every Follow button

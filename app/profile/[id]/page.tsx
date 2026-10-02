@@ -14,6 +14,7 @@ import { PnLCalendar } from "@/components/PnLCalendar";
 import { CountrySelect } from "@/components/CountrySelect";
 import { Modal, ModalClose } from "@/components/Modal";
 import { OpenPositions } from "@/components/OpenPositions";
+import { WalletIcon } from "@/components/SignInModal";
 import { FollowButton } from "@/components/FollowButton";
 import { FollowListModal, type FollowListKind } from "@/components/FollowListModal";
 import { SharePnLModal } from "@/components/SharePnLModal";
@@ -24,7 +25,7 @@ import { patchCachedProfile } from "@/lib/storage";
 import { proveWallet } from "@/lib/wallet-proof-client";
 import { meteoraHomeUrl } from "@/lib/meteora-links";
 import { DISPLAY_NAME_MAX, displayNameError, normalizeDisplayName } from "@/lib/display-name";
-import { applyFollowChange, onFollowChanged, onSessionChanged, requestSignIn, notifySessionChanged } from "@/lib/session-events";
+import { applyFollowChange, onFollowChanged, onSessionChanged, requestSignIn, notifySessionChanged, requestWalletLink } from "@/lib/session-events";
 import { SYNC_COOLDOWN_MS } from "@/lib/sync-limits";
 
 type Range = "1d" | "7d" | "30d" | "all";
@@ -320,10 +321,10 @@ function Profile() {
             </Link>
           )}
           {(user.walletCount === undefined || user.walletCount === 0) && user.wallet && user.wallet.startsWith("temp_") && (
-            <div className="mb-4 text-base">
+            <button type="button" onClick={requestWalletLink} className="group mb-4 block text-left text-base" data-testid="profile-link-wallet">
               <span className="font-semibold text-fg">Link a wallet</span>
-              <span className="text-mute"> · Connect your Solana wallet to track your Meteora stats</span>
-            </div>
+              <span className="text-mute transition group-hover:text-fg"> · Connect your Solana wallet to track your Meteora stats →</span>
+            </button>
           )}
         </>
       )}
@@ -687,6 +688,12 @@ function OwnerControls({ user, focusX, onSaved }: { user: ApiUser; focusX: boole
         ) : (
           <button type="button" onClick={connectX} disabled={busy !== null} className={focusX ? "btn-primary" : "btn-secondary"}>
             <XIcon /> {busy === "x" ? "Connecting…" : "Connect X"}
+          </button>
+        )}
+        {/* X sign-ups have no wallet yet: same Connect wallet + picker as sign-in, in link mode. */}
+        {(!user.walletCount || user.wallet?.startsWith("temp_")) && (
+          <button type="button" onClick={requestWalletLink} disabled={busy !== null} className="btn-secondary gap-2" data-testid="edit-connect-wallet">
+            <WalletIcon /> Connect wallet
           </button>
         )}
         <CountrySelect value={user.country || ""} onChange={saveCountry} allLabel="Set your country" disabled={busy !== null} />

@@ -11,7 +11,7 @@ import { meteoraHomeUrl } from "@/lib/meteora-links";
 import { forgetRememberedWallet } from "@/lib/wallet-session";
 import { displayName } from "@/lib/format";
 import { OwnWalletRow } from "@/components/OwnWalletRow";
-import { onSessionChanged, onSignInRequested } from "@/lib/session-events";
+import { onSessionChanged, onSignInRequested, onWalletLinkRequested, requestWalletLink } from "@/lib/session-events";
 import { TermsConsentModal } from "@/components/TermsConsentModal";
 import { TERMS_VERSION } from "@/lib/legal";
 import { GlobalSearch } from "@/components/GlobalSearch";
@@ -123,6 +123,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { disconnect, publicKey, connected } = useWallet();
   const [signInOpen, setSignInOpen] = useState(false);
   const [signInStep, setSignInStep] = useState<SignInStep>("methods");
+  const [signInMode, setSignInMode] = useState<"signin" | "link">("signin");
   const [menuOpen, setMenuOpen] = useState(false);
   const [xError, setXError] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -196,13 +197,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   useEffect(
     () =>
       onSignInRequested(() => {
+        setSignInMode("signin");
         setSignInStep("methods");
+        setSignInOpen(true);
+      }),
+    []
+  );
+  // "Link wallet" (profile prompt, account menu): the picker in link mode for the signed-in account.
+  useEffect(
+    () =>
+      onWalletLinkRequested(() => {
+        setMenuOpen(false);
+        setSignInMode("link");
         setSignInOpen(true);
       }),
     []
   );
 
   const openSignIn = (step: SignInStep) => {
+    setSignInMode("signin");
     setSignInStep(step);
     setSignInOpen(true);
   };
@@ -302,7 +315,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                         Link X account
                       </a>
                     )}
-                    {isSignedIn && <OwnWalletRow address={hasWallet ? ownWallet : null} />}
+                    {isSignedIn &&
+                      (hasWallet ? (
+                        <OwnWalletRow address={ownWallet} />
+                      ) : (
+                        <button type="button" onClick={requestWalletLink} className={`${MENU_ITEM} w-full text-left`} data-testid="menu-link-wallet">
+                          Connect wallet
+                        </button>
+                      ))}
                     <div className="mx-2 my-1 h-px bg-border" role="separator" />
                     <button
                       type="button"
@@ -357,7 +377,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </nav>
       )}
 
-      <SignInModal open={signInOpen} initialStep={signInStep} onClose={closeSignIn} />
+      <SignInModal open={signInOpen} initialStep={signInStep} mode={signInMode} onClose={closeSignIn} />
       <TermsConsentModal open={needsTermsConsent} onAccepted={loadSession} onSignOut={handleSignOut} />
     </div>
   );
