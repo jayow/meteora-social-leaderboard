@@ -65,27 +65,36 @@ export function readSessionToken(token: string | undefined | null): string | nul
   return wallet;
 }
 
-// Get session user ID (supports both user-ID and wallet sessions). The account must still exist
-// and the token must postdate its sessionsValidAfter (sign-out revokes every session).
-export async function getSessionUserId(): Promise<number | null> {
-  const store = await cookies();
+/**
+ * The account a session token belongs to, or null. The account must still exist and the token must
+ * postdate its sessionsValidAfter (sign-out revokes every session). Legacy wallet sessions resolve
+ * to the wallet's user. Takes the raw cookie value so middleware can use it too.
+ */
+export async function sessionUserFromToken(token: string | undefined | null): Promise<{ id: number; joinedAt: Date | null } | null> {
   try {
-    const token = store.get(SESSION_COOKIE)?.value;
     if (!token) return null;
     const userId = readUserSessionToken(token);
     const wallet = userId ? null : readSessionToken(token);
     if (!userId && !wallet) return null;
-    if (!hasDb()) return userId;
-
+    if (!hasDb()) return userId ? { id: userId, joinedAt: null } : null;
     const db = getDb();
-    const cols = { id: users.id, sessionsValidAfter: users.sessionsValidAfter };
-    // Legacy wallet sessions are upgraded to the wallet's user.
+    const cols = { id: users.id, joinedAt: users.joinedAt, sessionsValidAfter: users.sessionsValidAfter };
     const [user] = userId
       ? await db.select(cols).from(users).where(eq(users.id, userId)).limit(1)
       : await db.select(cols).from(users).where(eq(users.wallet, wallet as string)).limit(1);
     if (!user) return null;
     if (user.sessionsValidAfter && issuedAtMs(token) < user.sessionsValidAfter.getTime()) return null;
-    return user.id;
+    return { id: user.id, joinedAt: user.joinedAt };
+  } catch {
+    return null;
+  }
+}
+
+// Get session user ID (supports both user-ID and wallet sessions).
+export async function getSessionUserId(): Promise<number | null> {
+  try {
+    const store = await cookies();
+    return (await sessionUserFromToken(store.get(SESSION_COOKIE)?.value))?.id ?? null;
   } catch {
     return null;
   }

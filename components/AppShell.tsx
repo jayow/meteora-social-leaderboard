@@ -134,6 +134,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // The session knows the member number even for X-only accounts with no connected wallet.
   const isMember = Boolean(session?.memberNumber || user?.memberNumber);
   const isSignedIn = Boolean(session?.userId);
+  // Private beta: non-members only see the gate page, so the app nav would just lead back to it.
+  // Shown while the session loads so members don't see it flicker.
+  const showNav = !session || isMember;
   const needsTermsConsent = isSignedIn && session?.termsVersionAccepted !== TERMS_VERSION;
   const hasWallet = Boolean(session?.wallets && session.wallets.length > 0);
   const hasX = Boolean(session?.xHandle);
@@ -212,11 +215,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <Link href="/" className="flex shrink-0 items-center rounded-tag" aria-label="Pool Party home">
             <Logo />
           </Link>
-          <nav className="hidden h-full items-stretch gap-7 md:flex" aria-label="Main">
-            <NavLink href="/poolside" active={onFeed}>Poolside</NavLink>
-            <NavLink href="/pools" active={onPools}>Pools</NavLink>
-            <NavLink href="/" active={onBoard}>Leaderboard</NavLink>
-          </nav>
+          {showNav && (
+            <nav className="hidden h-full items-stretch gap-7 md:flex" aria-label="Main">
+              <NavLink href="/poolside" active={onFeed}>Poolside</NavLink>
+              <NavLink href="/pools" active={onPools}>Pools</NavLink>
+              <NavLink href="/" active={onBoard}>Leaderboard</NavLink>
+            </nav>
+          )}
 
           <div className="ml-auto flex min-w-0 items-center gap-4">
             {/* Signed out -> Sign in (wallet picker or X) + Sign up (invite code at /join); signed in, not joined -> Join beta; members -> account menu only. */}
@@ -324,6 +329,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </footer>
 
       {/* Mobile bottom tab bar */}
+      {showNav && (
       <nav className="fixed inset-x-3 bottom-3 z-40 md:hidden" aria-label="Main">
         <div className="flex items-center justify-around rounded-card border border-border bg-surface px-1 py-1.5 shadow-lg shadow-black/40">
           <TabLink href="/poolside" active={onFeed} label="Poolside" icon={<IconWaves />} />
@@ -333,6 +339,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {isSignedIn && <TabLink href="/profile/me" active={onMe} label="Me" icon={<IconUser />} />}
         </div>
       </nav>
+      )}
 
       <SignInModal open={signInOpen} initialStep={signInStep} onClose={closeSignIn} />
       <TermsConsentModal open={needsTermsConsent} onAccepted={loadSession} onSignOut={handleSignOut} />
