@@ -43,17 +43,23 @@ const CARD_PARTS = ["name", "winrate", "fees", "volume", "rank", "pool"] as cons
 type CardPart = (typeof CARD_PARTS)[number];
 const DEFAULT_PARTS: CardPart[] = ["name", "winrate", "fees", "rank", "pool"];
 
-/** Card background (`bg` param): the night pool photo, the member's liquidity shape, or plain. */
-type CardBg = "photo" | "shape" | "plain";
-const parseBg = (raw: string | null): CardBg => (raw === "shape" || raw === "plain" ? raw : "photo");
+/**
+ * Card background (`bg` param): pool water with floats, light or deep; the member's liquidity shape; or
+ * plain. Anything else, including the retired `photo`, falls back to deep so old shared links still render.
+ */
+type CardBg = "pool" | "deep" | "shape" | "plain";
+const parseBg = (raw: string | null): CardBg => (raw === "pool" || raw === "shape" || raw === "plain" ? raw : "deep");
 
-/** The night pool photo (assets/share/pool-night.jpg), read once and inlined as a data URI. */
-let photoPromise: Promise<string | null> | null = null;
-function poolPhoto(): Promise<string | null> {
-  photoPromise ??= readFile(path.join(process.cwd(), "assets/share/pool-night.jpg"))
-    .then((b) => `data:image/jpeg;base64,${b.toString("base64")}`)
-    .catch(() => null);
-  return photoPromise;
+/** Background images in assets/share, read once each and inlined as data URIs. */
+const BG_FILE: Partial<Record<CardBg, string>> = { pool: "pool-light.jpg", deep: "pool-deep.jpg" };
+const photoPromises = new Map<string, Promise<string | null>>();
+function bgPhoto(bg: CardBg): Promise<string | null> {
+  const file = BG_FILE[bg];
+  if (!file) return Promise.resolve(null);
+  if (!photoPromises.has(file)) {
+    photoPromises.set(file, readFile(path.join(process.cwd(), "assets/share", file)).then((b) => `data:image/jpeg;base64,${b.toString("base64")}`).catch(() => null));
+  }
+  return photoPromises.get(file)!;
 }
 
 function parseParts(raw: string | null): Set<CardPart> {
@@ -117,30 +123,33 @@ export async function GET(
       has("rank") && range !== "1d" ? getUserRank(user.id, range as LeaderboardRange) : Promise.resolve(null),
       bg === "shape" ? poolBackdrop(user.id) : Promise.resolve(null),
       interFonts(),
-      bg === "photo" ? poolPhoto() : Promise.resolve(null),
+      bgPhoto(bg),
     ]);
 
     const rangeLabel = range === "1d" ? "1-day PnL" : range === "7d" ? "7-day PnL" : range === "30d" ? "30-day PnL" : "All-time PnL";
     const handle = displayName(user);
     // X photo when there is one; otherwise the name's initial (remote SVG avatars don't render here).
     const avatar = user.xAvatarUrl ? user.xAvatarUrl.replace("_normal", "_400x400") : null;
-    const pnlColor = pnl >= 0 ? THEME.up : THEME.dn;
-    // Labels step up from mute on the photo, where the water behind them is brighter.
-    const labelColor = photo ? THEME.fgSecondary : THEME.mute;
+    // Light pool water takes dark ink; every other background is dark and keeps the theme colours.
+    const light = bg === "pool";
+    const ink = light ? THEME.bg : THEME.fg;
+    const pnlColor = light ? THEME.bg : pnl >= 0 ? THEME.up : THEME.dn;
+    // Labels step up from mute on photos, where the water behind them is brighter.
+    const labelColor = light ? THEME.bg : photo ? THEME.fgSecondary : THEME.mute;
     const pnlText = fmtUsd(pnl, { signed: true, compact: false });
     const pnlFontSize = pnlText.length > 12 ? 104 : pnlText.length > 10 ? 120 : 136;
 
     const stats: { label: string; value: string; color: string }[] = [];
-    if (has("winrate")) stats.push({ label: "Win rate", value: fmtPct(winRate, 1), color: THEME.fg });
-    if (has("fees")) stats.push({ label: feesLabel, value: fmtUsd(fees), color: THEME.up });
-    if (has("volume")) stats.push({ label: "Volume", value: fmtUsd(volume), color: THEME.fg });
-    if (has("rank") && rank) stats.push({ label: "Leaderboard", value: `#${rank}`, color: THEME.fg });
+    if (has("winrate")) stats.push({ label: "Win rate", value: fmtPct(winRate, 1), color: ink });
+    if (has("fees")) stats.push({ label: feesLabel, value: fmtUsd(fees), color: light ? ink : THEME.up });
+    if (has("volume")) stats.push({ label: "Volume", value: fmtUsd(volume), color: ink });
+    if (has("rank") && rank) stats.push({ label: "Leaderboard", value: `#${rank}`, color: ink });
 
     return new ImageResponse(
       (
-        <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", position: "relative", backgroundColor: THEME.bg, padding: "56px 64px", fontFamily: "Inter", color: THEME.fg }}>
+        <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", position: "relative", backgroundColor: THEME.bg, padding: "56px 64px", fontFamily: "Inter", color: ink }}>
           {/* Backdrop: the top pool's liquidity shape, rising from the bottom right beside the figure. */}
-          {/* Photo background: the lit pool sits on the right; its dark left half carries the text. */}
+          {/* Pool background: the floats sit on the right; the open water on the left carries the text. */}
           {photo && <img src={photo} width={1200} height={630} alt="" style={{ position: "absolute", left: 0, top: 0, width: 1200, height: 630, objectFit: "cover" }} />}
           {bars && (
             <div style={{ position: "absolute", right: 64, bottom: 0, width: 440, height: 240, display: "flex", alignItems: "flex-end", gap: 4 }}>
@@ -153,7 +162,7 @@ export async function GET(
           {/* Header: wordmark, then who */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <Wordmark origin={origin} />
+              <Wordmark origin={origin} ink={ink} />
             </div>
             {has("name") && (
               <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
@@ -174,9 +183,9 @@ export async function GET(
             <div style={{ display: "flex", fontSize: 28, fontWeight: 500, color: labelColor }}>{rangeLabel}</div>
             <div style={{ display: "flex", fontSize: pnlFontSize, fontWeight: 700, color: pnlColor, lineHeight: 1, letterSpacing: "-0.03em", marginTop: 8 }}>{pnlText}</div>
             {has("pool") && topPool && (
-              <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 20, fontSize: 26, fontWeight: 500, color: THEME.fgSecondary }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 20, fontSize: 26, fontWeight: 500, color: labelColor }}>
                 <span style={{ color: labelColor }}>Top pool</span>
-                <span style={{ fontWeight: 600, color: THEME.fg }}>{topPool.name}</span>
+                <span style={{ fontWeight: 600, color: ink }}>{topPool.name}</span>
                 {topPool.binStep != null && <span style={{ color: labelColor }}>{`Bin ${topPool.binStep}`}</span>}
               </div>
             )}

@@ -23,9 +23,10 @@ type Part = (typeof PARTS)[number]["value"];
 const DEFAULT_PARTS: Part[] = ["name", "winrate", "fees", "rank", "pool"];
 
 /** Card background (the route's `bg` param). */
-type Bg = "photo" | "shape" | "plain";
+type Bg = "deep" | "pool" | "shape" | "plain";
 const BGS: { value: Bg; label: string }[] = [
-  { value: "photo", label: "Night pool" },
+  { value: "deep", label: "Deep pool" },
+  { value: "pool", label: "Pool" },
   { value: "shape", label: "Liquidity shape" },
   { value: "plain", label: "Plain" },
 ];
@@ -49,7 +50,7 @@ function ShareDialog({ user, snap, initialRange = "30d", onClose }: Omit<SharePn
   const [range, setRange] = useState<Range>(initialRange);
   const [copying, setCopying] = useState(false);
   const [parts, setParts] = useState<Part[]>(DEFAULT_PARTS);
-  const [bg, setBg] = useState<Bg>("photo");
+  const [bg, setBg] = useState<Bg>("deep");
   // The card renders on the server; show a placeholder until each new version has loaded.
   const [loadedUrl, setLoadedUrl] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
