@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { BadgeMedal } from "@/components/BadgeGlyph";
 import { BADGES, howEarned, sortBadges, tierLabel, type ApiBadge, type BadgeId, type BadgeTier } from "@/lib/badges/config";
@@ -27,7 +27,21 @@ const GAP = 6;
  * Trigger + tooltip. Opens on mouse hover, keyboard focus, or tap (touch/pen); closes on leave, blur,
  * Escape, outside tap or scroll. The tooltip is portaled with fixed positioning so cards never clip it.
  */
-function Tip({ label, content, className, children, testId }: { label: string; content: ReactNode; className: string; children: ReactNode; testId?: string }) {
+function Tip({
+  label,
+  content,
+  className,
+  style,
+  children,
+  testId,
+}: {
+  label: string;
+  content: ReactNode;
+  className: string;
+  style?: CSSProperties;
+  children: ReactNode;
+  testId?: string;
+}) {
   const id = useId();
   const btn = useRef<HTMLButtonElement>(null);
   const tip = useRef<HTMLDivElement>(null);
@@ -82,6 +96,7 @@ function Tip({ label, content, className, children, testId }: { label: string; c
         aria-describedby={open ? id : undefined}
         data-testid={testId}
         className={className}
+        style={style}
         onPointerDown={(e) => {
           pointer.current = e.pointerType;
           pressing.current = true;
@@ -131,14 +146,19 @@ function Tip({ label, content, className, children, testId }: { label: string; c
 const SIZES = {
   sm: { medal: 20, more: "h-5 min-w-5" },
   md: { medal: 24, more: "h-6 min-w-6" },
+  lg: { medal: 30, more: "h-[30px] min-w-[30px]" },
 } as const;
+
+/** Stacked rows: each medal tucks half under the one before it, and the row fans out on hover or focus. */
+const STACK_ITEM = "-ml-[15px] first:ml-0 transition-[margin] duration-200 ease-out group-hover/stack:-ml-1 group-focus-within/stack:-ml-1 group-hover/stack:first:ml-0 group-focus-within/stack:first:ml-0 motion-reduce:transition-none";
 
 function fmtEarned(iso: string): string {
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
-export function BadgeChip({ badge, size = "md" }: { badge: ApiBadge; size?: keyof typeof SIZES }) {
+export function BadgeChip({ badge, size = "md", stack }: { badge: ApiBadge; size?: keyof typeof SIZES; /** Stacked rows: paint order, first badge on top. */ stack?: number }) {
+  const stacked = stack !== undefined;
   const def = BADGES[badge.id];
   const tier = tierLabel(badge.id, badge.tier);
   const how = howEarned(badge);
@@ -147,7 +167,8 @@ export function BadgeChip({ badge, size = "md" }: { badge: ApiBadge; size?: keyo
     <Tip
       label={`${def.name}${tier ? `, ${tier}` : ""}: ${how}`}
       testId="badge"
-      className="inline-flex shrink-0 rounded-full transition-opacity hover:opacity-85"
+      className={`inline-flex shrink-0 rounded-full transition-opacity hover:opacity-85 ${stacked ? `relative ${STACK_ITEM}` : ""}`}
+      style={stacked ? { zIndex: stack } : undefined}
       content={
         <>
           <div className="flex items-center gap-1.5">
@@ -160,21 +181,27 @@ export function BadgeChip({ badge, size = "md" }: { badge: ApiBadge; size?: keyo
         </>
       }
     >
-      <BadgeMedal id={badge.id} tier={badge.tier} size={s.medal} />
+      {/* In a stacked row a bg ring keeps the overlapping medals apart. */}
+      <BadgeMedal id={badge.id} tier={badge.tier} size={s.medal} className={stacked ? "ring-2 ring-bg" : ""} />
     </Tip>
   );
 }
 
-/** A compact row of badge chips; `max` shows that many plus a "+N" chip listing the rest. */
+/**
+ * A compact row of badge chips; `max` shows that many plus a "+N" chip listing the rest. `stacked`
+ * overlaps them by half and fans them out on hover or focus (each still has its tooltip).
+ */
 export function BadgeRow({
   badges,
   max,
   size = "md",
+  stacked = false,
   className = "",
 }: {
   badges: ApiBadge[] | null | undefined;
   max?: number;
   size?: keyof typeof SIZES;
+  stacked?: boolean;
   className?: string;
 }) {
   if (!badges || badges.length === 0) return null;
@@ -182,9 +209,9 @@ export function BadgeRow({
   const shown = max ? sorted.slice(0, max) : sorted;
   const rest = sorted.slice(shown.length);
   return (
-    <div className={`flex flex-wrap items-center gap-1 ${className}`} data-testid="badge-row" aria-label="Badges">
-      {shown.map((b) => (
-        <BadgeChip key={b.id} badge={b} size={size} />
+    <div className={`flex items-center ${stacked ? "group/stack" : "flex-wrap gap-1"} ${className}`} data-testid="badge-row" aria-label="Badges">
+      {shown.map((b, i) => (
+        <BadgeChip key={b.id} badge={b} size={size} stack={stacked ? shown.length - i : undefined} />
       ))}
       {rest.length > 0 && (
         <Tip

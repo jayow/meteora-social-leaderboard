@@ -275,6 +275,8 @@ function Profile() {
   const volBy: Record<Range, number | null> = { "1d": snap?.volume1dUsd ?? null, "7d": snap?.volume7dUsd ?? null, "30d": snap?.volume30dUsd ?? null, all: snap?.volumeUsd ?? null };
   const winBy: Record<Range, number | null> = { "1d": snap?.winRate1d ?? null, "7d": snap?.winRate7d ?? null, "30d": snap?.winRate30d ?? null, all: snap?.winRate ?? null };
   const feesBy: Record<Range, number | null> = { "1d": snap?.fees1dUsd ?? null, "7d": snap?.fees7dUsd ?? null, "30d": snap?.fees30dUsd ?? null, all: snap?.feesUsd ?? null };
+  // Share (the PnL card) sits beside the PnL calendar heading, only when there's activity to share.
+  const shareAction = snap && hasActivity(snap) ? () => setShareModalOpen(true) : null;
 
   return (
     <main className="mx-auto max-w-[1320px] px-4 pb-10 pt-6 lg:px-6">
@@ -334,35 +336,22 @@ function Profile() {
         {/* Identity, with the calendar under it on desktop so it reads at a glance. */}
         <div className="h-fit min-w-0 space-y-10">
         <section>
-          <ProfileBanner user={user} editing={bannerEditing} setEditing={setBannerEditing} onUpdated={() => load(target!)} />
           <div className="relative">
-            <div className="relative -mt-12 flex items-end justify-between pl-4">
-              <Avatar user={user} size={96} ring />
-              <div ref={editWrap} className="relative mb-1 flex gap-2">
-                {snap && hasActivity(snap) && (
-                  <button
-                    type="button"
-                    onClick={() => setShareModalOpen(true)}
-                    className={`shrink-0 ${mine ? "btn-primary" : "btn-secondary"}`}
-                  >
-                    Share PnL
-                  </button>
-                )}
-                {mine && (
-                  <button
-                    type="button"
-                    onClick={() => setEditOpen((v) => !v)}
-                    aria-expanded={editOpen}
-                    aria-controls="edit-profile-panel"
-                    className="btn-secondary shrink-0"
-                    data-testid="edit-profile"
-                  >
-                    {editOpen ? "Done" : "Edit profile"}
-                  </button>
-                )}
-                {!mine && <FollowButton targetUser={user} />}
-                {/* Edit profile opens right under its button, like a menu (floating panels may have a box). */}
-                {mine && editOpen && (
+            <ProfileBanner user={user} editing={bannerEditing} setEditing={setBannerEditing} onUpdated={() => load(target!)} />
+            {/* Edit profile: a small pill on the banner's bottom-right corner; its panel opens under it like a menu. */}
+            {mine && !bannerEditing && (
+              <div ref={editWrap} className="absolute bottom-2.5 right-2.5 z-20">
+                <button
+                  type="button"
+                  onClick={() => setEditOpen((v) => !v)}
+                  aria-expanded={editOpen}
+                  aria-controls="edit-profile-panel"
+                  className="h-7 rounded-full bg-bg/75 px-3 text-sm font-medium text-fg backdrop-blur-sm transition hover:bg-bg/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                  data-testid="edit-profile"
+                >
+                  {editOpen ? "Done" : "Edit profile"}
+                </button>
+                {editOpen && (
                   <div
                     id="edit-profile-panel"
                     role="dialog"
@@ -391,37 +380,45 @@ function Profile() {
                   </div>
                 )}
               </div>
+            )}
+          </div>
+          <div className="relative">
+            {/* Badges sit beside the avatar, stacked; hover or focus fans them out. */}
+            <div className="relative -mt-12 flex items-end justify-between gap-3 pl-4">
+              <Avatar user={user} size={96} ring />
+              <div className="mb-1.5 flex min-w-0 items-center gap-3">
+                <BadgeRow badges={badges} size="lg" stacked />
+                {!mine && <FollowButton targetUser={user} />}
+              </div>
             </div>
             <div className="mt-3 flex min-w-0 items-center gap-2">
               <h1 className="min-w-0 truncate text-xl font-semibold tracking-tight" title={user.xName || displayName(user)}>{user.xName || displayName(user)}</h1>
               <Flag code={user.country} className="shrink-0" />
             </div>
-            {user.xHandle && (
-              <a href={`https://x.com/${user.xHandle}`} target="_blank" rel="noreferrer" className="mt-0.5 inline-flex items-center gap-1 text-base text-mute transition hover:text-fg">
-                <XIcon className="h-3.5 w-3.5" />@{user.xHandle}
-              </a>
-            )}
-            <BadgeRow badges={badges} className="mt-3" />
-            {(user.followersCount !== undefined || user.followingCount !== undefined) && (
-              <div className="mt-3 flex gap-4 text-base">
-                {user.followersCount !== undefined && (
-                  <button type="button" onClick={() => setFollowList("followers")} className="group" data-testid="followers-count">
-                    <span className="num font-semibold text-fg">{user.followersCount}</span> <span className="text-mute transition group-hover:text-fg">{user.followersCount === 1 ? "follower" : "followers"}</span>
-                  </button>
-                )}
-                {user.followingCount !== undefined && (
-                  <button type="button" onClick={() => setFollowList("following")} className="group" data-testid="following-count">
-                    <span className="num font-semibold text-fg">{user.followingCount}</span> <span className="text-mute transition group-hover:text-fg">following</span>
-                  </button>
-                )}
-              </div>
-            )}
+            {/* Handle and follow counts on one line. */}
+            <div className="mt-0.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-base">
+              {user.xHandle && (
+                <a href={`https://x.com/${user.xHandle}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-mute transition hover:text-fg">
+                  <XIcon className="h-3.5 w-3.5" />@{user.xHandle}
+                </a>
+              )}
+              {user.followersCount !== undefined && (
+                <button type="button" onClick={() => setFollowList("followers")} className="group" data-testid="followers-count">
+                  <span className="num font-semibold text-fg">{user.followersCount}</span> <span className="text-mute transition group-hover:text-fg">{user.followersCount === 1 ? "follower" : "followers"}</span>
+                </button>
+              )}
+              {user.followingCount !== undefined && (
+                <button type="button" onClick={() => setFollowList("following")} className="group" data-testid="following-count">
+                  <span className="num font-semibold text-fg">{user.followingCount}</span> <span className="text-mute transition group-hover:text-fg">following</span>
+                </button>
+              )}
+            </div>
 
             {/* WalletsSection hidden for now - multi-wallet feature parked */}
             {/* {mine && <WalletsSection />} */}
           </div>
         </section>
-        {desktop && <CalendarCard userId={user.id} />}
+        {desktop && <CalendarCard userId={user.id} onShare={shareAction} />}
         </div>
 
         {/* Stats, open positions, theses */}
@@ -456,7 +453,7 @@ function Profile() {
 
           <OpenPositions userId={user.id} mine={mine} refreshKey={snap?.updatedAt ?? null} syncing={syncing} thesesByPool={latestByPool} />
 
-          {!desktop && <CalendarCard userId={user.id} />}
+          {!desktop && <CalendarCard userId={user.id} onShare={shareAction} />}
 
           <RecentTheses theses={theses} latest={latestByPool} />
         </div>
@@ -489,13 +486,20 @@ function useIsDesktop(): boolean {
   return desktop;
 }
 
-/** Compact month calendar: a glance at daily closed PnL. */
-function CalendarCard({ userId }: { userId: number }) {
+/** Compact month calendar: a glance at daily closed PnL, with Share (the PnL card) beside its heading. */
+function CalendarCard({ userId, onShare }: { userId: number; onShare: (() => void) | null }) {
   return (
     <section>
-      <h2 className="mb-3 text-md font-semibold" title="Daily closed-position PnL, live from Meteora's portfolio calendar">
-        PnL calendar
-      </h2>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h2 className="text-md font-semibold" title="Daily closed-position PnL, live from Meteora's portfolio calendar">
+          PnL calendar
+        </h2>
+        {onShare && (
+          <button type="button" onClick={onShare} className="btn-secondary h-8 px-3 text-sm" data-testid="share-pnl">
+            Share
+          </button>
+        )}
+      </div>
       <PnLCalendar userId={userId} compact />
     </section>
   );
