@@ -346,7 +346,7 @@ function RangeBar({ d, scale, unit }: { d: OpenPositionDetail; scale: PriceScale
   const min = fmtPrice(d.minPrice);
   const max = fmtPrice(d.maxPrice);
   // Narrow ranges get one combined label so the two bounds don't collide.
-  const split = b - a >= 36;
+  const split = b - a >= 50;
   const label = `Range ${min} to ${max} ${unit}${p != null ? `, current ${fmtPrice(d.poolPrice ?? null)}` : ""}, ${d.inRange ? "in range" : "out of range"}`;
   // Liquidity shape over the same span (bins are geometric, so they sit evenly on the log scale).
   const shape = d.shape && d.shape.bars.length > 0 && b - a >= 6 ? d.shape : null;
@@ -562,33 +562,39 @@ function poolTotals(pool: OpenPool) {
   const fees = details.reduce((s, d) => s + d.unclaimedFeesUsd, 0);
   const pnl = details.every((d) => d.pnlUsd != null) ? details.reduce((s, d) => s + (d.pnlUsd ?? 0), 0) : null;
   const deposit = details.every((d) => finitePos(d.depositUsd)) ? details.reduce((s, d) => s + (d.depositUsd ?? 0), 0) : null;
-  return { fees, pnl, pct: pnlFraction(pnl, deposit), inRange: details.filter((d) => d.inRange).length, count };
+  return { fees, pnl, deposit, pct: pnlFraction(pnl, deposit), inRange: details.filter((d) => d.inRange).length, count };
 }
 
 /** Desktop column template shared by the column header and each position row. */
-const COLS = "sm:grid sm:grid-cols-[minmax(0,1fr)_4.75rem_4.25rem_6.75rem_2.75rem] sm:items-center sm:gap-x-4";
+const COLS = "sm:grid sm:grid-cols-[minmax(0,1fr)_4.75rem_4.75rem_4.25rem_6.75rem_2.75rem] sm:items-center sm:gap-x-4";
 
-/** One position: shared-scale range bar, then value / fees / PnL / age (stacked under the bar on phones). */
+/** One position: shared-scale range bar, then capital / value / fees / PnL / age (stacked under the bar on phones). */
 function PositionRow({ d, scale, unit }: { d: OpenPositionDetail; scale: PriceScale | null; unit: string }) {
   const opened = d.openedAt != null ? new Date(d.openedAt * 1000) : null;
   return (
     <div className={`py-3 text-base ${COLS}`} data-testid="open-position-line">
       <RangeBar d={d} scale={scale} unit={unit} />
-      <div className={`${NUM} mt-2.5 flex items-baseline gap-3 sm:contents`}>
-        <span className="font-medium text-fg sm:text-right">
-          <span className="sr-only">Value </span>
+      {/* Phones: capital, value and PnL on the first line, fees and age on the second. Desktop: one grid row in DOM order. */}
+      <div className={`${NUM} mt-2.5 flex flex-wrap items-baseline gap-x-3 gap-y-1 sm:contents`}>
+        <span className="order-1 text-fg-secondary sm:order-none sm:text-right" title="Capital: total deposited (Meteora)">
+          <span className="mr-1 text-sm text-mute sm:sr-only">Capital</span>
+          {finitePos(d.depositUsd) ? fmtUsd(d.depositUsd) : "—"}
+        </span>
+        <span className="order-2 font-medium text-fg sm:order-none sm:text-right">
+          <span className="mr-1 text-sm font-normal text-mute sm:sr-only">Value</span>
           {fmtUsd(d.valueUsd)}
         </span>
-        <span className="text-up sm:text-right" title="Unclaimed fees">
+        <span className="order-5 text-up sm:order-none sm:text-right" title="Unclaimed fees">
           <span className="mr-1 text-sm text-mute sm:sr-only">Fees</span>
           {fmtUsd(d.unclaimedFeesUsd)}
         </span>
-        <span className="ml-auto sm:ml-0 sm:text-right">
+        <span className="order-3 ml-auto sm:order-none sm:ml-0 sm:text-right">
           <span className="sr-only">PnL </span>
           <PnL usd={d.pnlUsd} pct={d.pnlPct ?? pnlFraction(d.pnlUsd, d.depositUsd)} />
         </span>
-        <span className="w-9 text-right text-mute sm:w-auto" title={opened ? `Opened ${opened.toLocaleString()}` : undefined}>
-          <span className="sr-only">opened </span>
+        <span className="order-4 basis-full sm:hidden" aria-hidden="true" />
+        <span className="order-6 text-mute sm:order-none sm:text-right" title={opened ? `Opened ${opened.toLocaleString()}` : undefined}>
+          <span className="mr-1 text-sm sm:sr-only">Age</span>
           {opened ? timeAgo(opened.toISOString()).replace(" ago", "") : "—"}
         </span>
       </div>
@@ -700,6 +706,11 @@ function PositionCard({
       </div>
 
       <div className="mt-3 flex flex-wrap items-end gap-x-6 gap-y-3 sm:flex-nowrap sm:pl-[68px]">
+        {totals?.deposit != null && (
+          <Stat label="Capital">
+            <span className="text-fg" title="Total deposited (Meteora)">{fmtUsd(totals.deposit)}</span>
+          </Stat>
+        )}
         <Stat label="Value">
           <span className="text-fg">{fmtUsd(pool.valueUsd ?? 0)}</span>
         </Stat>
@@ -741,6 +752,7 @@ function PositionCard({
           )}
           <div className={`mt-3 hidden text-sm text-mute ${COLS}`} aria-hidden="true">
             <span>Range</span>
+            <span className="text-right">Capital</span>
             <span className="text-right">Value</span>
             <span className="text-right">Fees</span>
             <span className="text-right">PnL</span>
