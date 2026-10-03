@@ -9,7 +9,7 @@ import { usePathname } from "next/navigation";
  * Server actions (sign-in, join, follow, ...) are recorded by their API routes, not here.
  */
 
-type ClientEvent = { name: "page_view" | "click" | "outbound"; path: string; props?: Record<string, string | number | boolean | null> };
+type ClientEvent = { name: "page_view" | "click" | "outbound" | "tour"; path: string; props?: Record<string, string | number | boolean | null> };
 
 const FLUSH_MS = 4000;
 const MAX_QUEUE = 20;
@@ -58,6 +58,12 @@ function timeZone(): string | null {
   } catch {
     return null;
   }
+}
+
+/** Record a named client event from elsewhere in the app (e.g. the guided tour). */
+export function trackClient(name: ClientEvent["name"], props?: ClientEvent["props"]): void {
+  if (typeof window === "undefined") return;
+  track({ name, path: window.location.pathname, props });
 }
 
 /** Visible label of a control, without typed content: aria-label, else its short text. */

@@ -16,6 +16,8 @@ interface PatchBody {
   unlinkX?: boolean;
   /** Custom display name (members without X): replaces the random beach name. */
   displayName?: string;
+  /** The guided tour was finished or skipped. */
+  tourCompleted?: boolean;
 }
 
 export async function PATCH(req: NextRequest): Promise<NextResponse> {
@@ -36,6 +38,8 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
   if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
   const updates: Partial<typeof users.$inferInsert> = {};
+
+  if (body.tourCompleted === true) updates.tourCompletedAt = new Date();
 
   if (body.displayName !== undefined) {
     if (user.xHandle) return NextResponse.json({ error: "Your X name is shown while X is linked" }, { status: 400 });

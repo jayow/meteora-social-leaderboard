@@ -36,7 +36,7 @@ export type ServerEvent =
   | "admin_invite_toggle";
 
 /** Actions the browser reports (page views and every button / link click). */
-export const CLIENT_EVENTS = ["page_view", "click", "outbound"] as const;
+export const CLIENT_EVENTS = ["page_view", "click", "outbound", "tour"] as const;
 export type ClientEvent = (typeof CLIENT_EVENTS)[number];
 
 type Props = Record<string, string | number | boolean | null>;

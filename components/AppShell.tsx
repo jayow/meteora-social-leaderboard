@@ -15,8 +15,10 @@ import { onSessionChanged, onSignInRequested, onWalletLinkRequested, requestWall
 import { TermsConsentModal } from "@/components/TermsConsentModal";
 import { TERMS_VERSION } from "@/lib/legal";
 import { GlobalSearch } from "@/components/GlobalSearch";
+import { ProductTour } from "@/components/ProductTour";
 
 interface SessionData {
+  tourCompletedAt?: string | null;
   userId?: number | null;
   xHandle?: string | null;
   xName?: string | null;
@@ -33,13 +35,18 @@ interface SessionData {
 }
 
 const MENU_BASE = "flex w-full items-center gap-2 rounded-tag px-3 py-2 text-left text-base transition hover:bg-surface-raised";
+const TOUR_SKIP_PATHS = ["/join", "/terms", "/privacy", "/beta", "/admin"];
 const MENU_ITEM = `${MENU_BASE} text-fg-secondary hover:text-fg`;
 
 /** Header nav: plain text; the current page is `fg` with a 2px accent bar sitting on the header's hairline. */
+/** Guided-tour anchor for a nav destination (components/ProductTour.tsx). */
+const tourId = (href: string) => `nav-${href === "/" ? "leaderboard" : href.slice(1)}`;
+
 function NavLink({ href, active, children }: { href: string; active: boolean; children: React.ReactNode }) {
   return (
     <Link
       href={href}
+      data-tour={tourId(href)}
       aria-current={active ? "page" : undefined}
       className={`relative flex items-center text-base font-medium transition ${
         active ? "text-fg after:absolute after:inset-x-0 after:-bottom-px after:h-0.5 after:rounded-full after:bg-accent" : "text-mute hover:text-fg"
@@ -64,6 +71,7 @@ function TabLink({ href, active, label, icon }: { href: string; active: boolean;
   return (
     <Link
       href={href}
+      data-tour={tourId(href)}
       aria-current={active ? "page" : undefined}
       className={`flex min-w-0 flex-1 flex-col items-center gap-1 rounded-tile py-1 text-xs font-medium transition ${active ? "text-accent" : "text-mute hover:text-fg"}`}
     >
@@ -126,6 +134,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [signInMode, setSignInMode] = useState<"signin" | "link">("signin");
   const [menuOpen, setMenuOpen] = useState(false);
   const [xError, setXError] = useState<string | null>(null);
+  const [tourOpen, setTourOpen] = useState(false);
+  const tourStarted = useRef(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   // A failed X sign-in lands on whatever page it started from with ?x=error&message=…; say so here
@@ -190,6 +200,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       document.removeEventListener("keydown", onKey);
     };
   }, [menuOpen]);
+
+  // First visit as a member: run the tour once (after terms consent; not on the legal / join / admin pages).
+  useEffect(() => {
+    if (tourStarted.current || !session || !isMember || needsTermsConsent || session.tourCompletedAt) return;
+    if (TOUR_SKIP_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))) return;
+    tourStarted.current = true;
+    setTourOpen(true);
+  }, [session, isMember, needsTermsConsent, pathname]);
+
+  const closeTour = useCallback(() => {
+    setTourOpen(false);
+    setSession((s) => (s ? { ...s, tourCompletedAt: s.tourCompletedAt ?? new Date().toISOString() } : s));
+    void fetch("/api/users/me", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tourCompleted: true }),
+    }).catch(() => undefined);
+  }, []);
 
   const closeSignIn = useCallback(() => setSignInOpen(false), []);
 
@@ -282,6 +310,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   aria-expanded={menuOpen}
                   aria-haspopup="menu"
                   aria-label={`Account menu for ${accountName}`}
+                  data-tour="account"
                   className="group flex min-w-0 items-center gap-2 rounded-full text-base font-medium text-fg-secondary transition hover:text-fg"
                   data-testid="user-menu-button"
                 >
@@ -323,6 +352,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                           Connect wallet
                         </button>
                       ))}
+                    {isMember && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMenuOpen(false);
+                          setTourOpen(true);
+                        }}
+                        className={`${MENU_ITEM} w-full text-left`}
+                        data-testid="menu-tour"
+                      >
+                        Take the tour
+                      </button>
+                    )}
                     <div className="mx-2 my-1 h-px bg-border" role="separator" />
                     <button
                       type="button"
@@ -379,6 +421,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       <SignInModal open={signInOpen} initialStep={signInStep} mode={signInMode} onClose={closeSignIn} />
       <TermsConsentModal open={needsTermsConsent} onAccepted={loadSession} onSignOut={handleSignOut} />
+      <ProductTour open={tourOpen} hasWallet={hasWallet} onClose={closeTour} />
     </div>
   );
 }

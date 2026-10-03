@@ -35,6 +35,7 @@ export async function GET(): Promise<NextResponse> {
         memberNumber: user.memberNumber,
         termsVersionAccepted: user.termsVersionAccepted,
         termsAcceptedAt: user.termsAcceptedAt?.toISOString() ?? null,
+        tourCompletedAt: user.tourCompletedAt?.toISOString() ?? null,
         // Full primary wallet, for the signed-in owner's own header menu only (never in public APIs).
         wallet: walletList[0] ?? null,
         wallets: walletList.map(shortAddr),

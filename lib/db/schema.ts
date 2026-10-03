@@ -88,6 +88,8 @@ export const users = pgTable(
     seeded: boolean("seeded").notNull().default(false),
     /** Last scan for DLMM pools this member's wallets created (lib/created-pools.ts). */
     createdPoolsCheckedAt: timestamp("created_pools_checked_at", { withTimezone: true }),
+    /** First-visit guided tour finished or skipped (components/ProductTour.tsx); null = show it. */
+    tourCompletedAt: timestamp("tour_completed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

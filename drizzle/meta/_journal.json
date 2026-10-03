@@ -204,6 +204,13 @@
       "when": 1790946603836,
       "tag": "0028_created_pools",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1790985954141,
+      "tag": "0029_tour_completed",
+      "breakpoints": true
     }
   ]
 }

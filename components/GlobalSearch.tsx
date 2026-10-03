@@ -300,10 +300,10 @@ export function GlobalSearch() {
 
   return (
     <>
-      <div className="hidden md:block">
+      <div className="hidden md:block" data-tour="search">
         <SearchBox variant="dropdown" />
       </div>
-      <button type="button" className="btn-ghost h-9 w-9 px-0 md:hidden" aria-label="Search" onClick={() => setSheet(true)} data-testid="global-search-open">
+      <button type="button" className="btn-ghost h-9 w-9 px-0 md:hidden" aria-label="Search" onClick={() => setSheet(true)} data-testid="global-search-open" data-tour="search">
         <SearchIcon className="h-5 w-5" />
       </button>
       {/* Portal: the header is its own stacking layer, so render the sheet at the top of the page. */}
