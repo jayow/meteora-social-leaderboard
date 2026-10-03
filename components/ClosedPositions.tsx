@@ -149,7 +149,7 @@ export function ClosedPositions({ user, mine = false }: { user: ApiUser; mine?: 
       <div id={bodyId} hidden={collapsed}>
       <div className="space-y-1">
         {pools.map((pool) => (
-          <ClosedPoolRow key={pool.poolAddress} pool={pool} onShare={() => setSharing(pool)} />
+          <ClosedPoolRow key={pool.poolAddress} pool={pool} onShare={mine ? () => setSharing(pool) : null} />
         ))}
       </div>
       {nextOffset != null && (
@@ -158,7 +158,7 @@ export function ClosedPositions({ user, mine = false }: { user: ApiUser; mine?: 
         </button>
       )}
       </div>
-      {sharing && (
+      {mine && sharing && (
         <SharePnLModal
           user={user}
           isOpen
@@ -170,7 +170,8 @@ export function ClosedPositions({ user, mine = false }: { user: ApiUser; mine?: 
   );
 }
 
-function ClosedPoolRow({ pool, onShare }: { pool: ClosedPool; onShare: () => void }) {
+/** `onShare` only on the member's own profile: people share their own trades, not someone else's. */
+function ClosedPoolRow({ pool, onShare }: { pool: ClosedPool; onShare: (() => void) | null }) {
   const count = pool.positionCount;
   const pair = `${pool.tokenX}-${pool.tokenY}`;
   return (
@@ -191,18 +192,20 @@ function ClosedPoolRow({ pool, onShare }: { pool: ClosedPool; onShare: () => voi
         <PnL usd={pool.pnlUsd} pct={pool.pnlPct} className="text-md font-semibold" />
         <div className={`${NUM} mt-1 text-sm text-mute`}>on {fmtUsd(pool.capitalUsd)}</div>
       </div>
-      <button
-        type="button"
-        onClick={onShare}
-        className="btn-ghost relative z-10 h-9 w-9 shrink-0 px-0"
-        aria-label={`Share ${pair} result`}
-        title="Share"
-        data-testid="closed-position-share"
-      >
-        <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M10 3v10M6 7l4-4 4 4M4 12v3a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-3" />
-        </svg>
-      </button>
+      {onShare && (
+        <button
+          type="button"
+          onClick={onShare}
+          className="btn-ghost relative z-10 h-9 w-9 shrink-0 px-0"
+          aria-label={`Share ${pair} result`}
+          title="Share"
+          data-testid="closed-position-share"
+        >
+          <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M10 3v10M6 7l4-4 4 4M4 12v3a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-3" />
+          </svg>
+        </button>
+      )}
     </div>
   );
 }
