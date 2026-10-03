@@ -99,15 +99,15 @@ const METAL_BG: Record<BadgeTier, string> = { 1: "bg-bronze", 2: "bg-silver", 3:
 
 /**
  * The badge mark (THEME.md "Medals"): a flat metal coin with the glyph cut out for tiered badges, an
- * outlined neutral coin for untiered ones, and a dashed outline for a badge the viewer doesn't hold.
+ * outlined neutral coin for untiered ones, and a faded dashed outline for a badge the viewer doesn't hold.
  */
 export function BadgeMedal({ id, tier, held = true, size, className = "" }: { id: BadgeId; tier: BadgeTier; held?: boolean; size: number; className?: string }) {
   const solid = held && BADGES[id].tiered;
   const tone = !held
-    ? "border-[1.5px] border-dashed border-border-strong text-mute"
+    ? "border-[1.5px] border-dashed border-border-strong text-mute opacity-40"
     : solid
       ? `${METAL_BG[tier]} text-bg`
-      : "border-[1.5px] border-fg-secondary bg-surface-raised text-fg-secondary";
+      : "border-2 border-fg bg-surface-raised text-fg";
   return (
     <span className={`relative inline-flex shrink-0 items-center justify-center rounded-full ${tone} ${className}`} style={{ width: size, height: size }} aria-hidden="true">
       {/* Struck-coin rim, only where there's room for it. */}

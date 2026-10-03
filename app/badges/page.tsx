@@ -192,8 +192,8 @@ function MedalSlot({
       </button>
 
       {open && (
-        // pt-2 instead of a margin so the pointer can cross into the popover without leaving the slot.
-        <div id={popId} className="absolute top-full z-30 pt-2" style={{ left, width: `min(${POP_W}px, calc(100vw - ${2 * EDGE}px))` }}>
+        // Padding instead of a margin so the pointer can cross into the popover without leaving the slot.
+        <div id={popId} className="absolute top-full z-30 pt-4" style={{ left, width: `min(${POP_W}px, calc(100vw - ${2 * EDGE}px))` }}>
           <div className="rounded-tile border border-border-strong bg-surface-raised p-4 text-left shadow-lg shadow-black/40" data-testid="badge-popover">
             <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
               <h3 className="text-md font-semibold">{def.name}</h3>
