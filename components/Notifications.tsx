@@ -60,6 +60,11 @@ export function useNotifications(enabled: boolean) {
     }).catch(() => undefined);
   }, []);
 
+  /** Panel closed: the new-item dots were for that first look, so drop them now. */
+  const clearDots = useCallback(() => {
+    setData((d) => (d && d.items.some((i) => i.unread) ? { ...d, items: d.items.map((i) => ({ ...i, unread: false })) } : d));
+  }, []);
+
   const dismissAnnouncement = useCallback(() => {
     setData((d) => (d ? { ...d, announcement: null } : d));
     void fetch("/api/notifications", {
@@ -83,7 +88,7 @@ export function useNotifications(enabled: boolean) {
     [load]
   );
 
-  return { data, markSeen, dismissAnnouncement, saveMuted };
+  return { data, markSeen, clearDots, dismissAnnouncement, saveMuted };
 }
 
 function SmartLink({ href, className, onClick, children }: { href: string; className: string; onClick?: () => void; children: ReactNode }) {
@@ -163,10 +168,17 @@ function RowIcon({ n }: { n: NotificationItem }) {
   );
 }
 
-export function NotificationBell({ data, onOpen }: { data: NotificationsData | null; onOpen: () => void }) {
+export function NotificationBell({ data, onOpen, onClose }: { data: NotificationsData | null; onOpen: () => void; onClose: () => void }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const wasOpen = useRef(false);
   const unread = data?.unreadCount ?? 0;
+
+  // However the panel closes (bell, outside click, Esc, a row), clear the dots.
+  useEffect(() => {
+    if (wasOpen.current && !open) onClose();
+    wasOpen.current = open;
+  }, [open, onClose]);
 
   useEffect(() => {
     if (!open) return;

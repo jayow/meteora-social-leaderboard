@@ -285,7 +285,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="ml-auto flex min-w-0 items-center gap-4">
             {/* Universal search (members only: /api/search sits behind the beta gate). */}
             {isMember && <GlobalSearch />}
-            {isMember && isSignedIn && <NotificationBell data={notifications.data} onOpen={notifications.markSeen} />}
+            {isMember && isSignedIn && <NotificationBell data={notifications.data} onOpen={notifications.markSeen} onClose={notifications.clearDots} />}
             {/* Signed out -> Sign in (wallet picker or X) + Sign up (invite code at /join); signed in, not joined -> Join beta; members -> account menu only. */}
             {!isSignedIn && (
               <div className="flex items-center gap-2">
