@@ -91,6 +91,7 @@ Not built yet, roughly in priority order.
   looks at `user_wallets`. Until then, wrong-wallet fixes are done by hand in the database.
 - **Multi-wallet UI** (backend exists: `user_wallets`, link/add APIs, syncs merge all wallets).
 - Competition page, streaks, notifications.
+- **Badges design rework.**
 - In-app LP trading (the Terms already mention it), with in-app price charts.
 
 ## Pool Party v2 (database-backed leaderboard)

@@ -46,13 +46,13 @@ function NavLink({ href, active, children }: { href: string; active: boolean; ch
   return (
     <Link
       href={href}
-      data-tour={tourId(href)}
       aria-current={active ? "page" : undefined}
       className={`relative flex items-center text-base font-medium transition ${
         active ? "text-fg after:absolute after:inset-x-0 after:-bottom-px after:h-0.5 after:rounded-full after:bg-accent" : "text-mute hover:text-fg"
       }`}
     >
-      {children}
+      {/* The tour anchor is the label, so its highlight hugs the word, not the full-height link and underline. */}
+      <span data-tour={tourId(href)}>{children}</span>
     </Link>
   );
 }

@@ -96,8 +96,10 @@ export function ProductTour({ open, hasWallet, onClose }: { open: boolean; hasWa
   const [rect, setRect] = useState<DOMRect | null>(null);
   const [steps, setSteps] = useState<Step[]>([]);
   const [box, setBox] = useState<{ top: number; left: number } | null>(null);
+  // The text box fades in once it's placed on each step.
+  const [shown, setShown] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
-  const primaryRef = useRef<HTMLButtonElement>(null);
+
   const titleId = useId();
   const bodyId = useId();
 
@@ -133,8 +135,13 @@ export function ProductTour({ open, hasWallet, onClose }: { open: boolean; hasWa
   useLayoutEffect(() => {
     if (!open || !step) return;
     findTarget(step.target)?.scrollIntoView({ block: "nearest" });
+    setShown(false);
     place();
-    const raf = requestAnimationFrame(place); // again once the box has its real height
+    // Again once the box has its real height, then fade it in.
+    const raf = requestAnimationFrame(() => {
+      place();
+      setShown(true);
+    });
     window.addEventListener("resize", place);
     window.addEventListener("scroll", place, true);
     return () => {
@@ -146,7 +153,8 @@ export function ProductTour({ open, hasWallet, onClose }: { open: boolean; hasWa
 
   useEffect(() => {
     if (open && step) {
-      primaryRef.current?.focus();
+      // Focus the dialog itself so keyboard users land in it without a ring drawn on Next.
+      boxRef.current?.focus({ preventScroll: true });
       trackClient("tour", { action: "step", step: step.id });
     }
   }, [open, step]);
@@ -198,13 +206,14 @@ export function ProductTour({ open, hasWallet, onClose }: { open: boolean; hasWa
       {rect ? (
         <div
           aria-hidden="true"
-          className="pointer-events-none fixed rounded-tile border-2 border-accent transition-all duration-200"
+          className="pointer-events-none fixed rounded-tile transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
           style={{
             top: rect.top - PAD,
             left: rect.left - PAD,
             width: rect.width + PAD * 2,
             height: rect.height + PAD * 2,
-            boxShadow: "0 0 0 9999px rgb(14 13 18 / 0.72)",
+            // A soft accent glow around the cut-out, then the dim over everything else.
+            boxShadow: "0 0 0 1px rgb(255 92 26 / 0.55), 0 0 18px 2px rgb(255 92 26 / 0.35), 0 0 0 9999px rgb(14 13 18 / 0.72)",
           }}
         />
       ) : (
@@ -216,7 +225,10 @@ export function ProductTour({ open, hasWallet, onClose }: { open: boolean; hasWa
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={bodyId}
-        className="card fixed p-4 shadow-lg shadow-black/40"
+        tabIndex={-1}
+        className={`card fixed p-4 shadow-lg shadow-black/40 outline-none transition-[opacity,transform] duration-300 ease-out motion-reduce:transition-none ${
+          shown ? "translate-y-0 opacity-100" : "translate-y-1 opacity-0"
+        }`}
         style={{ top: box?.top ?? -9999, left: box?.left ?? 0, width: `min(${BOX_W}px, calc(100vw - ${EDGE * 2}px))` }}
       >
         <div className="num text-sm text-mute">
@@ -258,7 +270,6 @@ export function ProductTour({ open, hasWallet, onClose }: { open: boolean; hasWa
               </button>
             )}
             <button
-              ref={primaryRef}
               type="button"
               className="btn-primary h-9 px-4 disabled:cursor-not-allowed disabled:opacity-50"
               onClick={next}
