@@ -5,7 +5,7 @@ import { Wordmark, interFonts, requestOrigin } from "@/lib/share-card";
 import { NextRequest } from "next/server";
 import { findUser, latestSnapshot, toPublicSnapshot } from "@/lib/users";
 import { readOpenPositions } from "@/lib/open-positions";
-import { readClosedPositions } from "@/lib/closed-positions";
+import { readClosedPool } from "@/lib/closed-positions";
 import { displayName, fmtUsd, fmtPct } from "@/lib/format";
 import { THEME } from "@/lib/theme";
 import { getPool } from "@/lib/db";
@@ -117,7 +117,7 @@ export async function GET(
     let closed: { name: string; binStep: number | null; pct: number | null; capital: number } | null = null;
     if (closedPool !== null) {
       // Same numbers as the profile's Closed positions row (same cached Meteora read).
-      const pool = (await readClosedPositions(user)).pools.find((p) => p.poolAddress === closedPool);
+      const pool = await readClosedPool(user, closedPool);
       if (!pool) return new Response("No closed position in that pool in the last 30 days", { status: 404 });
       pnl = pool.pnlUsd;
       fees = pool.feesUsd;

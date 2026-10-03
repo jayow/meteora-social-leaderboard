@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import Link from "next/link";
 import type { ApiUser } from "@/lib/api-types";
-import type { ClosedPool, ClosedPositionsSummary } from "@/lib/closed-positions";
+import type { ClosedPool, ClosedPositionsPage } from "@/lib/closed-positions";
 import { fmtPositions, fmtUsd, timeAgo } from "@/lib/format";
 import { binLabel } from "@/components/ui";
 import { NUM, PnL, PoolIcons, PoolName } from "@/components/OpenPositions";
@@ -14,44 +14,82 @@ import { SharePnLModal } from "@/components/SharePnLModal";
  * one compact row per pool: when it closed, PnL on the capital, and a Share button for that result.
  */
 
-const INITIAL_POOLS = 8;
 
 const closedAgo = (t: number) => timeAgo(new Date(t * 1000).toISOString());
 
 export function ClosedPositions({ user, mine = false }: { user: ApiUser; mine?: boolean }) {
-  const [data, setData] = useState<ClosedPositionsSummary | null>(null);
+  const [pools, setPools] = useState<ClosedPool[] | null>(null);
+  const [totalPools, setTotalPools] = useState(0);
+  const [nextOffset, setNextOffset] = useState<number | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showAll, setShowAll] = useState(false);
   const [sharing, setSharing] = useState<ClosedPool | null>(null);
+  const [collapsed, setCollapsed] = useState(false);
+  const bodyId = useId();
+
+  const fetchPage = useCallback(
+    async (offset: number): Promise<ClosedPositionsPage> => {
+      const r = await fetch(`/api/users/${user.id}/closed-positions?offset=${offset}`, { cache: "no-store" });
+      const j = (await r.json()) as ClosedPositionsPage & { error?: string };
+      if (!r.ok) throw new Error(j.error || "Couldn't load closed positions");
+      return j;
+    },
+    [user.id]
+  );
 
   useEffect(() => {
     let cancelled = false;
-    setData(null);
+    setPools(null);
     setError(null);
-    fetch(`/api/users/${user.id}/closed-positions`, { cache: "no-store" })
-      .then(async (r) => {
-        const j = (await r.json()) as ClosedPositionsSummary & { error?: string };
+    fetchPage(0)
+      .then((j) => {
         if (cancelled) return;
-        if (!r.ok) setError(j.error || "Couldn't load closed positions");
-        else setData(j);
+        setPools(j.pools);
+        setTotalPools(j.totalPools);
+        setNextOffset(j.nextOffset);
       })
-      .catch(() => !cancelled && setError("Couldn't load closed positions"));
+      .catch((e: Error) => !cancelled && setError(e.message));
     return () => {
       cancelled = true;
     };
-  }, [user.id]);
+  }, [fetchPage]);
+
+  const loadMore = async () => {
+    if (nextOffset == null) return;
+    setLoadingMore(true);
+    try {
+      const j = await fetchPage(nextOffset);
+      setPools((prev) => [...(prev ?? []), ...j.pools]);
+      setTotalPools(j.totalPools);
+      setNextOffset(j.nextOffset);
+    } catch {
+      // keep what's shown; the button stays for a retry
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   const header = (
     <div className="mb-4 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-      <h2 className="flex items-baseline gap-2 text-lg font-semibold">
-        <span>
-          Closed positions{data ? <span className="num font-medium text-mute"> {data.positionCount}</span> : null}
-        </span>
-        <span className="chip self-center">30D</span>
+      <h2 className="text-lg font-semibold">
+        <button
+          type="button"
+          onClick={() => setCollapsed((v) => !v)}
+          aria-expanded={!collapsed}
+          aria-controls={bodyId}
+          className="flex items-center gap-2 rounded-tag text-left transition hover:text-fg-secondary"
+          data-testid="closed-positions-toggle"
+        >
+          <span>Closed positions</span>
+          <span className="chip">30D</span>
+          <svg aria-hidden="true" viewBox="0 0 20 20" className={`h-4 w-4 shrink-0 text-mute transition-transform ${collapsed ? "-rotate-90" : ""}`} fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M5 7.5l5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
       </h2>
-      {data && data.pools.length > 0 && (
-        <span className="text-sm text-mute">
-          PnL <PnL usd={data.pnlUsd} pct={null} className="text-sm" />
+      {pools && totalPools > 0 && (
+        <span className="num text-sm text-mute" data-testid="closed-positions-count">
+          {totalPools} pool{totalPools === 1 ? "" : "s"}
         </span>
       )}
     </div>
@@ -61,18 +99,20 @@ export function ClosedPositions({ user, mine = false }: { user: ApiUser; mine?: 
     return (
       <section data-testid="closed-positions">
         {header}
-        <p className="text-base text-mute">{error}</p>
+        <div id={bodyId} hidden={collapsed}>
+          <p className="text-base text-mute">{error}</p>
+        </div>
       </section>
     );
   }
 
-  if (!data) {
+  if (!pools) {
     return (
       <section data-testid="closed-positions">
         {header}
-        <div className="space-y-1" aria-busy="true" aria-label="Loading closed positions">
+        <div id={bodyId} hidden={collapsed} className="space-y-1" aria-busy="true" aria-label="Loading closed positions">
           {[0, 1].map((i) => (
-            <div key={i} className="h-[84px] py-4">
+            <div key={i} className="h-[68px] py-3">
               <div className="flex items-center gap-3">
                 <span className="skeleton h-8 w-14 rounded-full" />
                 <div className="space-y-1.5">
@@ -87,29 +127,30 @@ export function ClosedPositions({ user, mine = false }: { user: ApiUser; mine?: 
     );
   }
 
-  if (data.pools.length === 0) {
+  if (pools.length === 0) {
     return (
       <section data-testid="closed-positions">
         {header}
-        <p className="text-base text-mute">{mine ? "You haven't closed a position in the last 30 days." : "No positions closed in the last 30 days."}</p>
+        <p id={bodyId} hidden={collapsed} className="text-base text-mute">{mine ? "You haven't closed a position in the last 30 days." : "No positions closed in the last 30 days."}</p>
       </section>
     );
   }
 
-  const visible = showAll ? data.pools : data.pools.slice(0, INITIAL_POOLS);
   return (
     <section data-testid="closed-positions">
       {header}
+      <div id={bodyId} hidden={collapsed}>
       <div className="space-y-1">
-        {visible.map((pool) => (
+        {pools.map((pool) => (
           <ClosedPoolRow key={pool.poolAddress} pool={pool} onShare={() => setSharing(pool)} />
         ))}
       </div>
-      {data.pools.length > INITIAL_POOLS && (
-        <button type="button" onClick={() => setShowAll((v) => !v)} className="btn-ghost mt-3 w-full">
-          {showAll ? "Show fewer" : `Show all ${data.pools.length} pools`}
+      {nextOffset != null && (
+        <button type="button" onClick={() => void loadMore()} disabled={loadingMore} className="btn-ghost mt-3 w-full" data-testid="closed-positions-more">
+          {loadingMore ? "Loading…" : `Show more (${totalPools - nextOffset} more pool${totalPools - nextOffset === 1 ? "" : "s"})`}
         </button>
       )}
+      </div>
       {sharing && (
         <SharePnLModal
           user={user}

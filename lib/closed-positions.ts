@@ -5,13 +5,15 @@ import type { UserRow } from "@/lib/db/schema";
 
 /**
  * A member's positions closed in the last 30 days, live from Meteora (nothing stored), across all their
- * wallets. Meteora's per-pool portfolio totals cover every closed position in the pool, so the windowed
+ * wallets, in batches so heavy wallets (dozens of pools) stay cheap. Meteora's per-pool portfolio totals cover every closed position in the pool, so the windowed
  * numbers are summed here from each closed position's closedAt. No wallet or position addresses leave
  * this module.
  */
 
 export const CLOSED_WINDOW_DAYS = 30;
-const MAX_POOLS = 25;
+/** Pools per batch: exact numbers need one Meteora call per pool, so heavy wallets load in pages. */
+export const CLOSED_BATCH = 10;
+const MAX_LIST_PAGES = 10;
 const MAX_POSITION_PAGES = 3;
 const CACHE_MS = 10 * 60_000;
 
@@ -49,12 +51,14 @@ export interface ClosedPool {
   positions: ClosedPosition[];
 }
 
-export interface ClosedPositionsSummary {
+export interface ClosedPositionsPage {
+  /** This batch, with exact windowed numbers. */
   pools: ClosedPool[];
-  positionCount: number;
-  pnlUsd: number;
+  /** Every pool with a close in the window (all wallets). */
+  totalPools: number;
+  /** Offset of the next batch, or null when this was the last. */
+  nextOffset: number | null;
   windowDays: number;
-  fetchedAt: string;
 }
 
 const num = (v: unknown): number | null => {
@@ -74,12 +78,14 @@ interface PoolMeta {
   tokenXIcon: string | null;
   tokenYIcon: string | null;
   binStep: number | null;
+  /** Unix seconds (Meteora's latest close in the pool; inside the window for listed pools). */
+  lastClosedAt: number;
 }
 
 /** Pools one wallet closed a position in, within the window (pool metadata only; totals are all-time). */
 async function closedPoolsFor(wallet: string): Promise<PoolMeta[]> {
   const out: PoolMeta[] = [];
-  for (let page = 1; page <= 2 && out.length < MAX_POOLS; page++) {
+  for (let page = 1; page <= MAX_LIST_PAGES; page++) {
     const data = await fetchMeteoraOrNull<Json>(meteoraUrls.portfolioClosed(wallet, CLOSED_WINDOW_DAYS, page), CACHE_MS);
     const pools = Array.isArray(data?.pools) ? (data.pools as Json[]) : [];
     for (const p of pools) {
@@ -94,11 +100,12 @@ async function closedPoolsFor(wallet: string): Promise<PoolMeta[]> {
         tokenXIcon: str(p.tokenXIcon),
         tokenYIcon: str(p.tokenYIcon),
         binStep: ((n) => (n == null ? null : Math.round(n)))(num(p.binStep)),
+        lastClosedAt: num(p.lastClosedAt) ?? 0,
       });
     }
     if (data?.hasNext !== true) break;
   }
-  return out.slice(0, MAX_POOLS);
+  return out;
 }
 
 /** One wallet's positions in one pool that closed within the window. */
@@ -128,54 +135,79 @@ async function closedPositionsIn(poolAddress: string, wallet: string, since: num
   return out;
 }
 
-async function fetchClosed(user: Pick<UserRow, "id" | "wallet">): Promise<ClosedPositionsSummary> {
-  const since = Math.floor(Date.now() / 1000) - CLOSED_WINDOW_DAYS * 86400;
-  const wallets = await getUserWalletAddresses(user);
-  const byPool = new Map<string, PoolMeta & { positions: ClosedPosition[] }>();
-  for (const wallet of wallets) {
-    const pools = await closedPoolsFor(wallet);
-    const lists = await Promise.all(pools.map((p) => closedPositionsIn(p.poolAddress, wallet, since)));
-    pools.forEach((meta, i) => {
-      const entry = byPool.get(meta.poolAddress) ?? { ...meta, positions: [] };
-      entry.positions.push(...lists[i]);
-      byPool.set(meta.poolAddress, entry);
-    });
-  }
+interface ListedPool extends PoolMeta {
+  wallets: string[];
+}
 
-  const pools: ClosedPool[] = [];
-  for (const p of byPool.values()) {
-    if (p.positions.length === 0) continue;
-    p.positions.sort((a, b) => b.closedAt - a.closedAt);
-    const capitalUsd = p.positions.reduce((s, x) => s + x.capitalUsd, 0);
-    const pnlUsd = p.positions.reduce((s, x) => s + x.pnlUsd, 0);
-    pools.push({
-      ...p,
-      capitalUsd,
-      feesUsd: p.positions.reduce((s, x) => s + x.feesUsd, 0),
-      pnlUsd,
-      pnlPct: capitalUsd > 0 ? pnlUsd / capitalUsd : null,
-      lastClosedAt: p.positions[0].closedAt,
-    });
-  }
-  pools.sort((a, b) => b.lastClosedAt - a.lastClosedAt);
+/** Every pool any of the member's wallets closed a position in during the window, newest close first. */
+async function fetchPoolList(user: Pick<UserRow, "id" | "wallet">): Promise<ListedPool[]> {
+  const wallets = await getUserWalletAddresses(user);
+  const lists = await Promise.all(wallets.map((w) => closedPoolsFor(w)));
+  const byPool = new Map<string, ListedPool>();
+  lists.forEach((pools, i) => {
+    for (const meta of pools) {
+      const entry = byPool.get(meta.poolAddress);
+      if (entry) {
+        entry.wallets.push(wallets[i]);
+        entry.lastClosedAt = Math.max(entry.lastClosedAt, meta.lastClosedAt);
+      } else byPool.set(meta.poolAddress, { ...meta, wallets: [wallets[i]] });
+    }
+  });
+  return [...byPool.values()].sort((a, b) => b.lastClosedAt - a.lastClosedAt);
+}
+
+const listCache = new Map<number, { at: number; value: Promise<ListedPool[]> }>();
+
+function poolList(user: Pick<UserRow, "id" | "wallet">): Promise<ListedPool[]> {
+  const hit = listCache.get(user.id);
+  if (hit && Date.now() - hit.at < CACHE_MS) return hit.value;
+  if (listCache.size > 500) listCache.clear();
+  const value = fetchPoolList(user);
+  listCache.set(user.id, { at: Date.now(), value });
+  value.catch(() => listCache.delete(user.id));
+  return value;
+}
+
+/** Exact windowed numbers for one listed pool (its positions across the wallets that used it). */
+async function poolDetail(p: ListedPool): Promise<ClosedPool | null> {
+  const since = Math.floor(Date.now() / 1000) - CLOSED_WINDOW_DAYS * 86400;
+  const positions = (await Promise.all(p.wallets.map((w) => closedPositionsIn(p.poolAddress, w, since)))).flat();
+  if (positions.length === 0) return null;
+  positions.sort((a, b) => b.closedAt - a.closedAt);
+  const capitalUsd = positions.reduce((s, x) => s + x.capitalUsd, 0);
+  const pnlUsd = positions.reduce((s, x) => s + x.pnlUsd, 0);
   return {
-    pools,
-    positionCount: pools.reduce((s, p) => s + p.positions.length, 0),
-    pnlUsd: pools.reduce((s, p) => s + p.pnlUsd, 0),
-    windowDays: CLOSED_WINDOW_DAYS,
-    fetchedAt: new Date().toISOString(),
+    poolAddress: p.poolAddress,
+    tokenX: p.tokenX,
+    tokenY: p.tokenY,
+    tokenXMint: p.tokenXMint,
+    tokenYMint: p.tokenYMint,
+    tokenXIcon: p.tokenXIcon,
+    tokenYIcon: p.tokenYIcon,
+    binStep: p.binStep,
+    capitalUsd,
+    feesUsd: positions.reduce((s, x) => s + x.feesUsd, 0),
+    pnlUsd,
+    pnlPct: capitalUsd > 0 ? pnlUsd / capitalUsd : null,
+    lastClosedAt: positions[0].closedAt,
+    positions,
   };
 }
 
-const cache = new Map<number, { at: number; value: Promise<ClosedPositionsSummary> }>();
+/**
+ * One batch of the member's closed pools (newest first) with exact numbers. The pool list costs 1-2
+ * Meteora calls per wallet; each pool in the batch costs one more (cached 10 minutes by URL).
+ */
+export async function readClosedPositions(user: Pick<UserRow, "id" | "wallet">, offset = 0, limit = CLOSED_BATCH): Promise<ClosedPositionsPage> {
+  const list = await poolList(user);
+  const slice = list.slice(offset, offset + limit);
+  const pools = (await Promise.all(slice.map(poolDetail))).filter((p): p is ClosedPool => p !== null);
+  const next = offset + slice.length;
+  return { pools, totalPools: list.length, nextOffset: next < list.length ? next : null, windowDays: CLOSED_WINDOW_DAYS };
+}
 
-/** Cached 10 minutes per member; concurrent requests share one fetch. */
-export function readClosedPositions(user: Pick<UserRow, "id" | "wallet">): Promise<ClosedPositionsSummary> {
-  const hit = cache.get(user.id);
-  if (hit && Date.now() - hit.at < CACHE_MS) return hit.value;
-  if (cache.size > 500) cache.clear();
-  const value = fetchClosed(user);
-  cache.set(user.id, { at: Date.now(), value });
-  value.catch(() => cache.delete(user.id));
-  return value;
+/** One pool's closed result in the window (share card), or null when it has none. */
+export async function readClosedPool(user: Pick<UserRow, "id" | "wallet">, poolAddress: string): Promise<ClosedPool | null> {
+  const entry = (await poolList(user)).find((p) => p.poolAddress === poolAddress);
+  return entry ? poolDetail(entry) : null;
 }
