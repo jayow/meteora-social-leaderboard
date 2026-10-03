@@ -1,18 +1,30 @@
-import type { BadgeId } from "@/lib/badges/config";
+import { BADGES, type BadgeId, type BadgeTier } from "@/lib/badges/config";
 
 /*
  * Badge glyphs, kept free of client code so server renderers (share cards) can draw them too.
  * `color` overrides currentColor where there is no CSS (the share card image).
  */
 /** 16x16 line glyphs, drawn with currentColor. */
-export function BadgeGlyph({ id, size = 12, className = "", color }: { id: BadgeId; size?: number; className?: string; color?: string }) {
+export function BadgeGlyph({
+  id,
+  size = 12,
+  className = "",
+  color,
+  strokeWidth = 1.6,
+}: {
+  id: BadgeId;
+  size?: number;
+  className?: string;
+  color?: string;
+  strokeWidth?: number;
+}) {
   const common = {
     width: size,
     height: size,
     viewBox: "0 0 16 16",
     fill: "none",
     stroke: color ?? "currentColor",
-    strokeWidth: 1.6,
+    strokeWidth,
     strokeLinecap: "round" as const,
     strokeLinejoin: "round" as const,
     className,
@@ -81,4 +93,26 @@ export function BadgeGlyph({ id, size = 12, className = "", color }: { id: Badge
         </svg>
       );
   }
+}
+
+const METAL_BG: Record<BadgeTier, string> = { 1: "bg-bronze", 2: "bg-silver", 3: "bg-gold" };
+
+/**
+ * The badge mark (THEME.md "Medals"): a flat metal coin with the glyph cut out for tiered badges, an
+ * outlined neutral coin for untiered ones, and a dashed outline for a badge the viewer doesn't hold.
+ */
+export function BadgeMedal({ id, tier, held = true, size, className = "" }: { id: BadgeId; tier: BadgeTier; held?: boolean; size: number; className?: string }) {
+  const solid = held && BADGES[id].tiered;
+  const tone = !held
+    ? "border-[1.5px] border-dashed border-border-strong text-mute"
+    : solid
+      ? `${METAL_BG[tier]} text-bg`
+      : "border-[1.5px] border-fg-secondary bg-surface-raised text-fg-secondary";
+  return (
+    <span className={`relative inline-flex shrink-0 items-center justify-center rounded-full ${tone} ${className}`} style={{ width: size, height: size }} aria-hidden="true">
+      {/* Struck-coin rim, only where there's room for it. */}
+      {solid && size >= 40 && <span className="absolute inset-[9%] rounded-full border border-bg/25" />}
+      <BadgeGlyph id={id} size={Math.round(size * 0.5)} strokeWidth={solid ? 1.9 : 1.7} />
+    </span>
+  );
 }

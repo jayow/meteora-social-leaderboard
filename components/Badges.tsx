@@ -2,35 +2,23 @@
 
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { BadgeGlyph } from "@/components/BadgeGlyph";
+import { BadgeMedal } from "@/components/BadgeGlyph";
 import { BADGES, howEarned, sortBadges, tierLabel, type ApiBadge, type BadgeId, type BadgeTier } from "@/lib/badges/config";
 
 /**
- * Member badges: small flat chips (inline SVG, theme tokens) with a tooltip on hover, focus or tap.
- * Tiered badges use the metal tokens (bronze / silver / gold for tiers 1 / 2 / 3); untiered stay neutral.
+ * Member badges: small medallions (BadgeMedal) with a tooltip on hover, focus or tap.
+ * Tiered badges are solid bronze / silver / gold for tiers 1 / 2 / 3; untiered stay neutral.
  * Renders nothing when there are no badges.
  */
 
 const TIER_TONE: Record<BadgeTier, string> = { 1: "text-bronze", 2: "text-silver", 3: "text-gold" };
-/** Tiered chips get a light metal tint and border (THEME.md "Medals"); untiered stay neutral. */
-const TIER_CHIP: Record<BadgeTier, string> = {
-  1: "border-bronze/40 bg-bronze/[.08] hover:border-bronze/70 focus-visible:border-bronze/70",
-  2: "border-silver/40 bg-silver/[.08] hover:border-silver/70 focus-visible:border-silver/70",
-  3: "border-gold/40 bg-gold/[.08] hover:border-gold/70 focus-visible:border-gold/70",
-};
-const NEUTRAL_CHIP = "border-border bg-surface-raised hover:border-border-strong focus-visible:border-border-strong";
 
-/** Glyph colour: metal for tiered badges, `up` for In the Green, neutral otherwise. */
+/** Glyph colour: metal for tiered badges, neutral otherwise (matches the medallion). */
 export function badgeTone(id: BadgeId, tier: BadgeTier): string {
-  if (BADGES[id].tiered) return TIER_TONE[tier];
-  return id === "in_the_green" ? "text-up" : "text-fg-secondary";
+  return BADGES[id].tiered ? TIER_TONE[tier] : "text-fg-secondary";
 }
 
-function chipTone(id: BadgeId, tier: BadgeTier): string {
-  return `${badgeTone(id, tier)} ${BADGES[id].tiered ? TIER_CHIP[tier] : NEUTRAL_CHIP}`;
-}
-
-export { BadgeGlyph } from "@/components/BadgeGlyph";
+export { BadgeGlyph, BadgeMedal } from "@/components/BadgeGlyph";
 
 const EDGE = 8;
 const GAP = 6;
@@ -141,8 +129,8 @@ function Tip({ label, content, className, children, testId }: { label: string; c
 }
 
 const SIZES = {
-  sm: { chip: "h-5 w-5", more: "h-5 min-w-5", glyph: 11 },
-  md: { chip: "h-6 w-6", more: "h-6 min-w-6", glyph: 13 },
+  sm: { medal: 20, more: "h-5 min-w-5" },
+  md: { medal: 24, more: "h-6 min-w-6" },
 } as const;
 
 function fmtEarned(iso: string): string {
@@ -159,11 +147,11 @@ export function BadgeChip({ badge, size = "md" }: { badge: ApiBadge; size?: keyo
     <Tip
       label={`${def.name}${tier ? `, ${tier}` : ""}: ${how}`}
       testId="badge"
-      className={`inline-flex ${s.chip} shrink-0 items-center justify-center rounded-full border transition-colors ${chipTone(badge.id, badge.tier)}`}
+      className="inline-flex shrink-0 rounded-full transition-opacity hover:opacity-85"
       content={
         <>
           <div className="flex items-center gap-1.5">
-            <BadgeGlyph id={badge.id} size={12} className={badgeTone(badge.id, badge.tier)} />
+            <BadgeMedal id={badge.id} tier={badge.tier} size={16} />
             <span className="text-sm font-semibold text-fg">{def.name}</span>
           </div>
           {tier && <div className="mt-0.5 text-xs text-fg-secondary">{tier}</div>}
@@ -172,7 +160,7 @@ export function BadgeChip({ badge, size = "md" }: { badge: ApiBadge; size?: keyo
         </>
       }
     >
-      <BadgeGlyph id={badge.id} size={s.glyph} />
+      <BadgeMedal id={badge.id} tier={badge.tier} size={s.medal} />
     </Tip>
   );
 }
@@ -209,7 +197,7 @@ export function BadgeRow({
                 const tier = tierLabel(b.id, b.tier);
                 return (
                   <li key={b.id} className="flex items-center gap-1.5 text-sm text-fg-secondary">
-                    <BadgeGlyph id={b.id} size={12} className={badgeTone(b.id, b.tier)} />
+                    <BadgeMedal id={b.id} tier={b.tier} size={16} />
                     <span className="font-semibold text-fg">{BADGES[b.id].name}</span>
                     {tier && <span className="text-mute">· {tier.split(" · ")[0]}</span>}
                   </li>

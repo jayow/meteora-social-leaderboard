@@ -41,7 +41,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string;
     const holders = tiered ? rows[0]?.at_tier ?? 1 : rows[0]?.total ?? 1;
     const tierName = tiered ? tierLabel(badge, held.tier)?.split(" · ")[0] ?? null : null;
     const holdersLine = `${holders.toLocaleString("en-US")} ${holders === 1 ? "member has" : "members have"} ${tierName ? `${tierName} ${def.name}` : "it"}`;
-    const metal = tiered ? METAL[held.tier] : badge === "in_the_green" ? THEME.up : THEME.fgSecondary;
+    const metal = tiered ? METAL[held.tier] : THEME.fgSecondary;
 
     const origin = requestOrigin(req);
     const fonts = await interFonts();
@@ -63,10 +63,24 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string;
     const medalEl = (
       <div style={{ display: "flex", position: "relative", width: medal, height: medal, flexShrink: 0 }}>
         {ripples}
+        {/* The medallion (components/BadgeGlyph BadgeMedal): solid metal coin with the glyph cut out, or an outlined coin when untiered. */}
         <div
-          style={{ display: "flex", width: medal, height: medal, borderRadius: 9999, border: `6px solid ${metal}`, backgroundColor: THEME.surfaceRaised, alignItems: "center", justifyContent: "center" }}
+          style={{
+            display: "flex",
+            position: "relative",
+            width: medal,
+            height: medal,
+            borderRadius: 9999,
+            backgroundColor: tiered ? metal : THEME.surfaceRaised,
+            border: tiered ? "none" : `6px solid ${metal}`,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
         >
-          <BadgeGlyph id={badge} size={medal * 0.5} color={metal} />
+          {tiered && (
+            <div style={{ position: "absolute", left: medal * 0.09, top: medal * 0.09, width: medal * 0.82, height: medal * 0.82, borderRadius: 9999, border: `3px solid ${THEME.bg}`, opacity: 0.25 }} />
+          )}
+          <BadgeGlyph id={badge} size={medal * 0.5} color={tiered ? THEME.bg : metal} strokeWidth={tiered ? 1.9 : 1.6} />
         </div>
       </div>
     );

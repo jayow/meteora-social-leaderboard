@@ -5,7 +5,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { displayName, fmtPrice, fmtUsd, timeAgo } from "@/lib/format";
 import type { ActivityItem, ActivityPerson } from "@/lib/activity-types";
-import { BadgeGlyph, badgeTone } from "@/components/Badges";
+import { BadgeMedal } from "@/components/Badges";
 import { BADGES, tierLabel } from "@/lib/badges/config";
 import { binLabel } from "@/components/ui";
 
@@ -84,9 +84,7 @@ function glyphTone(kind: ActivityItem["kind"]): string {
 function KindIcon({ item }: { item: ActivityItem }) {
   if (item.kind === "badge" && item.badge) {
     return (
-      <span className="flex h-5 w-5 shrink-0 items-center justify-center" aria-hidden="true">
-        <BadgeGlyph id={item.badge.id} size={14} className={badgeTone(item.badge.id, item.badge.tier)} />
-      </span>
+      <BadgeMedal id={item.badge.id} tier={item.badge.tier} size={20} />
     );
   }
   return (
