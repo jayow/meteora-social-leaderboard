@@ -7,7 +7,7 @@ import { Logo, Avatar } from "@/components/ui";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { SignInModal, type SignInStep } from "@/components/SignInModal";
 import { useMe } from "@/components/MeProvider";
-import { meteoraHomeUrl } from "@/lib/meteora-links";
+import { markReferralUsed, meteoraHomeUrl, referralUsed, withoutReferral } from "@/lib/meteora-links";
 import { forgetRememberedWallet } from "@/lib/wallet-session";
 import { displayName } from "@/lib/format";
 import { OwnWalletRow } from "@/components/OwnWalletRow";
@@ -20,6 +20,7 @@ import { AnnouncementBanner, NotificationBell, SettingsModal, useNotifications }
 
 interface SessionData {
   tourCompletedAt?: string | null;
+  meteoraReferralUsedAt?: string | null;
   userId?: number | null;
   xHandle?: string | null;
   xName?: string | null;
@@ -213,6 +214,40 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     tourStarted.current = true;
     setTourOpen(true);
   }, [session, isMember, needsTermsConsent, pathname]);
+
+  // Our Meteora referral rides on a member's first Meteora link only. Links keep the code in their
+  // href; from the second click on, it's stripped right before the browser follows the link.
+  useEffect(() => {
+    if (session?.meteoraReferralUsedAt) markReferralUsed();
+  }, [session?.meteoraReferralUsedAt]);
+
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      const a = e.target instanceof Element ? e.target.closest<HTMLAnchorElement>("a[href]") : null;
+      if (!a) return;
+      const clean = withoutReferral(a.href);
+      if (!clean) return;
+      if (referralUsed()) {
+        a.href = clean;
+        return;
+      }
+      markReferralUsed();
+      if (isSignedIn) {
+        void fetch("/api/users/me", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ meteoraReferralUsed: true }),
+          keepalive: true,
+        }).catch(() => undefined);
+      }
+    };
+    document.addEventListener("click", onClick, true);
+    document.addEventListener("auxclick", onClick, true);
+    return () => {
+      document.removeEventListener("click", onClick, true);
+      document.removeEventListener("auxclick", onClick, true);
+    };
+  }, [isSignedIn]);
 
   const closeTour = useCallback(() => {
     setTourOpen(false);

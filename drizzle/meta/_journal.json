@@ -225,6 +225,13 @@
       "when": 1791025552789,
       "tag": "0031_closed_positions",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1791029853625,
+      "tag": "0032_meteora_referral_once",
+      "breakpoints": true
     }
   ]
 }

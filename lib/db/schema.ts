@@ -98,6 +98,8 @@ export const users = pgTable(
     closedBackfillAt: timestamp("closed_backfill_at", { withTimezone: true }),
     /** Backfill progress: index into the member's pool list (sorted by address), so long backfills resume. */
     closedBackfillCursor: integer("closed_backfill_cursor").notNull().default(0),
+    /** First Meteora link opened with our referral code; later links go out without it (lib/meteora-links.ts). */
+    meteoraReferralUsedAt: timestamp("meteora_referral_used_at", { withTimezone: true }),
     /** Announcement banners posted up to this time are dismissed. */
     announcementDismissedAt: timestamp("announcement_dismissed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

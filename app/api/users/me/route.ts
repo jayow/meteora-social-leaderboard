@@ -18,6 +18,8 @@ interface PatchBody {
   displayName?: string;
   /** The guided tour was finished or skipped. */
   tourCompleted?: boolean;
+  /** The member opened their first Meteora link (with our referral). */
+  meteoraReferralUsed?: boolean;
 }
 
 export async function PATCH(req: NextRequest): Promise<NextResponse> {
@@ -40,6 +42,7 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
   const updates: Partial<typeof users.$inferInsert> = {};
 
   if (body.tourCompleted === true) updates.tourCompletedAt = new Date();
+  if (body.meteoraReferralUsed === true && !user.meteoraReferralUsedAt) updates.meteoraReferralUsedAt = new Date();
 
   if (body.displayName !== undefined) {
     if (user.xHandle) return NextResponse.json({ error: "Your X name is shown while X is linked" }, { status: 400 });

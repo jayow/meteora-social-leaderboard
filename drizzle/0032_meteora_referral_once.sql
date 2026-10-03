@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD COLUMN "meteora_referral_used_at" timestamp with time zone;
