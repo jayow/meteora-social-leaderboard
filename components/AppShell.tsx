@@ -15,7 +15,7 @@ import { onSessionChanged, onSignInRequested, onWalletLinkRequested, requestWall
 import { TermsConsentModal } from "@/components/TermsConsentModal";
 import { TERMS_VERSION } from "@/lib/legal";
 import { GlobalSearch } from "@/components/GlobalSearch";
-import { ProductTour } from "@/components/ProductTour";
+import { ProductTour, X_ACCOUNT } from "@/components/ProductTour";
 
 interface SessionData {
   tourCompletedAt?: string | null;
@@ -403,6 +403,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="flex flex-wrap justify-center gap-x-4 gap-y-1">
           <Link href="/terms" className="transition hover:text-fg">Terms</Link>
           <Link href="/privacy" className="transition hover:text-fg">Privacy</Link>
+          <a href={`https://x.com/${X_ACCOUNT}`} target="_blank" rel="noreferrer" className="transition hover:text-fg" data-testid="footer-x">@{X_ACCOUNT} ↗</a>
           <a href={meteoraHomeUrl()} target="_blank" rel="noreferrer" className="transition hover:text-fg">Meteora ↗</a>
         </div>
       </footer>
