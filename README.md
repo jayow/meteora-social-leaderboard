@@ -106,7 +106,15 @@ Not built yet, roughly in priority order.
   badges; cooldown on link/unlink. The existing `DELETE /api/wallets/[address]` is unused and only
   looks at `user_wallets`. Until then, wrong-wallet fixes are done by hand in the database.
 - **Multi-wallet UI** (backend exists: `user_wallets`, link/add APIs, syncs merge all wallets).
-- Competition page, streaks.
+- **"More" tab: Competition, Partners, Points.** Ship the tab with the first real page, not with
+  empty "coming soon" pages. Desktop: a "More" dropdown after Badges. Phone: "More" replaces "Me" in
+  the tab bar (the profile stays in the account menu). Order:
+  - **Competition** first: decide what's ranked (PnL, fees, PnL %), the window, eligibility and
+    prizes; leaderboard data mostly exists.
+  - **Partners**: a page of partner protocols and communities with logos and links (content from us).
+  - **Points**: design before building. What earns points (volume, fees, invites, streaks, badges),
+    what they lead to (rewards, ranks), how they relate to badges, and anti-gaming rules.
+- Streaks.
 - **Badges design rework.**
 - In-app LP trading (the Terms already mention it), with in-app price charts.
 
