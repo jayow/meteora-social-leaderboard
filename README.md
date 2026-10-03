@@ -87,8 +87,9 @@ Not built yet, roughly in priority order.
 - **Notifications** (scoped). Nothing exists yet: no notifications table, no email (members sign
   up with X or a wallet), no push. Phase 1, in-app: a bell in the header with an unread count, fed
   by a `notifications` table (user, kind, actor, target, read_at) written alongside the existing
-  `activity` rows: new follower, likes on your LP ideas, badge earned, podium finish, and someone
-  you follow opening a position in a pool you're in. Phase 2, range alerts: during each sync
+  `activity` rows. Must-haves: someone followed you, and one of your invite codes was used (who
+  joined with it). Also: likes on your LP ideas, badge earned, podium finish, and someone you follow
+  opening a position in a pool you're in. Phase 2, range alerts: during each sync
   (every 15 min) flag open positions whose active bin has left their range, and again when they
   come back; active bins already come from the chain for liquidity shapes. Phase 3, off-site
   delivery: a Telegram bot (where LPs already are; members link it by messaging the bot a one-time
