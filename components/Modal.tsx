@@ -22,13 +22,15 @@ interface ModalProps {
   labelledBy?: string;
   label?: string;
   testId?: string;
+  /** See-through backdrop (the page stays visible, dimmed like the product tour) instead of the opaque default. */
+  dim?: boolean;
 }
 
 /**
  * Portaled to <body> so no ancestor (e.g. a card with a transform or z-index stacking
  * context) can trap or overlap it. Escape and a click on the backdrop both close it.
  */
-export function Modal({ onClose, children, className = "", labelledBy, label, testId }: ModalProps) {
+export function Modal({ onClose, children, className = "", labelledBy, label, testId, dim = false }: ModalProps) {
   const [mounted, setMounted] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const downOnBackdrop = useRef(false);
@@ -73,7 +75,7 @@ export function Modal({ onClose, children, className = "", labelledBy, label, te
 
   return createPortal(
     <div
-      className={MODAL_BACKDROP}
+      className={dim ? MODAL_BACKDROP.replace("bg-bg ", "bg-bg/70 ") : MODAL_BACKDROP}
       data-modal-backdrop=""
       // Close only when the press both starts and ends on the backdrop (a drag out of a text field doesn't close).
       onMouseDown={(e) => {

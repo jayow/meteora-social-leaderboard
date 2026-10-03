@@ -86,7 +86,7 @@ export function FollowListModal({
   const title = kind === "followers" ? "Followers" : "Following";
 
   return (
-    <Modal onClose={onClose} label={title} testId="follow-list" className="flex max-h-[80vh] max-w-sm flex-col overflow-hidden">
+    <Modal dim onClose={onClose} label={title} testId="follow-list" className="flex max-h-[80vh] max-w-sm flex-col overflow-hidden">
       <div className="flex items-center justify-between border-b border-border py-3 pl-5 pr-3">
         <h2 className="text-xl font-semibold">{title}</h2>
         <ModalClose onClick={onClose} />
