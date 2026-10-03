@@ -84,13 +84,26 @@ Not built yet, roughly in priority order.
   count DAMM pools (check that DAMM v2 pools record their creator on-chain). About 2-3 extra Meteora
   calls per member per sync. Decide first: combined stats (as now, recommended) or per protocol;
   whether to show DBC launchpad pools. Est. 2-3 days.
+- **Notifications** (scoped). Nothing exists yet: no notifications table, no email (members sign
+  up with X or a wallet), no push. Phase 1, in-app: a bell in the header with an unread count, fed
+  by a `notifications` table (user, kind, actor, target, read_at) written alongside the existing
+  `activity` rows: new follower, likes on your LP ideas, badge earned, podium finish, and someone
+  you follow opening a position in a pool you're in. Phase 2, range alerts: during each sync
+  (every 15 min) flag open positions whose active bin has left their range, and again when they
+  come back; active bins already come from the chain for liquidity shapes. Phase 3, off-site
+  delivery: a Telegram bot (where LPs already are; members link it by messaging the bot a one-time
+  code), and browser push as an option (on iPhone it only works once the site is added to the home
+  screen). X DMs need the paid API, so skip them. Settings page with a toggle per kind and
+  channel; rate-limit and bundle (e.g. "5 people liked your LP idea"). Decide first: whether range
+  alerts need checks more often than every 15 min. Est. phase 1: 2 days; phase 2: 1-2 days;
+  phase 3: 2-3 days.
 - **Wallet removal** (parked until multi-wallet is a real feature). Rules: never remove an account's
   last sign-in method; resync on removal (past daily snapshots keep the old combined numbers);
   record which wallet created each pool so a removed wallet's pools stop counting; keep earned
   badges; cooldown on link/unlink. The existing `DELETE /api/wallets/[address]` is unused and only
   looks at `user_wallets`. Until then, wrong-wallet fixes are done by hand in the database.
 - **Multi-wallet UI** (backend exists: `user_wallets`, link/add APIs, syncs merge all wallets).
-- Competition page, streaks, notifications.
+- Competition page, streaks.
 - **Badges design rework.**
 - In-app LP trading (the Terms already mention it), with in-app price charts.
 
