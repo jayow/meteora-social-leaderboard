@@ -350,38 +350,43 @@ function RangeBar({ d, scale, unit }: { d: OpenPositionDetail; scale: PriceScale
   const label = `Range ${min} to ${max} ${unit}${p != null ? `, current ${fmtPrice(d.poolPrice ?? null)}` : ""}, ${d.inRange ? "in range" : "out of range"}`;
   // Liquidity shape over the same span (bins are geometric, so they sit evenly on the log scale).
   const shape = d.shape && d.shape.bars.length > 0 && b - a >= 6 ? d.shape : null;
+  // Bin at the pool price (same treatment as the pool's MiniRange); none when out of range.
+  const activeBin = shape && d.inRange && shape.active >= 0 && shape.active <= 1 ? Math.min(Math.floor(shape.active * shape.bars.length), shape.bars.length - 1) : null;
   return (
     <div role="img" aria-label={label} className="min-w-0">
       {shape && (
-        <div className="relative h-6" aria-hidden="true" data-testid="position-shape">
+        <div className="relative h-8" aria-hidden="true" data-testid="position-shape">
           <div className="absolute inset-y-0 flex items-end gap-px" style={{ left: `${a}%`, width: `${b - a}%` }}>
             {shape.bars.map((h, i) => {
-              // Bins above the pool price hold the base token, below it the quote token.
-              const above = (i + 0.5) / shape.bars.length > shape.active;
-              return (
-                <div
-                  key={i}
-                  className={`min-w-0 flex-1 rounded-t-[1px] ${above ? "bg-fg-secondary/55" : "bg-mute/40"}`}
-                  style={{ height: `${Math.max(h, h > 0 ? 6 : 0)}%` }}
-                />
-              );
+              // The bin at the pool price is solid; above it holds the base token, below it the quote token.
+              // Out of range, every bar fades.
+              const tone = activeBin == null ? "bg-mute/30" : i === activeBin ? "bg-fg" : i > activeBin ? "bg-fg-secondary/70" : "bg-mute/40";
+              return <div key={i} className={`min-w-0 flex-1 rounded-t-[1px] ${tone}`} style={{ height: `${Math.max(h, h > 0 ? 6 : 0)}%` }} />;
             })}
           </div>
         </div>
       )}
-      <div className="relative h-3">
-        <div className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-border" />
-        <div
-          className={`absolute top-1/2 h-1 -translate-y-1/2 rounded-full ${d.inRange ? "bg-up/70" : "bg-mute/40"}`}
-          style={{ left: `${a}%`, width: `${Math.max(b - a, 1.5)}%` }}
-        />
-        {p != null && (
+      {shape ? (
+        // A thin baseline across the pool's price span, with the price marked on it (red when out of range).
+        <div className="relative h-2">
+          <div className="absolute inset-x-0 top-0 h-px bg-border" />
+          {p != null && <div className={`absolute top-0 h-2 w-0.5 -translate-x-1/2 rounded-full ${d.inRange ? "bg-fg" : "bg-dn"}`} style={{ left: `${p}%` }} />}
+        </div>
+      ) : (
+        <div className="relative h-3">
+          <div className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-border" />
           <div
-            className={`absolute top-1/2 h-3 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded-full ${d.inRange ? "bg-fg" : "bg-dn"}`}
-            style={{ left: `${p}%` }}
+            className={`absolute top-1/2 h-1 -translate-y-1/2 rounded-full ${d.inRange ? "bg-up/70" : "bg-mute/40"}`}
+            style={{ left: `${a}%`, width: `${Math.max(b - a, 1.5)}%` }}
           />
-        )}
-      </div>
+          {p != null && (
+            <div
+              className={`absolute top-1/2 h-3 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded-full ${d.inRange ? "bg-fg" : "bg-dn"}`}
+              style={{ left: `${p}%` }}
+            />
+          )}
+        </div>
+      )}
       <div className={`${NUM} relative mt-1 h-3.5 whitespace-nowrap text-xs leading-none text-mute`} aria-hidden="true">
         {split ? (
           <>
