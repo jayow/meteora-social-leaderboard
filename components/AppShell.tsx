@@ -71,12 +71,14 @@ function TabLink({ href, active, label, icon }: { href: string; active: boolean;
   return (
     <Link
       href={href}
-      data-tour={tourId(href)}
       aria-current={active ? "page" : undefined}
-      className={`flex min-w-0 flex-1 flex-col items-center gap-1 rounded-tile py-1 text-xs font-medium transition ${active ? "text-accent" : "text-mute hover:text-fg"}`}
+      className={`flex min-w-0 flex-1 flex-col items-center rounded-tile py-1 text-xs font-medium transition ${active ? "text-accent" : "text-mute hover:text-fg"}`}
     >
-      {icon}
-      {label}
+      {/* The tour anchor is the icon + label, so its highlight stays inside this tab. */}
+      <span data-tour={tourId(href)} className="flex flex-col items-center gap-1">
+        {icon}
+        {label}
+      </span>
     </Link>
   );
 }
