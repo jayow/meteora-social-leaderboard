@@ -33,6 +33,8 @@ export function formatCell(n: number): string {
 
 /** formatUsd with a true minus sign: same width as "+" in tabular figures (a hyphen is narrower). */
 const signed = (n: number) => formatUsd(n, true).replace("-", "\u2212");
+/** Short cell value with its sign: "+$142", "\u2212$1.2K". */
+const signedCell = (n: number) => `${n > 0 ? "+" : n < 0 ? "\u2212" : ""}${formatCell(n)}`;
 
 async function fetchMonth(userId: number, month: string): Promise<DailyPnL[]> {
   const res = await fetch(`/api/users/${userId}/calendar?month=${month}`);
@@ -145,6 +147,8 @@ export function PnLCalendar({ userId, compact = false }: { userId?: number | nul
   const title = cursor.toLocaleString("en-US", { month: "long", year: "numeric" });
   const isCurrent = y === now.getFullYear() && m === now.getMonth();
   const cellH = compact ? "min-h-[46px]" : "min-h-[60px] sm:min-h-[76px]";
+  // Biggest day this month: the waterline under each value is sized against it.
+  const maxAbs = days.reduce((a, d) => Math.max(a, Math.abs(d.pnl)), 0);
 
   const phone = (
     <>
@@ -177,31 +181,25 @@ export function PnLCalendar({ userId, compact = false }: { userId?: number | nul
             const e = map.get(iso);
             const pnl = e?.pnl ?? 0;
             const pos = e?.positions ?? 0;
-            const tone =
-              pnl > 0
-                ? "bg-up/10 border-up/25 text-up"
-                : pnl < 0
-                  ? "bg-dn/10 border-dn/25 text-dn"
-                  : "bg-surface-raised border-border text-mute";
+            const active = !!e && pnl !== 0;
+            const tone = pnl > 0 ? "text-up" : "text-dn";
+            // Waterline: no box, the signed value and a short bar under it sized by the day (sqrt, so small days still show).
+            const line = maxAbs > 0 ? Math.max(18, Math.sqrt(Math.abs(pnl) / maxAbs) * 100) * 0.7 : 0;
             return (
-              <div key={iso} className={`${cellH} flex flex-col items-center gap-1 rounded-tile border px-0.5 pb-1 pt-1.5 text-center sm:px-1 ${tone}`} title={e ? `${iso}: ${formatUsd(pnl, true)} · ${pos} closed` : iso}>
-                <div className="text-xs font-medium leading-none tabular-nums text-mute">{day}</div>
-                {e && pnl !== 0 ? (
+              <div key={iso} className={`${cellH} flex flex-col items-center justify-center gap-0.5 px-0.5 text-center`} title={e ? `${iso}: ${formatUsd(pnl, true)} · ${pos} closed` : iso}>
+                <div className={`text-xs leading-none tabular-nums ${active ? "text-mute" : "text-border-strong"}`}>{day}</div>
+                {active && (
                   <>
                     {compact ? (
-                      <div className="max-w-full truncate text-xs font-semibold leading-tight tracking-[-0.02em] tabular-nums">{formatCell(pnl)}</div>
+                      <div className={`max-w-full truncate text-xs font-semibold leading-tight tracking-[-0.03em] tabular-nums ${tone}`}>{signedCell(pnl)}</div>
                     ) : (
                       <>
-                        <div className="max-w-full truncate text-xs font-semibold leading-tight tracking-[-0.02em] tabular-nums sm:hidden">{formatCell(pnl)}</div>
-                        <div className="hidden max-w-full truncate text-base font-semibold leading-tight tracking-[-0.01em] tabular-nums sm:block">{signed(pnl)}</div>
-                        <div className="hidden text-xs leading-none tabular-nums text-mute sm:block">{pos} pos</div>
+                        <div className={`max-w-full truncate text-xs font-semibold leading-tight tracking-[-0.03em] tabular-nums sm:hidden ${tone}`}>{signedCell(pnl)}</div>
+                        <div className={`hidden max-w-full truncate text-base font-semibold leading-tight tracking-[-0.01em] tabular-nums sm:block ${tone}`}>{signed(pnl)}</div>
                       </>
                     )}
+                    <span className={`mt-0.5 block h-[3px] rounded-full ${pnl > 0 ? "bg-up/80" : "bg-dn/80"}`} style={{ width: `${line}%` }} aria-hidden />
                   </>
-                ) : (
-                  <div className="text-xs leading-none text-border-strong" aria-hidden>
-                    ·
-                  </div>
                 )}
               </div>
             );
