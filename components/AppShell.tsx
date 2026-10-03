@@ -265,7 +265,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className={`min-h-screen md:pb-0 ${showNav ? "pb-[calc(6rem+env(safe-area-inset-bottom))]" : ""}`}>
       {/* Flush with the page: same background, one hairline underneath. */}
-      <header className="sticky top-0 z-40 border-b border-border bg-bg">
+      <header className="sticky top-0 z-40 bg-bg">
         <div className="mx-auto flex h-[60px] max-w-[1320px] items-center gap-10 px-4 lg:px-6">
           <Link href="/" className="flex shrink-0 items-center rounded-tag" aria-label="Pool Party home">
             <Logo />
