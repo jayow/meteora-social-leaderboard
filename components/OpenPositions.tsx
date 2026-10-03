@@ -251,23 +251,30 @@ export function OpenPositions({
   );
 }
 
+/** A token icon through our icon cache (/api/icon); a lettered circle when there's none or it fails. */
+function TokenIcon({ src, symbol, className }: { src: string | null; symbol: string; className: string }) {
+  const [failed, setFailed] = useState(false);
+  const base = `${className} rounded-full border border-bg bg-surface-raised transition group-hover:border-accent-tint`;
+  if (!src || failed) {
+    return (
+      <div className={`${base} flex items-center justify-center text-xs font-semibold text-mute`} aria-label={symbol}>
+        {symbol.replace(/[^a-z0-9]/gi, "").slice(0, 1).toUpperCase()}
+      </div>
+    );
+  }
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={`/api/icon?u=${encodeURIComponent(src)}`} alt={symbol} onError={() => setFailed(true)} className={`${base} object-cover`} />
+  );
+}
+
 export function PoolIcons({ pool, size }: { pool: PoolLike; size: "sm" | "md" }) {
   const dim = size === "md" ? "h-8 w-8" : "h-6 w-6";
   const overlap = size === "md" ? "-ml-2" : "-ml-1.5";
   return (
     <div className="flex shrink-0 items-center">
-      {pool.tokenXIcon ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={pool.tokenXIcon} alt={pool.tokenX} className={`${dim} rounded-full border border-bg bg-surface-raised transition group-hover:border-accent-tint object-cover`} />
-      ) : (
-        <div className={`${dim} rounded-full border border-bg bg-surface-raised transition group-hover:border-accent-tint`} />
-      )}
-      {pool.tokenYIcon ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={pool.tokenYIcon} alt={pool.tokenY} className={`${overlap} ${dim} rounded-full border border-bg bg-surface-raised transition group-hover:border-accent-tint object-cover`} />
-      ) : (
-        <div className={`${overlap} ${dim} rounded-full border border-bg bg-surface-raised transition group-hover:border-accent-tint`} />
-      )}
+      <TokenIcon src={pool.tokenXIcon} symbol={pool.tokenX} className={dim} />
+      <TokenIcon src={pool.tokenYIcon} symbol={pool.tokenY} className={`${overlap} ${dim}`} />
     </div>
   );
 }

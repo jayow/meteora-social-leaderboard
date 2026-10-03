@@ -6,6 +6,7 @@ import { NextRequest } from "next/server";
 import { findUser, latestSnapshot, toPublicSnapshot } from "@/lib/users";
 import { readOpenPositions } from "@/lib/open-positions";
 import { readClosedPool } from "@/lib/closed-positions";
+import { tokenIconDataUri } from "@/lib/token-icon";
 import { displayName, fmtUsd, fmtPct } from "@/lib/format";
 import { THEME } from "@/lib/theme";
 import { getPool } from "@/lib/db";
@@ -114,14 +115,25 @@ export async function GET(
     let volume: number | null = null;
     let fees: number | null;
     let topPool: { name: string; binStep: number | null } | null = null;
-    let closed: { name: string; binStep: number | null; pct: number | null; capital: number } | null = null;
+    let closed: {
+      tokenX: string;
+      tokenY: string;
+      binStep: number | null;
+      pct: number | null;
+      capital: number;
+      icons: [string | null, string | null];
+      /** "1 Oct 2026" (UTC): when the latest position in the pool closed. */
+      date: string;
+    } | null = null;
     if (closedPool !== null) {
       // Same numbers as the profile's Closed positions row (same cached Meteora read).
       const pool = await readClosedPool(user, closedPool);
       if (!pool) return new Response("No closed position in that pool in the last 30 days", { status: 404 });
       pnl = pool.pnlUsd;
       fees = pool.feesUsd;
-      closed = { name: `${pool.tokenX}-${pool.tokenY}`, binStep: pool.binStep, pct: pool.pnlPct, capital: pool.capitalUsd };
+      const icons = await Promise.all([tokenIconDataUri(pool.tokenXIcon), tokenIconDataUri(pool.tokenYIcon)]);
+      const date = new Date(pool.lastClosedAt * 1000).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+      closed = { tokenX: pool.tokenX, tokenY: pool.tokenY, binStep: pool.binStep, pct: pool.pnlPct, capital: pool.capitalUsd, icons: [icons[0], icons[1]], date };
     } else {
       const snapRow = await latestSnapshot(user.id);
       if (!snapRow) {
@@ -146,9 +158,7 @@ export async function GET(
       bgPhoto(bg),
     ]);
 
-    const rangeLabel = closed
-      ? `${closed.name}${closed.binStep != null ? ` · Bin ${closed.binStep}` : ""} · closed position`
-      : range === "1d" ? "1-day PnL" : range === "7d" ? "7-day PnL" : range === "30d" ? "30-day PnL" : "All-time PnL";
+    const rangeLabel = range === "1d" ? "1-day PnL" : range === "7d" ? "7-day PnL" : range === "30d" ? "30-day PnL" : "All-time PnL";
     const handle = displayName(user);
     // X photo when there is one; otherwise the name's initial (remote SVG avatars don't render here).
     const avatar = user.xAvatarUrl ? user.xAvatarUrl.replace("_normal", "_400x400") : null;
@@ -202,10 +212,36 @@ export async function GET(
           </div>
 
           {/* The figure */}
-          <div style={{ display: "flex", flexDirection: "column", marginTop: 56 }}>
-            <div style={{ display: "flex", fontSize: 28, fontWeight: 500, color: labelColor }}>{rangeLabel}</div>
+          <div style={{ display: "flex", flexDirection: "column", marginTop: closed ? 36 : 56 }}>
+            {!closed && <div style={{ display: "flex", fontSize: 28, fontWeight: 500, color: labelColor }}>{rangeLabel}</div>}
+            {/* Closed position: the pool as the app shows it, token icons, pair and bin step. */}
+            {closed && (
+              <div style={{ display: "flex", alignItems: "center" }}>
+                {closed.icons.map((icon, i) => {
+                  const sym = i === 0 ? closed.tokenX : closed.tokenY;
+                  const ring = { width: 48, height: 48, borderRadius: 999, border: `3px solid ${light ? THEME.fg : THEME.bg}`, marginLeft: i === 0 ? 0 : -14 };
+                  return icon ? (
+                    <img key={i} src={icon} width={48} height={48} alt="" style={ring} />
+                  ) : (
+                    <div key={i} style={{ ...ring, display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: THEME.surfaceRaised, color: THEME.fgSecondary, fontSize: 22, fontWeight: 600 }}>
+                      {sym.replace(/[^a-z0-9]/gi, "").slice(0, 1).toUpperCase()}
+                    </div>
+                  );
+                })}
+                <div style={{ display: "flex", marginLeft: 18, fontSize: 38, fontWeight: 700, color: ink, letterSpacing: "-0.01em" }}>{`${closed.tokenX}-${closed.tokenY}`}</div>
+                {closed.binStep != null && (
+                  <div style={{ display: "flex", marginLeft: 16, padding: "4px 14px", borderRadius: 999, border: `2px solid ${light ? THEME.bg : THEME.borderStrong}`, fontSize: 20, fontWeight: 600, color: labelColor }}>
+                    {`Bin ${closed.binStep}`}
+                  </div>
+                )}
+                {/* When the last position in the pool closed: a dated card stays accurate whenever it's seen. */}
+                <div style={{ display: "flex", marginLeft: 10, padding: "4px 14px", borderRadius: 999, border: `2px solid ${light ? THEME.bg : THEME.borderStrong}`, fontSize: 20, fontWeight: 600, color: labelColor }}>
+                  {`Closed ${closed.date}`}
+                </div>
+              </div>
+            )}
             {/* A closed position's % sits beside the figure, on its baseline. */}
-            <div style={{ display: "flex", alignItems: "flex-end", gap: 24, marginTop: 8 }}>
+            <div style={{ display: "flex", alignItems: "flex-end", gap: 24, marginTop: closed ? 14 : 8 }}>
               <div style={{ display: "flex", fontSize: pnlFontSize, fontWeight: 700, color: pnlColor, lineHeight: 1, letterSpacing: "-0.03em" }}>{pnlText}</div>
               {closed?.pct != null && (
                 <div style={{ display: "flex", fontSize: 48, fontWeight: 600, color: pnlColor, lineHeight: 1, marginBottom: 10 }}>
