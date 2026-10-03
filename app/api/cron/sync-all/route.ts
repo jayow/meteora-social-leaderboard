@@ -5,6 +5,7 @@ import { users, type UserRow } from "@/lib/db/schema";
 import { syncUser, type SyncResult } from "@/lib/sync";
 import { evaluatePodium } from "@/lib/badges/compute";
 import { recordDailyStats } from "@/lib/stats";
+import { runClosedBackfill } from "@/lib/closed-history";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -19,6 +20,20 @@ const MAX_RETRIES = 3;
 // Stay well under undici's default 300s headers timeout in the cron's fetch and maxDuration.
 const TIME_BUDGET_MS = 200_000;
 const MAX_ERRORS_IN_RESPONSE = 20;
+// Closed-position backfill after the sync: at most this long per run, inside TIME_BUDGET_MS.
+const BACKFILL_BUDGET_MS = 60_000;
+
+/** Spend what's left of the run's budget (up to a minute) backfilling closed-position history. */
+async function backfillStep(started: number): Promise<void> {
+  const deadline = Math.min(started + TIME_BUDGET_MS, Date.now() + BACKFILL_BUDGET_MS);
+  if (Date.now() >= deadline - 5_000) return;
+  try {
+    const b = await runClosedBackfill(deadline);
+    if (b.worked > 0) console.log(`[cron] closed-position backfill: worked=${b.worked} completed=${b.completed}`);
+  } catch (error) {
+    console.error(`[cron] closed-position backfill failed: ${errorMessage(error)}`);
+  }
+}
 
 // Module-level lock to prevent overlapping runs
 let runInProgress = false;
@@ -133,6 +148,7 @@ async function runBatch(): Promise<RunSummary> {
     summary.candidates = staleUsers.length;
     if (staleUsers.length === 0) {
       summary.reason = "All users recently synced";
+      await backfillStep(started);
       return summary;
     }
 
@@ -168,6 +184,8 @@ async function runBatch(): Promise<RunSummary> {
     }
 
     summary.notAttempted = staleUsers.length - processed;
+
+    await backfillStep(started);
     if (summary.synced === 0 && summary.failed > 0) summary.status = "failed";
     else if (summary.failed > 0 || summary.timedOut) summary.status = "partial";
     return summary;

@@ -71,9 +71,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   // If user's primary wallet is a temp placeholder, replace it. Clear the sync cooldown so the new
-  // wallet's stats load on the next page view instead of up to 5 minutes later.
+  // wallet's stats load on the next page view instead of up to 5 minutes later, and queue the
+  // closed-position backfill so the new wallet's past year is filled in.
   if (currentUser.wallet.startsWith("temp_")) {
-    await db.update(users).set({ wallet, lastSyncedAt: null, lastAttemptedAt: null }).where(eq(users.id, userId));
+    await db
+      .update(users)
+      .set({ wallet, lastSyncedAt: null, lastAttemptedAt: null, closedBackfillAt: null, closedBackfillCursor: 0 })
+      .where(eq(users.id, userId));
     trackEvent("wallet_link", userId, { primary: true });
     return NextResponse.json({ ok: true, message: "Wallet linked successfully" });
   }
@@ -88,7 +92,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     address: wallet,
     isPrimary: 0,
   });
-  await db.update(users).set({ lastSyncedAt: null, lastAttemptedAt: null }).where(eq(users.id, userId));
+  await db
+    .update(users)
+    .set({ lastSyncedAt: null, lastAttemptedAt: null, closedBackfillAt: null, closedBackfillCursor: 0 })
+    .where(eq(users.id, userId));
 
   trackEvent("wallet_link", userId);
   return NextResponse.json({ ok: true, message: "Wallet linked successfully" });

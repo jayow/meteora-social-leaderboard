@@ -20,6 +20,7 @@ const closedAgo = (t: number) => timeAgo(new Date(t * 1000).toISOString());
 export function ClosedPositions({ user, mine = false }: { user: ApiUser; mine?: boolean }) {
   const [pools, setPools] = useState<ClosedPool[] | null>(null);
   const [totalPools, setTotalPools] = useState(0);
+  const [totalPnl, setTotalPnl] = useState<number | null>(null);
   const [nextOffset, setNextOffset] = useState<number | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,6 +47,7 @@ export function ClosedPositions({ user, mine = false }: { user: ApiUser; mine?: 
         if (cancelled) return;
         setPools(j.pools);
         setTotalPools(j.totalPools);
+        setTotalPnl(j.pnlUsd);
         setNextOffset(j.nextOffset);
       })
       .catch((e: Error) => !cancelled && setError(e.message));
@@ -90,6 +92,11 @@ export function ClosedPositions({ user, mine = false }: { user: ApiUser; mine?: 
       {pools && totalPools > 0 && (
         <span className="num text-sm text-mute" data-testid="closed-positions-count">
           {totalPools} pool{totalPools === 1 ? "" : "s"}
+          {totalPnl != null && (
+            <>
+              {" · "}PnL <PnL usd={totalPnl} pct={null} className="text-sm" />
+            </>
+          )}
         </span>
       )}
     </div>
@@ -164,7 +171,7 @@ export function ClosedPositions({ user, mine = false }: { user: ApiUser; mine?: 
 }
 
 function ClosedPoolRow({ pool, onShare }: { pool: ClosedPool; onShare: () => void }) {
-  const count = pool.positions.length;
+  const count = pool.positionCount;
   const pair = `${pool.tokenX}-${pool.tokenY}`;
   return (
     <div className="group relative -mx-3 flex items-center gap-3 rounded-tile px-3 py-3 transition hover:bg-accent-tint" data-testid="closed-position-row">

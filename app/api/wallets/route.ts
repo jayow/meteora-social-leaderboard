@@ -90,6 +90,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       isPrimary: 0,
     })
     .returning();
+  // Re-run the closed-position backfill so the added wallet's past year is filled in.
+  await db.update(users).set({ closedBackfillAt: null, closedBackfillCursor: 0 }).where(eq(users.id, user.id));
 
   trackEvent("wallet_add", user.id);
   return NextResponse.json({

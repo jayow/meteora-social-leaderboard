@@ -2,6 +2,7 @@ import { fetchMeteoraOrNull } from "@/lib/meteora-limiter";
 import { meteoraUrls } from "@/lib/meteora-endpoints";
 import { getUserWalletAddresses } from "@/lib/users";
 import type { UserRow } from "@/lib/db/schema";
+import { readStoredClosed, readStoredClosedPool } from "@/lib/closed-history";
 
 /**
  * A member's positions closed in the last 30 days, live from Meteora (nothing stored), across all their
@@ -48,6 +49,8 @@ export interface ClosedPool {
   pnlPct: number | null;
   /** Unix seconds: the latest close in the window. */
   lastClosedAt: number;
+  positionCount: number;
+  /** Per-position detail (live reads only; stored reads leave it empty). */
   positions: ClosedPosition[];
 }
 
@@ -59,7 +62,11 @@ export interface ClosedPositionsPage {
   /** Offset of the next batch, or null when this was the last. */
   nextOffset: number | null;
   windowDays: number;
+  /** Total PnL over every pool in the window; null when only part of it is known (live reads). */
+  pnlUsd: number | null;
 }
+
+type ClosedUser = Pick<UserRow, "id" | "wallet" | "closedBackfillAt">;
 
 const num = (v: unknown): number | null => {
   if (v == null || v === "") return null;
@@ -190,6 +197,7 @@ async function poolDetail(p: ListedPool): Promise<ClosedPool | null> {
     pnlUsd,
     pnlPct: capitalUsd > 0 ? pnlUsd / capitalUsd : null,
     lastClosedAt: positions[0].closedAt,
+    positionCount: positions.length,
     positions,
   };
 }
@@ -198,16 +206,29 @@ async function poolDetail(p: ListedPool): Promise<ClosedPool | null> {
  * One batch of the member's closed pools (newest first) with exact numbers. The pool list costs 1-2
  * Meteora calls per wallet; each pool in the batch costs one more (cached 10 minutes by URL).
  */
-export async function readClosedPositions(user: Pick<UserRow, "id" | "wallet">, offset = 0, limit = CLOSED_BATCH): Promise<ClosedPositionsPage> {
+export async function readClosedPositions(user: ClosedUser, offset = 0, limit = CLOSED_BATCH): Promise<ClosedPositionsPage> {
+  // Backfilled members read their stored history: instant, exact totals, no Meteora calls.
+  if (user.closedBackfillAt) {
+    const stored = await readStoredClosed(user.id, CLOSED_WINDOW_DAYS, offset, limit);
+    const next = offset + stored.pools.length;
+    return {
+      pools: stored.pools,
+      totalPools: stored.totalPools,
+      nextOffset: next < stored.totalPools ? next : null,
+      windowDays: CLOSED_WINDOW_DAYS,
+      pnlUsd: stored.pnlUsd,
+    };
+  }
   const list = await poolList(user);
   const slice = list.slice(offset, offset + limit);
   const pools = (await Promise.all(slice.map(poolDetail))).filter((p): p is ClosedPool => p !== null);
   const next = offset + slice.length;
-  return { pools, totalPools: list.length, nextOffset: next < list.length ? next : null, windowDays: CLOSED_WINDOW_DAYS };
+  return { pools, totalPools: list.length, nextOffset: next < list.length ? next : null, windowDays: CLOSED_WINDOW_DAYS, pnlUsd: null };
 }
 
 /** One pool's closed result in the window (share card), or null when it has none. */
-export async function readClosedPool(user: Pick<UserRow, "id" | "wallet">, poolAddress: string): Promise<ClosedPool | null> {
+export async function readClosedPool(user: ClosedUser, poolAddress: string): Promise<ClosedPool | null> {
+  if (user.closedBackfillAt) return readStoredClosedPool(user.id, CLOSED_WINDOW_DAYS, poolAddress);
   const entry = (await poolList(user)).find((p) => p.poolAddress === poolAddress);
   return entry ? poolDetail(entry) : null;
 }

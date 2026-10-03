@@ -115,6 +115,10 @@ Not built yet, roughly in priority order.
   - **Points**: design before building. What earns points (volume, fees, invites, streaks, badges),
     what they lead to (rewards, ranks), how they relate to badges, and anti-gaming rules.
 - Streaks.
+- **Sync cadence for scale.** The 15-minute sync re-syncs every member and shares one Meteora rate
+  limit (about 300 requests per window). Past roughly 1,000 members: sync active members every
+  15 min and quiet ones hourly or daily, and ask Meteora for a higher limit or an API key before a
+  public launch. Closed positions already avoid per-view Meteora calls (stored in `closed_positions`).
 - **Badges design rework.**
 - In-app LP trading (the Terms already mention it), with in-app price charts.
 

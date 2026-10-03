@@ -94,6 +94,10 @@ export const users = pgTable(
     notificationsSeenAt: timestamp("notifications_seen_at", { withTimezone: true }),
     /** Notification kinds this member turned off (lib/notifications.ts MUTABLE_KINDS). */
     notificationsMuted: text("notifications_muted").array().notNull().default(sql`'{}'::text[]`),
+    /** Closed-position history (closed_positions) backfilled for the past year; null = not yet. */
+    closedBackfillAt: timestamp("closed_backfill_at", { withTimezone: true }),
+    /** Backfill progress: index into the member's pool list (sorted by address), so long backfills resume. */
+    closedBackfillCursor: integer("closed_backfill_cursor").notNull().default(0),
     /** Announcement banners posted up to this time are dismissed. */
     announcementDismissedAt: timestamp("announcement_dismissed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -340,6 +344,44 @@ export const thesisLikes = pgTable(
   (t) => [
     uniqueIndex("thesis_likes_comment_user_key").on(t.commentId, t.userId),
     index("thesis_likes_user_idx").on(t.userId),
+  ]
+);
+
+/**
+ * Closed DLMM positions per member (lib/closed-history.ts): recorded as syncs see closes, plus a
+ * one-year backfill. `position_key` is an HMAC of the position address (dedupe only): no position or
+ * wallet addresses are stored.
+ */
+export const closedPositions = pgTable(
+  "closed_positions",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    positionKey: varchar("position_key", { length: 64 }).notNull(),
+    poolAddress: varchar("pool_address", { length: 64 }).notNull(),
+    tokenX: text("token_x").notNull(),
+    tokenY: text("token_y").notNull(),
+    tokenXMint: varchar("token_x_mint", { length: 64 }),
+    tokenYMint: varchar("token_y_mint", { length: 64 }),
+    tokenXIcon: text("token_x_icon"),
+    tokenYIcon: text("token_y_icon"),
+    binStep: integer("bin_step"),
+    minPrice: doublePrecision("min_price"),
+    maxPrice: doublePrecision("max_price"),
+    openedAt: timestamp("opened_at", { withTimezone: true }),
+    closedAt: timestamp("closed_at", { withTimezone: true }).notNull(),
+    capitalUsd: doublePrecision("capital_usd").notNull(),
+    withdrawnUsd: doublePrecision("withdrawn_usd").notNull(),
+    feesUsd: doublePrecision("fees_usd").notNull(),
+    pnlUsd: doublePrecision("pnl_usd").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("closed_positions_user_key").on(t.userId, t.positionKey),
+    index("closed_positions_user_closed_idx").on(t.userId, t.closedAt.desc()),
+    index("closed_positions_user_pool_idx").on(t.userId, t.poolAddress),
   ]
 );
 

@@ -6,6 +6,7 @@ import { fetchMeteora } from "@/lib/meteora-limiter";
 import { meteoraUrls } from "@/lib/meteora-endpoints";
 import { getUserWalletAddresses } from "@/lib/users";
 import { recordSyncActivity, type SyncedPosition } from "@/lib/activity";
+import { captureRecentCloses } from "@/lib/closed-history";
 import { attachPositionDetails, fetchWalletOpenPositions, mergeOpenPools, readOpenPositions, type WalletOpenPositions } from "@/lib/open-positions";
 import { refreshBadges } from "@/lib/badges/compute";
 import { scanCreatedPools } from "@/lib/created-pools";
@@ -476,6 +477,13 @@ export async function syncUser(user: UserRow): Promise<SyncResult> {
   // like closes (and reopens next sync).
   if (openOk) {
     await recordSyncActivity(user.id, openedRows, closedRows, allPortfolioPools);
+  }
+
+  // Closed-position history: store any closes from the last week we don't have yet (best effort).
+  if (user.joinedAt) {
+    await captureRecentCloses(user, walletAddresses).catch((error: unknown) =>
+      console.error(`[sync] user ${user.id}: closed-position capture failed: ${error instanceof Error ? error.message : String(error)}`)
+    );
   }
 
   // DLMM pools this member created (twice a day at most; best effort), before badges so Pool Builder sees them.
