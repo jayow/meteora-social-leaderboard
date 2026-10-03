@@ -14,6 +14,7 @@ import { PnLCalendar } from "@/components/PnLCalendar";
 import { CountrySelect } from "@/components/CountrySelect";
 import { Modal, ModalClose } from "@/components/Modal";
 import { OpenPositions } from "@/components/OpenPositions";
+import { ClosedPositions } from "@/components/ClosedPositions";
 import { WalletIcon } from "@/components/SignInModal";
 import { FollowButton } from "@/components/FollowButton";
 import { FollowListModal, type FollowListKind } from "@/components/FollowListModal";
@@ -452,6 +453,8 @@ function Profile() {
           </section>
 
           <OpenPositions userId={user.id} mine={mine} refreshKey={snap?.updatedAt ?? null} syncing={syncing} thesesByPool={latestByPool} />
+
+          <ClosedPositions user={user} mine={mine} />
 
           {!desktop && <CalendarCard userId={user.id} onShare={shareAction} />}
 

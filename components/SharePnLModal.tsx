@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { ApiUser, ApiSnapshot } from "@/lib/api-types";
-import { displayName, fmtUsd } from "@/lib/format";
+import { displayName, fmtPct, fmtUsd } from "@/lib/format";
 import { Modal, ModalClose } from "@/components/Modal";
 import { useMe } from "@/components/MeProvider";
 
@@ -19,8 +19,25 @@ const PARTS = [
   { value: "volume", label: "Volume" },
   { value: "rank", label: "Leaderboard rank" },
 ] as const;
-type Part = (typeof PARTS)[number]["value"];
+/** Closed-position card options (the route's `show` param with kind=closed). */
+const POSITION_PARTS = [
+  { value: "name", label: "Name and photo" },
+  { value: "capital", label: "Capital" },
+  { value: "fees", label: "Fees" },
+] as const;
+type Part = (typeof PARTS)[number]["value"] | (typeof POSITION_PARTS)[number]["value"];
 const DEFAULT_PARTS: Part[] = ["name", "winrate", "fees", "rank", "pool"];
+const DEFAULT_POSITION_PARTS: Part[] = ["name", "capital", "fees"];
+
+/** A closed pool result to share instead of the range PnL. */
+export interface SharedPosition {
+  poolAddress: string;
+  /** "SI-SOL" */
+  name: string;
+  pnlUsd: number;
+  /** Fraction. */
+  pnlPct: number | null;
+}
 
 /** Card background (the route's `bg` param). */
 type Bg = "deep" | "pool" | "shape" | "plain";
@@ -33,23 +50,27 @@ const BGS: { value: Bg; label: string }[] = [
 
 interface SharePnLModalProps {
   user: ApiUser;
-  snap: ApiSnapshot;
+  /** Needed for the range PnL card; not for a closed position. */
+  snap?: ApiSnapshot;
+  /** Share this closed position's result instead of the range PnL. */
+  position?: SharedPosition;
   isOpen: boolean;
   /** The range the page is showing, so the shared number matches what's on screen. */
   initialRange?: Range;
   onClose: () => void;
 }
 
-export function SharePnLModal({ user, snap, isOpen, initialRange, onClose }: SharePnLModalProps) {
-  if (!isOpen) return null;
-  return <ShareDialog user={user} snap={snap} initialRange={initialRange} onClose={onClose} />;
+export function SharePnLModal({ user, snap, position, isOpen, initialRange, onClose }: SharePnLModalProps) {
+  if (!isOpen || (!snap && !position)) return null;
+  return <ShareDialog user={user} snap={snap} position={position} initialRange={initialRange} onClose={onClose} />;
 }
 
-function ShareDialog({ user, snap, initialRange = "30d", onClose }: Omit<SharePnLModalProps, "isOpen">) {
+function ShareDialog({ user, snap, position, initialRange = "30d", onClose }: Omit<SharePnLModalProps, "isOpen">) {
   const { userId } = useMe();
   const [range, setRange] = useState<Range>(initialRange);
   const [copying, setCopying] = useState(false);
-  const [parts, setParts] = useState<Part[]>(DEFAULT_PARTS);
+  const [parts, setParts] = useState<Part[]>(position ? DEFAULT_POSITION_PARTS : DEFAULT_PARTS);
+  const partOptions: readonly { value: Part; label: string }[] = position ? POSITION_PARTS : PARTS;
   const [bg, setBg] = useState<Bg>("deep");
   // The card renders on the server; show a placeholder until each new version has loaded.
   const [loadedUrl, setLoadedUrl] = useState<string | null>(null);
@@ -60,27 +81,34 @@ function ShareDialog({ user, snap, initialRange = "30d", onClose }: Omit<SharePn
   const slug = user.xHandle || String(user.id);
 
   const pnlMap: Record<Range, number | null> = {
-    "1d": snap.pnl1d,
-    "7d": snap.pnl7d,
-    "30d": snap.pnl30d,
-    all: snap.totalPnlUsd,
+    "1d": snap?.pnl1d ?? null,
+    "7d": snap?.pnl7d ?? null,
+    "30d": snap?.pnl30d ?? null,
+    all: snap?.totalPnlUsd ?? null,
   };
 
-  const pnl = pnlMap[range] ?? 0;
+  const pnl = position ? position.pnlUsd : pnlMap[range] ?? 0;
   const rangeLabel = RANGE_LABEL[range];
   // Same origin as the page (prod, or the local preview), so the card shows this deployment's numbers.
   const origin = window.location.origin;
-  const show = PARTS.map((p) => p.value).filter((v) => parts.includes(v)).join(",");
-  const cardUrl = `/api/card/${encodeURIComponent(slug)}?range=${range}&show=${show}&bg=${bg}`;
+  const show = partOptions.map((p) => p.value).filter((v) => parts.includes(v)).join(",");
+  const cardUrl = position
+    ? `/api/card/${encodeURIComponent(slug)}?kind=closed&pool=${encodeURIComponent(position.poolAddress)}&show=${show}&bg=${bg}`
+    : `/api/card/${encodeURIComponent(slug)}?range=${range}&show=${show}&bg=${bg}`;
   const cardLoading = loadedUrl !== cardUrl;
   const togglePart = (v: Part) => setParts((prev) => (prev.includes(v) ? prev.filter((x) => x !== v) : [...prev, v]));
   const profileUrl = `${origin}/profile/${encodeURIComponent(slug)}`;
 
   // Same number format as the profile page's PnL headline.
   const pnlText = fmtUsd(pnl, { signed: true, compact: false });
-  const shareText = mine
-    ? `My ${rangeLabel} Meteora LP PnL: ${pnlText} 🏖️`
-    : `${name}'s ${rangeLabel} Meteora LP PnL: ${pnlText} 🏖️`;
+  const pctText = position?.pnlPct != null ? ` (${position.pnlPct >= 0 ? "+" : "−"}${fmtPct(Math.abs(position.pnlPct), 1)})` : "";
+  const shareText = position
+    ? mine
+      ? `Closed my ${position.name} LP on Meteora: ${pnlText}${pctText} 🏖️`
+      : `${name} closed ${position.name} on Meteora: ${pnlText}${pctText} 🏖️`
+    : mine
+      ? `My ${rangeLabel} Meteora LP PnL: ${pnlText} 🏖️`
+      : `${name}'s ${rangeLabel} Meteora LP PnL: ${pnlText} 🏖️`;
   const xShareUrl = `https://x.com/intent/post?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(profileUrl)}`;
 
   const handleDownload = async () => {
@@ -92,7 +120,7 @@ function ShareDialog({ user, snap, initialRange = "30d", onClose }: Omit<SharePn
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `pool-party-${slug}-${range}.png`;
+      a.download = position ? `pool-party-${slug}-${position.name}-closed.png` : `pool-party-${slug}-${range}.png`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -123,23 +151,33 @@ function ShareDialog({ user, snap, initialRange = "30d", onClose }: Omit<SharePn
       <ModalClose onClick={onClose} className="absolute right-3 top-3 sm:right-4 sm:top-4" />
 
       <h2 id="share-pnl-title" className="pr-10 text-xl font-semibold tracking-tight">
-        {mine ? "Share your PnL" : "Share PnL"}
+        {position ? "Share closed position" : mine ? "Share your PnL" : "Share PnL"}
       </h2>
-      {!mine && <p className="mt-1 truncate pr-10 text-base text-mute">{name}&apos;s Meteora LP stats</p>}
+      {position ? (
+        <p className="mt-1 truncate pr-10 text-base text-mute">
+          {position.name} · closed in the last 30 days{mine ? "" : ` · ${name}`}
+        </p>
+      ) : (
+        !mine && <p className="mt-1 truncate pr-10 text-base text-mute">{name}&apos;s Meteora LP stats</p>
+      )}
 
-      <div className="seg mb-4 mt-4" role="group" aria-label="Range">
-        {(["1d", "7d", "30d", "all"] as Range[]).map((r) => (
-          <button key={r} type="button" onClick={() => setRange(r)} aria-pressed={range === r} className="seg-item">
-            {RANGE_LABEL[r]}
-          </button>
-        ))}
-      </div>
+      {position ? (
+        <div className="mt-4" />
+      ) : (
+        <div className="seg mb-4 mt-4" role="group" aria-label="Range">
+          {(["1d", "7d", "30d", "all"] as Range[]).map((r) => (
+            <button key={r} type="button" onClick={() => setRange(r)} aria-pressed={range === r} className="seg-item">
+              {RANGE_LABEL[r]}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="relative mb-4 aspect-[1200/630] overflow-hidden rounded-tile border border-border bg-bg" aria-busy={cardLoading || undefined}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={cardUrl}
-          alt={`${name}'s ${rangeLabel} PnL card`}
+          alt={position ? `${name}'s ${position.name} closed position card` : `${name}'s ${rangeLabel} PnL card`}
           onLoad={() => setLoadedUrl(cardUrl)}
           onError={() => setLoadedUrl(cardUrl)}
           className={`h-full w-full object-cover transition-opacity ${cardLoading ? "opacity-0" : "opacity-100"}`}
@@ -151,7 +189,8 @@ function ShareDialog({ user, snap, initialRange = "30d", onClose }: Omit<SharePn
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <span className="text-sm font-medium text-mute">Background</span>
         <div className="seg" role="group" aria-label="Card background">
-          {BGS.map((b) => (
+          {/* The liquidity shape belongs to open positions, so a closed card offers the other backgrounds. */}
+          {(position ? BGS.filter((x) => x.value !== "shape") : BGS).map((b) => (
             <button key={b.value} type="button" aria-pressed={bg === b.value} onClick={() => setBg(b.value)} className="seg-item">
               {b.label}
             </button>
@@ -163,7 +202,7 @@ function ShareDialog({ user, snap, initialRange = "30d", onClose }: Omit<SharePn
       <fieldset className="mb-5">
         <legend className="mb-2 text-sm font-medium text-mute">Show on the card</legend>
         <div className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-3" data-testid="share-options">
-          {PARTS.map((p) => (
+          {partOptions.map((p) => (
             <label key={p.value} className="flex cursor-pointer items-center gap-2 text-base text-fg-secondary">
               <input
                 type="checkbox"

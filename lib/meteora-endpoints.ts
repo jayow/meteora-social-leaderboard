@@ -37,6 +37,13 @@ export const meteoraUrls = {
    */
   poolPositions: (poolAddress: string, wallet: string, status: "open" | "closed" | "all" = "open", page = 1, pageSize = 100): string =>
     `${METEORA_DLMM_API}/positions/${enc(poolAddress)}/pnl?user=${enc(wallet)}&status=${status}&page=${page}&page_size=${pageSize}`,
+  /**
+   * Pools with a position closed in the last `daysBack` days (1-365). Paginated by pool, `pageSize`
+   * max 50. Careful: each pool's totals cover ALL its closed positions, not just that window; use
+   * poolPositions(status "closed") and each position's closedAt for windowed numbers.
+   */
+  portfolioClosed: (wallet: string, daysBack: number, page = 1, pageSize = 50): string =>
+    `${METEORA_DLMM_API}/portfolio?user=${enc(wallet)}&days_back=${daysBack}&page=${page}&page_size=${pageSize}`,
   /** Closed + open pools history. */
   portfolio: (wallet: string, pageSize = 100): string =>
     `${METEORA_DLMM_API}/portfolio?user=${enc(wallet)}&page_size=${pageSize}`,

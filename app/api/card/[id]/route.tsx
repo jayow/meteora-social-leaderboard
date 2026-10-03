@@ -5,6 +5,7 @@ import { Wordmark, interFonts, requestOrigin } from "@/lib/share-card";
 import { NextRequest } from "next/server";
 import { findUser, latestSnapshot, toPublicSnapshot } from "@/lib/users";
 import { readOpenPositions } from "@/lib/open-positions";
+import { readClosedPositions } from "@/lib/closed-positions";
 import { displayName, fmtUsd, fmtPct } from "@/lib/format";
 import { THEME } from "@/lib/theme";
 import { getPool } from "@/lib/db";
@@ -39,7 +40,7 @@ async function getUserRank(userId: number, range: LeaderboardRange): Promise<num
 }
 
 /** What the sharer chose to include (Share PnL checkboxes). PnL itself is always on the card. */
-const CARD_PARTS = ["name", "winrate", "fees", "volume", "rank", "pool"] as const;
+const CARD_PARTS = ["name", "winrate", "fees", "volume", "rank", "pool", "capital"] as const;
 type CardPart = (typeof CARD_PARTS)[number];
 const DEFAULT_PARTS: CardPart[] = ["name", "winrate", "fees", "rank", "pool"];
 
@@ -62,8 +63,8 @@ function bgPhoto(bg: CardBg): Promise<string | null> {
   return photoPromises.get(file)!;
 }
 
-function parseParts(raw: string | null): Set<CardPart> {
-  if (raw === null) return new Set(DEFAULT_PARTS);
+function parseParts(raw: string | null, closed: boolean): Set<CardPart> {
+  if (raw === null) return new Set(closed ? ["name", "capital", "fees"] : DEFAULT_PARTS);
   return new Set(raw.split(",").filter((p): p is CardPart => (CARD_PARTS as readonly string[]).includes(p)));
 }
 
@@ -91,11 +92,16 @@ export async function GET(
 ): Promise<ImageResponse | Response> {
   try {
     const { id } = await ctx.params;
+    // kind=closed&pool=<address>: one pool's result from the member's positions closed in the last 30 days.
+    const closedPool = req.nextUrl.searchParams.get("kind") === "closed" ? req.nextUrl.searchParams.get("pool") ?? "" : null;
+    if (closedPool !== null && !/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(closedPool)) {
+      return new Response("Invalid pool", { status: 400 });
+    }
     const range = req.nextUrl.searchParams.get("range") || "30d";
     if (!["1d", "7d", "30d", "all"].includes(range)) {
       return new Response("Invalid range", { status: 400 });
     }
-    const parts = parseParts(req.nextUrl.searchParams.get("show"));
+    const parts = parseParts(req.nextUrl.searchParams.get("show"), closedPool !== null);
     const bg = parseBg(req.nextUrl.searchParams.get("bg"));
     const has = (p: CardPart) => parts.has(p);
 
@@ -103,30 +109,46 @@ export async function GET(
     if (!user || !user.joinedAt) {
       return new Response("User not found", { status: 404 });
     }
-    const snapRow = await latestSnapshot(user.id);
-    if (!snapRow) {
-      return new Response("No data available", { status: 404 });
+    let pnl: number;
+    let winRate: number | null = null;
+    let volume: number | null = null;
+    let fees: number | null;
+    let topPool: { name: string; binStep: number | null } | null = null;
+    let closed: { name: string; binStep: number | null; pct: number | null; capital: number } | null = null;
+    if (closedPool !== null) {
+      // Same numbers as the profile's Closed positions row (same cached Meteora read).
+      const pool = (await readClosedPositions(user)).pools.find((p) => p.poolAddress === closedPool);
+      if (!pool) return new Response("No closed position in that pool in the last 30 days", { status: 404 });
+      pnl = pool.pnlUsd;
+      fees = pool.feesUsd;
+      closed = { name: `${pool.tokenX}-${pool.tokenY}`, binStep: pool.binStep, pct: pool.pnlPct, capital: pool.capitalUsd };
+    } else {
+      const snapRow = await latestSnapshot(user.id);
+      if (!snapRow) {
+        return new Response("No data available", { status: 404 });
+      }
+      const snap = toPublicSnapshot(snapRow);
+      // Same values and formatting as the profile page's Portfolio section, so the two always agree.
+      pnl = ({ "1d": snap.pnl1d, "7d": snap.pnl7d, "30d": snap.pnl30d, all: snap.totalPnlUsd } as Record<string, number | null>)[range] ?? 0;
+      winRate = ({ "1d": snap.winRate1d, "7d": snap.winRate7d, "30d": snap.winRate30d, all: snap.winRate } as Record<string, number | null>)[range] ?? null;
+      volume = ({ "1d": snap.volume1dUsd, "7d": snap.volume7dUsd, "30d": snap.volume30dUsd, all: snap.volumeUsd } as Record<string, number | null>)[range] ?? null;
+      fees = ({ "1d": snap.fees1dUsd, "7d": snap.fees7dUsd, "30d": snap.fees30dUsd, all: snap.feesUsd } as Record<string, number | null>)[range] ?? null;
+      topPool = snap.topPool;
     }
-    const snap = toPublicSnapshot(snapRow);
-
-    // Same values and formatting as the profile page's Portfolio section, so the two always agree.
-    const pnl = ({ "1d": snap.pnl1d, "7d": snap.pnl7d, "30d": snap.pnl30d, all: snap.totalPnlUsd } as Record<string, number | null>)[range] ?? 0;
-    const winRate = ({ "1d": snap.winRate1d, "7d": snap.winRate7d, "30d": snap.winRate30d, all: snap.winRate } as Record<string, number | null>)[range];
-    const volume = ({ "1d": snap.volume1dUsd, "7d": snap.volume7dUsd, "30d": snap.volume30dUsd, all: snap.volumeUsd } as Record<string, number | null>)[range];
-    const fees = ({ "1d": snap.fees1dUsd, "7d": snap.fees7dUsd, "30d": snap.fees30dUsd, all: snap.feesUsd } as Record<string, number | null>)[range];
     const feesLabel = "Fees earned";
-    const topPool = snap.topPool;
 
     const origin = requestOrigin(req);
     const [rank, bars, fonts, photo] = await Promise.all([
       // The leaderboard has no 1-day board, so a 1D card shows no rank.
-      has("rank") && range !== "1d" ? getUserRank(user.id, range as LeaderboardRange) : Promise.resolve(null),
-      bg === "shape" ? poolBackdrop(user.id) : Promise.resolve(null),
+      has("rank") && !closed && range !== "1d" ? getUserRank(user.id, range as LeaderboardRange) : Promise.resolve(null),
+      bg === "shape" && !closed ? poolBackdrop(user.id) : Promise.resolve(null),
       interFonts(),
       bgPhoto(bg),
     ]);
 
-    const rangeLabel = range === "1d" ? "1-day PnL" : range === "7d" ? "7-day PnL" : range === "30d" ? "30-day PnL" : "All-time PnL";
+    const rangeLabel = closed
+      ? `${closed.name}${closed.binStep != null ? ` · Bin ${closed.binStep}` : ""} · closed position`
+      : range === "1d" ? "1-day PnL" : range === "7d" ? "7-day PnL" : range === "30d" ? "30-day PnL" : "All-time PnL";
     const handle = displayName(user);
     // X photo when there is one; otherwise the name's initial (remote SVG avatars don't render here).
     const avatar = user.xAvatarUrl ? user.xAvatarUrl.replace("_normal", "_400x400") : null;
@@ -140,9 +162,10 @@ export async function GET(
     const pnlFontSize = pnlText.length > 12 ? 104 : pnlText.length > 10 ? 120 : 136;
 
     const stats: { label: string; value: string; color: string }[] = [];
-    if (has("winrate")) stats.push({ label: "Win rate", value: fmtPct(winRate, 1), color: ink });
+    if (closed && has("capital")) stats.push({ label: "Capital", value: fmtUsd(closed.capital), color: ink });
+    if (has("winrate") && !closed) stats.push({ label: "Win rate", value: fmtPct(winRate, 1), color: ink });
     if (has("fees")) stats.push({ label: feesLabel, value: fmtUsd(fees), color: light ? ink : THEME.up });
-    if (has("volume")) stats.push({ label: "Volume", value: fmtUsd(volume), color: ink });
+    if (has("volume") && !closed) stats.push({ label: "Volume", value: fmtUsd(volume), color: ink });
     if (has("rank") && rank) stats.push({ label: "Leaderboard", value: `#${rank}`, color: ink });
 
     return new ImageResponse(
@@ -181,8 +204,16 @@ export async function GET(
           {/* The figure */}
           <div style={{ display: "flex", flexDirection: "column", marginTop: 56 }}>
             <div style={{ display: "flex", fontSize: 28, fontWeight: 500, color: labelColor }}>{rangeLabel}</div>
-            <div style={{ display: "flex", fontSize: pnlFontSize, fontWeight: 700, color: pnlColor, lineHeight: 1, letterSpacing: "-0.03em", marginTop: 8 }}>{pnlText}</div>
-            {has("pool") && topPool && (
+            {/* A closed position's % sits beside the figure, on its baseline. */}
+            <div style={{ display: "flex", alignItems: "flex-end", gap: 24, marginTop: 8 }}>
+              <div style={{ display: "flex", fontSize: pnlFontSize, fontWeight: 700, color: pnlColor, lineHeight: 1, letterSpacing: "-0.03em" }}>{pnlText}</div>
+              {closed?.pct != null && (
+                <div style={{ display: "flex", fontSize: 48, fontWeight: 600, color: pnlColor, lineHeight: 1, marginBottom: 10 }}>
+                  {`${closed.pct >= 0 ? "+" : "−"}${fmtPct(Math.abs(closed.pct), 1)}`}
+                </div>
+              )}
+            </div>
+            {has("pool") && !closed && topPool && (
               <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 20, fontSize: 26, fontWeight: 500, color: labelColor }}>
                 <span style={{ color: labelColor }}>Top pool</span>
                 <span style={{ fontWeight: 600, color: ink }}>{topPool.name}</span>

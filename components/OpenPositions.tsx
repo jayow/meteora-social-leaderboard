@@ -25,6 +25,9 @@ interface OpenPool {
   positions?: OpenPositionDetail[] | null;
 }
 
+/** What the pool name and icons need (open and closed pools both have it). */
+export type PoolLike = Pick<OpenPool, "tokenX" | "tokenY" | "tokenXMint" | "tokenYMint" | "tokenXIcon" | "tokenYIcon">;
+
 interface OpenPositionsResponse {
   positions?: OpenPool[];
   totalPositions?: number;
@@ -37,7 +40,7 @@ interface OpenPositionsData {
 }
 
 /** Numbers: Inter with tabular figures (same token as the PnL calendar). */
-const NUM = "font-numeric tabular-nums";
+export const NUM = "font-numeric tabular-nums";
 
 /** Pools shown before "Show all" on the full list. */
 const INITIAL_POOLS = 8;
@@ -248,7 +251,7 @@ export function OpenPositions({
   );
 }
 
-function PoolIcons({ pool, size }: { pool: OpenPool; size: "sm" | "md" }) {
+export function PoolIcons({ pool, size }: { pool: PoolLike; size: "sm" | "md" }) {
   const dim = size === "md" ? "h-8 w-8" : "h-6 w-6";
   const overlap = size === "md" ? "-ml-2" : "-ml-1.5";
   return (
@@ -269,7 +272,7 @@ function PoolIcons({ pool, size }: { pool: OpenPool; size: "sm" | "md" }) {
   );
 }
 
-function PoolName({ pool }: { pool: OpenPool }) {
+export function PoolName({ pool }: { pool: PoolLike }) {
   return (
     <>
       {pool.tokenXMint ? (
@@ -539,7 +542,7 @@ function pnlFraction(pnl: number | null, deposit: number | null | undefined): nu
   return pnl != null && deposit != null && deposit > 0 ? pnl / deposit : null;
 }
 
-function PnL({ usd, pct, className = "" }: { usd: number | null; pct: number | null; className?: string }) {
+export function PnL({ usd, pct, className = "" }: { usd: number | null; pct: number | null; className?: string }) {
   if (usd == null) return <span className={`${NUM} text-mute ${className}`}>—</span>;
   return (
     <span className={`${NUM} ${pnlClass(usd)} ${className}`} title={pct != null ? "PnL vs. deposits" : "PnL"}>
@@ -602,7 +605,7 @@ function PositionRow({ d, scale, unit }: { d: OpenPositionDetail; scale: PriceSc
   );
 }
 
-function Stat({ label, children, className = "" }: { label: string; children: ReactNode; className?: string }) {
+export function Stat({ label, children, className = "" }: { label: string; children: ReactNode; className?: string }) {
   return (
     <div className={`shrink-0 ${className}`}>
       <div className="text-sm text-mute">{label}</div>
