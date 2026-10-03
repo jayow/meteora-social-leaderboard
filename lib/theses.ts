@@ -2,6 +2,7 @@ import { getPool } from "@/lib/db";
 import type { OpenPositionDetail, UserRow } from "@/lib/db/schema";
 import type { ComposerPool, ThesisPost } from "@/lib/thesis-types";
 import { poolBaseFeePct, totalBins } from "@/lib/pool-facts";
+import { fetchMeteoraPoolStats } from "@/lib/meteora-pools";
 
 /**
  * Theses = token_comments. One place for the posting rule and the public shape, so Poolside, the
@@ -154,6 +155,18 @@ export async function listTheses(f: ThesisFilter & { viewerId: number | null; li
   // Base fee per pool on this page (Meteora, cached for hours), looked up in parallel.
   const pools = [...new Set(rows.map((r) => r.pool_address).filter((a): a is string => Boolean(a)))];
   const fees = new Map(await Promise.all(pools.map(async (a) => [a, await poolBaseFeePct(a)] as const)));
+  // Token icons come from members' open positions; a pool nobody is in any more (the author exited)
+  // gets them from Meteora instead (batched, cached).
+  const noIcons = [...new Set(rows.filter((r) => r.pool_address && (!r.p_token_x_icon || !r.p_token_y_icon)).map((r) => r.pool_address as string))];
+  if (noIcons.length > 0) {
+    const stats = await fetchMeteoraPoolStats(noIcons);
+    for (const r of rows) {
+      const st = r.pool_address ? stats.get(r.pool_address) : undefined;
+      if (!st) continue;
+      r.p_token_x_icon ??= st.tokenXIcon;
+      r.p_token_y_icon ??= st.tokenYIcon;
+    }
+  }
   return rows.map((r) => toThesisPost(r, f.viewerId, r.pool_address ? fees.get(r.pool_address) ?? null : null));
 }
 
