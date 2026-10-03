@@ -453,27 +453,51 @@ const LOADING_PROFILE = Array.from({ length: PROFILE_COLS }, (_, i) => 30 + 55 *
  * sync is still reading shapes from the chain it shows a pulsing placeholder; with no shape it falls
  * back to one thin range line per position.
  */
-function MiniRange({ details, scale, unit, pending = false, className = "" }: { details: OpenPositionDetail[]; scale: PriceScale; unit: string; pending?: boolean; className?: string }) {
+function MiniRange({
+  details,
+  scale,
+  unit,
+  base,
+  quote,
+  pending = false,
+  className = "",
+}: {
+  details: OpenPositionDetail[];
+  scale: PriceScale;
+  unit: string;
+  /** Token held above the price (tokenX) and below it (tokenY), named under each end. */
+  base: string;
+  quote: string;
+  pending?: boolean;
+  className?: string;
+}) {
   const price = poolPriceOf(details);
   const p = price != null ? at(scale, price) : null;
   const lo = Math.min(...details.map((d) => d.minPrice ?? Infinity));
   const hi = Math.max(...details.map((d) => d.maxPrice ?? -Infinity));
   const profile = combinedProfile(details, scale);
   const loading = !profile && pending;
+  // Column the pool price falls in; none when the price is outside every range.
+  const priceCol = p != null && p >= 0 && p <= 100 ? Math.min(Math.floor((p / 100) * PROFILE_COLS), PROFILE_COLS - 1) : null;
   const label = `${details.length === 1 ? "Range" : `${details.length} ranges`} ${fmtPrice(lo)} to ${fmtPrice(hi)} ${unit}${price != null ? `, current ${fmtPrice(price)}` : ""}${loading ? ", liquidity shape loading" : ""}`;
   return (
     <div role="img" aria-label={label} title={label} className={`min-w-0 ${className}`} aria-busy={loading || undefined}>
       {profile || loading ? (
-        <div className="relative h-6" data-testid={loading ? "position-shape-loading" : "position-profile"}>
-          <div className="absolute inset-0 flex items-end gap-px">
-            {(profile ?? LOADING_PROFILE).map((h, i) => {
-              // Bins above the pool price hold the base token, below it the quote token (same as the detail bars).
-              const above = p != null && ((i + 0.5) / PROFILE_COLS) * 100 > p;
-              const tone = loading ? "skeleton" : above ? "bg-fg-secondary/55" : "bg-mute/40";
-              return <div key={i} className={`min-w-0 flex-1 rounded-t-[1px] ${tone}`} style={{ height: `${h > 0 ? Math.max(h, 6) : 0}%` }} />;
-            })}
-          </div>
-          {p != null && !loading && <div className="absolute -bottom-0.5 -top-0.5 w-0.5 -translate-x-1/2 rounded-full bg-fg" style={{ left: `${p}%` }} />}
+        <div className="flex h-8 items-end gap-px" data-testid={loading ? "position-shape-loading" : "position-profile"}>
+          {(profile ?? LOADING_PROFILE).map((h, i) => {
+            // The bin at the pool price is solid; above it holds the base token, below it the quote token.
+            // Out of range (no bin at the price), every bar fades.
+            const tone = loading
+              ? "skeleton"
+              : priceCol == null
+                ? "bg-mute/30"
+                : i === priceCol
+                  ? "bg-fg"
+                  : i > priceCol
+                    ? "bg-fg-secondary/70"
+                    : "bg-mute/40";
+            return <div key={i} className={`min-w-0 flex-1 rounded-t-[1px] ${tone}`} style={{ height: `${h > 0 ? Math.max(h, 6) : 0}%` }} />;
+          })}
         </div>
       ) : (
         <div className="relative flex flex-col justify-center gap-[3px] py-1" style={{ minHeight: 14 }}>
@@ -489,9 +513,13 @@ function MiniRange({ details, scale, unit, pending = false, className = "" }: { 
           {p != null && <div className="absolute inset-y-0 w-0.5 -translate-x-1/2 rounded-full bg-fg" style={{ left: `${p}%` }} />}
         </div>
       )}
-      <div className={`${NUM} mt-1 flex justify-between text-xs leading-none text-mute`} aria-hidden="true">
-        <span>{fmtPrice(lo)}</span>
-        <span>{fmtPrice(hi)}</span>
+      <div className={`${NUM} mt-1.5 flex justify-between gap-2 text-xs leading-none text-mute`} aria-hidden="true">
+        <span className="truncate">
+          {quote} · {fmtPrice(lo)}
+        </span>
+        <span className="truncate text-right">
+          {base} · {fmtPrice(hi)}
+        </span>
       </div>
     </div>
   );
@@ -680,7 +708,7 @@ function PositionCard({
             </Stat>
           </>
         )}
-        {scale && details.length > 0 && <MiniRange details={details} scale={scale} unit={unit} pending={syncing} className="w-full sm:ml-auto sm:w-44" />}
+        {scale && details.length > 0 && <MiniRange details={details} scale={scale} unit={unit} base={pool.tokenX} quote={pool.tokenY} pending={syncing} className="w-full sm:ml-auto sm:w-44" />}
       </div>
       </div>
 
