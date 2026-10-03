@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { PageHeader, EmptyState } from "@/components/EmptyState";
 import { BadgeMedal } from "@/components/Badges";
@@ -87,11 +87,156 @@ function TierTrack({ steps, have, counts }: { steps: string[]; have: BadgeTier |
   );
 }
 
-/** Badges guide: your collection up top, then every badge with its tiers, your progress and how many hold it. */
+/** Popover width and the gap kept from the screen edge. */
+const POP_W = 320;
+const EDGE = 16;
+
+/**
+ * One medallion on the wall, with its details in a popover: opens on mouse hover, keyboard focus or a
+ * tap, closes on leave, blur, Escape or a tap outside. The popover sits in the DOM right after the
+ * medallion (so Tab reaches Share) and is shifted sideways to stay on screen.
+ */
+function MedalSlot({
+  id,
+  own,
+  next,
+  pop,
+  open,
+  onOpen,
+  onClose,
+  onShare,
+}: {
+  id: BadgeId;
+  own: ApiBadge | undefined;
+  next: ReturnType<typeof progress>;
+  pop: BadgesResponse["holders"][BadgeId];
+  open: boolean;
+  onOpen: () => void;
+  onClose: () => void;
+  onShare: (() => void) | null;
+}) {
+  const wrap = useRef<HTMLLIElement>(null);
+  // Pointer type of the press in progress, so a tap's focus doesn't open it before the click toggles.
+  const press = useRef<string | null>(null);
+  const [left, setLeft] = useState(0);
+  const def = BADGES[id];
+  const guide = BADGE_GUIDE[id];
+  const have: BadgeTier | 0 = own?.tier ?? 0;
+  const status = next?.qualifies
+    ? `${next.label}, lands on your next sync`
+    : have
+      ? def.tiered
+        ? `You have ${TIER_NAME[have - 1]}`
+        : "You have it"
+      : "Not earned yet";
+  const popId = `badge-pop-${id}`;
+
+  useLayoutEffect(() => {
+    if (!open || !wrap.current) return;
+    const r = wrap.current.getBoundingClientRect();
+    const w = Math.min(POP_W, window.innerWidth - 2 * EDGE);
+    const x = Math.min(Math.max(r.left + r.width / 2 - w / 2, EDGE), window.innerWidth - EDGE - w);
+    setLeft(x - r.left);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: PointerEvent) => {
+      if (wrap.current && e.target instanceof Node && !wrap.current.contains(e.target)) onClose();
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("pointerdown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open, onClose]);
+
+  return (
+    <li
+      ref={wrap}
+      className="relative flex justify-center"
+      onPointerEnter={(e) => e.pointerType === "mouse" && onOpen()}
+      onPointerLeave={(e) => e.pointerType === "mouse" && onClose()}
+      onBlur={(e) => {
+        if (!wrap.current?.contains(e.relatedTarget as Node | null)) onClose();
+      }}
+      data-testid="badge-guide-row"
+      data-badge={id}
+    >
+      <button
+        type="button"
+        aria-label={`${def.name}: ${status}`}
+        aria-expanded={open}
+        aria-controls={popId}
+        onPointerDown={(e) => {
+          press.current = e.pointerType;
+        }}
+        onFocus={() => {
+          if (!press.current) onOpen();
+        }}
+        onClick={() => {
+          // Mouse: hover already opened it. Touch / pen: tap toggles. Keyboard (Enter / Space): toggles.
+          const by = press.current;
+          press.current = null;
+          if (by === "mouse") onOpen();
+          else if (open) onClose();
+          else onOpen();
+        }}
+        className="rounded-full transition-transform duration-150 hover:scale-105 motion-reduce:transition-none"
+      >
+        <BadgeMedal id={id} tier={own?.tier ?? 1} held={Boolean(own)} size={80} />
+      </button>
+
+      {open && (
+        // pt-2 instead of a margin so the pointer can cross into the popover without leaving the slot.
+        <div id={popId} className="absolute top-full z-30 pt-2" style={{ left, width: `min(${POP_W}px, calc(100vw - ${2 * EDGE}px))` }}>
+          <div className="rounded-tile border border-border-strong bg-surface-raised p-4 text-left shadow-lg shadow-black/40" data-testid="badge-popover">
+            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+              <h3 className="text-md font-semibold">{def.name}</h3>
+              {next?.qualifies ? (
+                <span className="text-sm font-semibold text-accent">{next.label}</span>
+              ) : have ? (
+                <span className={`text-sm font-semibold ${def.tiered ? TIER_TEXT[have - 1] : "text-fg-secondary"}`}>
+                  {def.tiered ? `You have ${TIER_NAME[have - 1]}` : "You have it"}
+                </span>
+              ) : null}
+            </div>
+            {next?.qualifies && <p className="text-sm text-mute">Lands on your next sync</p>}
+            <p className="mt-1 text-base text-fg-secondary">{guide.blurb}</p>
+            {guide.steps.length > 0 && <TierTrack steps={guide.steps} have={have} counts={pop.tiers} />}
+            {next && !next.qualifies && (
+              <p className="num mt-3 text-sm text-fg-secondary" data-testid="badge-progress">
+                {next.label}
+              </p>
+            )}
+            <div className="mt-3 flex items-center justify-between gap-3">
+              {/* Population: a plain count of holders (the member base keeps growing, so no "of N"). */}
+              <p className="num text-sm text-mute" data-testid="badge-population">
+                {pop.total.toLocaleString("en-US")} {pop.total === 1 ? "member has it" : "members have it"}
+              </p>
+              {onShare && (
+                <button type="button" onClick={onShare} className="btn-secondary h-8 px-3 text-sm" data-testid="share-badge">
+                  Share
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </li>
+  );
+}
+
+/** Badges: every badge as a medallion (yours first); the details live in each one's popover. */
 export default function BadgesPage() {
   const [data, setData] = useState<BadgesResponse | null>(null);
   const [error, setError] = useState(false);
   const [sharing, setSharing] = useState<ApiBadge | null>(null);
+  const [openId, setOpenId] = useState<BadgeId | null>(null);
   const me = useMe();
   const slug = me.user?.xHandle || (me.userId != null ? String(me.userId) : null);
 
@@ -105,7 +250,7 @@ export default function BadgesPage() {
   const mine = new Map<BadgeId, ApiBadge>((data?.mine?.badges ?? []).map((b) => [b.id, b]));
 
   return (
-    <main className="mx-auto max-w-[880px] px-4 pb-10 pt-6 lg:px-6">
+    <main className="mx-auto min-h-[70vh] max-w-[880px] px-4 pb-10 pt-6 lg:px-6">
       <PageHeader
         title={
           <>
@@ -117,7 +262,7 @@ export default function BadgesPage() {
             )}
           </>
         }
-        description="Earned automatically from your Meteora LP stats, checked every sync."
+        description="Earned automatically from your Meteora LP stats, checked every sync. Hover or tap a badge for how to earn it."
       />
 
       {error ? (
@@ -125,100 +270,36 @@ export default function BadgesPage() {
           Try again in a moment.
         </EmptyState>
       ) : !data ? (
-        <div className="mt-8 space-y-8" aria-busy="true">
-          <div className="flex gap-10 border-b border-border pb-8">
-            {Array.from({ length: 3 }, (_, i) => (
-              <span key={i} className="skeleton h-[72px] w-[72px] rounded-full" />
-            ))}
-          </div>
-          {Array.from({ length: 4 }, (_, i) => (
-            <div key={i} className="flex gap-4">
-              <span className="skeleton h-11 w-11 shrink-0 rounded-full" />
-              <div className="flex-1 space-y-2">
-                <span className="skeleton block h-5 w-40" />
-                <span className="skeleton block h-4 w-72 max-w-full" />
-              </div>
-            </div>
+        <div className="mt-10 grid grid-cols-4 justify-items-center gap-y-8 md:grid-cols-8" aria-busy="true">
+          {BADGE_IDS.map((id) => (
+            <span key={id} className="skeleton h-20 w-20 rounded-full" />
           ))}
         </div>
       ) : (
         <>
-          {/* Your collection: the badges you hold, big, each with Share. */}
-          {data.mine && (
-            <section className="mt-8 border-b border-border pb-8" aria-label="Your badges">
-              {mine.size > 0 ? (
-                <ul className="flex flex-wrap gap-x-6 gap-y-7 sm:gap-x-10" data-testid="my-badges">
-                  {sortBadges([...mine.values()]).map((b) => {
-                    const def = BADGES[b.id];
-                    return (
-                      <li key={b.id} className="flex w-24 flex-col items-center text-center sm:w-28">
-                        <BadgeMedal id={b.id} tier={b.tier} size={72} />
-                        <div className="mt-2.5 text-base font-semibold">{def.name}</div>
-                        <div className={`text-sm font-semibold ${def.tiered ? TIER_TEXT[b.tier - 1] : "text-mute"}`}>{def.tiered ? TIER_NAME[b.tier - 1] : "Earned"}</div>
-                        {slug && (
-                          <button type="button" onClick={() => setSharing(b)} className="btn-ghost mt-1 h-7 px-2 text-sm" data-testid="share-badge">
-                            Share
-                          </button>
-                        )}
-                      </li>
-                    );
-                  })}
-                </ul>
-              ) : (
-                <p className="text-base text-fg-secondary">No badges yet. Close your first LP position to earn First Splash.</p>
-              )}
-              <Link href="/profile/me" className="link mt-6 inline-block text-sm">
-                See them on your profile
-              </Link>
-            </section>
-          )}
-
-          <h2 className="mt-8 text-lg font-semibold">All badges</h2>
-          <ul className="mt-2">
+          <ul className="mt-10 grid grid-cols-4 justify-items-center gap-y-8 md:grid-cols-8" data-testid="badge-wall">
             {sortBadges(BADGE_IDS.map((id) => ({ id, tier: (mine.get(id)?.tier ?? 0) as BadgeTier }))).map(({ id }) => {
-              const def = BADGES[id];
-              const guide = BADGE_GUIDE[id];
               const own = mine.get(id);
-              const have: BadgeTier | 0 = own?.tier ?? 0;
-              const pop = data.holders[id];
-              const next = progress(id, data.mine?.metrics ?? null, have);
               return (
-                <li
+                <MedalSlot
                   key={id}
-                  className="grid grid-cols-[44px_minmax(0,1fr)] gap-x-4 border-b border-border py-5 last:border-b-0 sm:grid-cols-[44px_minmax(0,1fr)_auto]"
-                  data-testid="badge-guide-row"
-                  data-badge={id}
-                >
-                  <BadgeMedal id={id} tier={own?.tier ?? 1} held={Boolean(own)} size={44} />
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5">
-                      <h3 className="text-md font-semibold">{def.name}</h3>
-                      {next?.qualifies ? (
-                        <span className="text-sm font-semibold text-accent" title="Badges are awarded when your stats sync">
-                          {next.label} <span className="font-normal text-mute">· lands on your next sync</span>
-                        </span>
-                      ) : have ? (
-                        <span className={`text-sm font-semibold ${def.tiered ? TIER_TEXT[have - 1] : "text-fg-secondary"}`}>
-                          {def.tiered ? `You have ${TIER_NAME[have - 1]}` : "You have it"}
-                        </span>
-                      ) : null}
-                    </div>
-                    <p className="mt-0.5 text-base text-fg-secondary">{guide.blurb}</p>
-                    {guide.steps.length > 0 && <TierTrack steps={guide.steps} have={have} counts={pop.tiers} />}
-                    {next && !next.qualifies && (
-                      <p className="num mt-3 text-sm text-fg-secondary" data-testid="badge-progress">
-                        {next.label}
-                      </p>
-                    )}
-                  </div>
-                  {/* Population: a plain count of holders (the member base keeps growing, so no "of N"). */}
-                  <p className="num col-start-2 mt-2 text-sm text-mute sm:col-start-3 sm:mt-0.5 sm:text-right" data-testid="badge-population">
-                    {pop.total.toLocaleString("en-US")} {pop.total === 1 ? "member has it" : "members have it"}
-                  </p>
-                </li>
+                  id={id}
+                  own={own}
+                  next={progress(id, data.mine?.metrics ?? null, own?.tier ?? 0)}
+                  pop={data.holders[id]}
+                  open={openId === id}
+                  onOpen={() => setOpenId(id)}
+                  onClose={() => setOpenId((cur) => (cur === id ? null : cur))}
+                  onShare={own && slug ? () => setSharing(own) : null}
+                />
               );
             })}
           </ul>
+          {data.mine && (
+            <Link href="/profile/me" className="link mt-10 inline-block text-sm">
+              See them on your profile
+            </Link>
+          )}
         </>
       )}
       {sharing && slug && <ShareBadgeModal badge={sharing} slug={slug} onClose={() => setSharing(null)} />}
