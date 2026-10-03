@@ -277,7 +277,8 @@ function Profile() {
   const winBy: Record<Range, number | null> = { "1d": snap?.winRate1d ?? null, "7d": snap?.winRate7d ?? null, "30d": snap?.winRate30d ?? null, all: snap?.winRate ?? null };
   const feesBy: Record<Range, number | null> = { "1d": snap?.fees1dUsd ?? null, "7d": snap?.fees7dUsd ?? null, "30d": snap?.fees30dUsd ?? null, all: snap?.feesUsd ?? null };
   // Share (the PnL card) sits beside the PnL calendar heading, only when there's activity to share.
-  const shareAction = snap && hasActivity(snap) ? () => setShareModalOpen(true) : null;
+  // Members share their own PnL card only, never someone else's.
+  const shareAction = mine && snap && hasActivity(snap) ? () => setShareModalOpen(true) : null;
 
   return (
     <main className="mx-auto max-w-[1320px] px-4 pb-10 pt-6 lg:px-6">
@@ -462,7 +463,7 @@ function Profile() {
         </div>
       </div>
 
-      {snap && (
+      {mine && snap && (
         <SharePnLModal
           user={user}
           snap={snap}
