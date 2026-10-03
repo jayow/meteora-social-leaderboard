@@ -1,0 +1,33 @@
+# Uptime check for lppool.party. GitHub emails the account that last changed this schedule when a
+# run fails (Settings > Notifications > Actions). Scheduled runs can start a few minutes late.
+name: Uptime
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Site and database respond
+        run: |
+          body=$(curl -fsS --retry 2 --retry-delay 15 --max-time 20 https://lppool.party/api/health)
+          echo "$body"
+          echo "$body" | grep -q '"ok":true'
+          echo "$body" | grep -q '"db":"ok"'
+
+      - name: Pages load
+        run: curl -fsS --retry 2 --retry-delay 15 --max-time 20 -o /dev/null https://lppool.party/beta
+
+      - name: Stats sync is running
+        run: |
+          body=$(curl -fsS --retry 2 --retry-delay 15 --max-time 20 https://lppool.party/api/health)
+          if echo "$body" | grep -q '"sync":"stale"'; then
+            echo "No member has synced in 45 minutes: check the sync-cron service on Railway."
+            exit 1
+          fi
