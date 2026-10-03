@@ -90,6 +90,12 @@ export const users = pgTable(
     createdPoolsCheckedAt: timestamp("created_pools_checked_at", { withTimezone: true }),
     /** First-visit guided tour finished or skipped (components/ProductTour.tsx); null = show it. */
     tourCompletedAt: timestamp("tour_completed_at", { withTimezone: true }),
+    /** Notifications up to this time count as read (lib/notifications.ts); null = none read yet. */
+    notificationsSeenAt: timestamp("notifications_seen_at", { withTimezone: true }),
+    /** Notification kinds this member turned off (lib/notifications.ts MUTABLE_KINDS). */
+    notificationsMuted: text("notifications_muted").array().notNull().default(sql`'{}'::text[]`),
+    /** Announcement banners posted up to this time are dismissed. */
+    announcementDismissedAt: timestamp("announcement_dismissed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -335,6 +341,21 @@ export const thesisLikes = pgTable(
     uniqueIndex("thesis_likes_comment_user_key").on(t.commentId, t.userId),
     index("thesis_likes_user_idx").on(t.userId),
   ]
+);
+
+/** Admin announcements to every member: in the notification bell and as a dismissible banner. */
+export const announcements = pgTable(
+  "announcements",
+  {
+    id: serial("id").primaryKey(),
+    body: text("body").notNull(),
+    /** Optional link: a site path ("/badges") or an https URL. */
+    linkUrl: text("link_url"),
+    createdByUserId: integer("created_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+  (t) => [index("announcements_created_idx").on(t.createdAt.desc())]
 );
 
 export type ProfileBannerRow = typeof profileBanners.$inferSelect;

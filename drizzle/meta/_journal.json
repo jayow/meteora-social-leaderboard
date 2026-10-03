@@ -211,6 +211,13 @@
       "when": 1790985954141,
       "tag": "0029_tour_completed",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1790990245519,
+      "tag": "0030_notifications",
+      "breakpoints": true
     }
   ]
 }

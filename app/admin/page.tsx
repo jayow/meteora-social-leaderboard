@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useMe } from "@/components/MeProvider";
 import { useRouter } from "next/navigation";
 import { displayName } from "@/lib/format";
+import { AnnouncementsAdmin } from "@/components/admin/Announcements";
 
 interface AdminData {
   memberCount: number;
@@ -106,6 +107,8 @@ export default function AdminPage() {
           {data.memberCount} / {data.cap} members
         </p>
       </section>
+
+      <AnnouncementsAdmin />
 
       <section className="mb-10">
         <h2 className="mb-3 text-lg font-semibold">Generate codes</h2>

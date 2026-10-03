@@ -16,6 +16,7 @@ import { TermsConsentModal } from "@/components/TermsConsentModal";
 import { TERMS_VERSION } from "@/lib/legal";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { ProductTour, X_ACCOUNT } from "@/components/ProductTour";
+import { AnnouncementBanner, NotificationBell, SettingsModal, useNotifications } from "@/components/Notifications";
 
 interface SessionData {
   tourCompletedAt?: string | null;
@@ -137,6 +138,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [xError, setXError] = useState<string | null>(null);
   const [tourOpen, setTourOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const tourStarted = useRef(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -165,6 +167,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const needsTermsConsent = isSignedIn && session?.termsVersionAccepted !== TERMS_VERSION;
   const hasWallet = Boolean(session?.wallets && session.wallets.length > 0);
   const hasX = Boolean(session?.xHandle);
+  const notifications = useNotifications(isMember && isSignedIn);
   // Private, owner-only: the connected adapter key when it belongs to this account, else the
   // primary wallet from the session endpoint. Never sourced from public APIs.
   const adapterWallet = connected && publicKey ? publicKey.toBase58() : null;
@@ -282,6 +285,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="ml-auto flex min-w-0 items-center gap-4">
             {/* Universal search (members only: /api/search sits behind the beta gate). */}
             {isMember && <GlobalSearch />}
+            {isMember && isSignedIn && <NotificationBell data={notifications.data} onOpen={notifications.markSeen} />}
             {/* Signed out -> Sign in (wallet picker or X) + Sign up (invite code at /join); signed in, not joined -> Join beta; members -> account menu only. */}
             {!isSignedIn && (
               <div className="flex items-center gap-2">
@@ -359,6 +363,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                         type="button"
                         onClick={() => {
                           setMenuOpen(false);
+                          setSettingsOpen(true);
+                        }}
+                        className={`${MENU_ITEM} w-full text-left`}
+                        data-testid="menu-settings"
+                      >
+                        Settings
+                      </button>
+                    )}
+                    {isMember && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMenuOpen(false);
                           setTourOpen(true);
                         }}
                         className={`${MENU_ITEM} w-full text-left`}
@@ -385,6 +402,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </header>
+      {isMember && isSignedIn && <AnnouncementBanner announcement={notifications.data?.announcement ?? null} onDismiss={notifications.dismissAnnouncement} />}
 
       {xError && (
         <div role="alert" className="mx-auto mt-4 flex max-w-[1320px] items-start justify-between gap-3 px-4 lg:px-6">
@@ -425,6 +443,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <SignInModal open={signInOpen} initialStep={signInStep} mode={signInMode} onClose={closeSignIn} />
       <TermsConsentModal open={needsTermsConsent} onAccepted={loadSession} onSignOut={handleSignOut} />
       <ProductTour open={tourOpen} hasWallet={hasWallet} onClose={closeTour} />
+      {settingsOpen && (
+        <SettingsModal muted={notifications.data?.muted ?? null} onSave={notifications.saveMuted} onClose={() => setSettingsOpen(false)} />
+      )}
     </div>
   );
 }
