@@ -2,7 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useMe } from "@/components/MeProvider";
 import { fmtUsd } from "@/lib/format";
 import { DipLink } from "@/components/DipLink";
@@ -88,7 +88,6 @@ async function fetchMembers(rows: PoolData[]): Promise<Map<string, Member[]>> {
 function PoolsContent() {
   const { verified } = useMe();
   const searchParams = useSearchParams();
-  const router = useRouter();
   const tokenMint = searchParams.get("token");
   const sortFromUrl = searchParams.get("sort");
 
@@ -99,8 +98,6 @@ function PoolsContent() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [total, setTotal] = useState(0);
   const [hasMore, setHasMore] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [searchMiss, setSearchMiss] = useState<string | null>(null);
   const [sort, setSort] = useState<PoolSort>(isPoolSort(sortFromUrl) ? sortFromUrl : "members");
   // Token view: filter within the token's pools (server-side, debounced)
   const [poolQuery, setPoolQuery] = useState("");
@@ -222,23 +219,6 @@ function PoolsContent() {
     }
   };
 
-  const handleSearch = (raw: string) => {
-    const term = raw.trim();
-    setSearchMiss(null);
-    if (!term) return;
-    if (term.length >= 32 && /^[1-9A-HJ-NP-Za-km-z]+$/.test(term)) {
-      router.push(`/pools?token=${encodeURIComponent(term)}`);
-      return;
-    }
-    fetch(`/api/tokens/symbol/${encodeURIComponent(term)}`)
-      .then((res) => res.json())
-      .then((data: { mint?: string }) => {
-        if (data.mint) router.push(`/pools?token=${encodeURIComponent(data.mint)}`);
-        else setSearchMiss(term);
-      })
-      .catch(() => setSearchMiss(term));
-  };
-
   // All-pools view returns its full set (member pools, max 100): sort it here. Token view sorts server-side.
   const visiblePools = useMemo(() => {
     const list = pools ?? [];
@@ -308,22 +288,7 @@ function PoolsContent() {
             aria-label={`Search ${tokenInfo.symbol} pools`}
             className="field h-9 min-w-0 flex-1 px-3 sm:max-w-sm"
           />
-        ) : (
-          <input
-            type="search"
-            value={searchTerm}
-            onChange={(e) => {
-              setSearchTerm(e.target.value);
-              setSearchMiss(null);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") handleSearch(searchTerm);
-            }}
-            placeholder="Find a token by symbol or mint, then Enter"
-            aria-label="Find a token by symbol or mint address"
-            className="field h-9 min-w-0 flex-1 px-3 sm:max-w-sm"
-          />
-        )}
+        ) : null}
         <label className="ml-auto flex items-center gap-2 text-sm text-mute">
           Sort
           <select
@@ -342,11 +307,6 @@ function PoolsContent() {
           </select>
         </label>
       </div>
-      {searchMiss && (
-        <p className="mt-2 text-sm text-mute" role="status">
-          No token called “{searchMiss}”. Try its mint address.
-        </p>
-      )}
 
       {loading && !pools ? (
         <PoolRowsSkeleton />
