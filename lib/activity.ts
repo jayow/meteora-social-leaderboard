@@ -130,34 +130,31 @@ function positionDetail(p: SyncedPosition, baseFeePct: number | null): ActivityP
   };
 }
 
-/** Minimal shape of a Meteora portfolio pool entry (closed-position history per pool). */
-export interface PortfolioPoolStat {
-  poolAddress?: string;
-  pnlUsd?: string | number;
-  lastClosedAt?: number;
+/**
+ * What a pool's closes since `since` came to, from stored closed_positions (lib/closed-history.ts, captured
+ * earlier in the same sync): the PnL of exactly the positions that closed, not the pool's all-time total.
+ */
+async function closesSince(userId: number, poolAddress: string, since: Date): Promise<{ pnl: number; lastClosedAt: Date } | null> {
+  if (!process.env.DATABASE_URL) return null;
+  try {
+    const { rows } = await getPool().query<{ pnl: number | null; last: Date | null }>(
+      `SELECT sum(pnl_usd)::float8 AS pnl, max(closed_at) AS last FROM closed_positions
+       WHERE user_id = $1 AND pool_address = $2 AND closed_at >= $3`,
+      [userId, poolAddress, since]
+    );
+    const r = rows[0];
+    return r?.last && r.pnl != null ? { pnl: r.pnl, lastClosedAt: r.last } : null;
+  } catch {
+    return null;
+  }
 }
 
 /**
  * Turn one sync's open_positions diff into events: rows newly inserted are "opened", rows deleted are
- * "closed" (or "big_win" when the pool's realized PnL clears the threshold). Keyed by the
+ * "closed" (or "big_win" when the PnL of the positions that closed clears the threshold). Keyed by the
  * open_positions row id, so re-running a sync can't duplicate events and a reopen gets a new event.
  */
-export async function recordSyncActivity(
-  userId: number,
-  opened: SyncedPosition[],
-  closed: SyncedPosition[],
-  portfolioPools: PortfolioPoolStat[]
-): Promise<void> {
-  const stats = new Map<string, { pnl: number; lastClosedAt: number }>();
-  for (const p of portfolioPools) {
-    if (!p.poolAddress) continue;
-    const pnl = Number(p.pnlUsd ?? 0);
-    const prev = stats.get(p.poolAddress) ?? { pnl: 0, lastClosedAt: 0 };
-    stats.set(p.poolAddress, {
-      pnl: prev.pnl + (Number.isFinite(pnl) ? pnl : 0),
-      lastClosedAt: Math.max(prev.lastClosedAt, p.lastClosedAt ?? 0),
-    });
-  }
+export async function recordSyncActivity(userId: number, opened: SyncedPosition[], closed: SyncedPosition[]): Promise<void> {
   const threshold = bigWinThresholdUsd();
   const now = Date.now();
   const base = (p: SyncedPosition) => ({
@@ -199,10 +196,11 @@ export async function recordSyncActivity(
     events.push({ ...base(p), kind: "opened", dedupeKey: `opened:${p.id}`, detail: positionDetail(p, fees.get(p.poolAddress) ?? null) });
   }
   for (const p of closed) {
-    const s = stats.get(p.poolAddress);
-    const closedAtMs = s && s.lastClosedAt ? s.lastClosedAt * 1000 : 0;
-    // Trust Meteora's close time only when it's after we first saw the position and not in the future.
-    const occurredAt = closedAtMs > p.createdAt.getTime() && closedAtMs <= now ? new Date(closedAtMs) : null;
+    // Closes since we first saw this pool row: exactly this round in the pool, not earlier rounds.
+    const s = await closesSince(userId, p.poolAddress, p.createdAt);
+    const closedAtMs = s ? s.lastClosedAt.getTime() : 0;
+    const occurredAt = closedAtMs > 0 && closedAtMs <= now ? new Date(closedAtMs) : null;
+    // No stored close (capture failed): record the close without a figure rather than a wrong one.
     const pnl = s ? s.pnl : null;
     events.push({
       ...base(p),

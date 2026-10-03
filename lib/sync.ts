@@ -473,17 +473,18 @@ export async function syncUser(user: UserRow): Promise<SyncResult> {
     }
   });
 
-  // Only trust the diff when every wallet's open-positions call succeeded; a failed fetch would look
-  // like closes (and reopens next sync).
-  if (openOk) {
-    await recordSyncActivity(user.id, openedRows, closedRows, allPortfolioPools);
-  }
-
   // Closed-position history: store any closes from the last week we don't have yet (best effort).
+  // Before the activity below, so "closed" events carry the PnL of exactly the positions that closed.
   if (user.joinedAt) {
     await captureRecentCloses(user, walletAddresses).catch((error: unknown) =>
       console.error(`[sync] user ${user.id}: closed-position capture failed: ${error instanceof Error ? error.message : String(error)}`)
     );
+  }
+
+  // Only trust the diff when every wallet's open-positions call succeeded; a failed fetch would look
+  // like closes (and reopens next sync).
+  if (openOk) {
+    await recordSyncActivity(user.id, openedRows, closedRows);
   }
 
   // DLMM pools this member created (twice a day at most; best effort), before badges so Pool Builder sees them.

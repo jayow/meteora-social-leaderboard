@@ -216,7 +216,7 @@ export function EventRow({ item }: { item: ActivityItem }) {
         <PersonLink person={item.actor} /> <Sentence item={item} />
       </p>
       {pnl != null && (
-        <span className={`num shrink-0 text-base font-semibold ${pnl >= 0 ? "text-up" : "text-dn"}`} title="Realized PnL in this pool" data-testid="position-pnl">
+        <span className={`num shrink-0 text-base font-semibold ${pnl >= 0 ? "text-up" : "text-dn"}`} title="PnL of the positions that closed" data-testid="position-pnl">
           {fmtUsd(pnl, { signed: true })}
         </span>
       )}
