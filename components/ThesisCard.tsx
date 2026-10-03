@@ -153,18 +153,19 @@ export function ThesisCard({ post, onDelete, size = "md" }: { post: ThesisPost; 
           <time dateTime={post.createdAt} title={new Date(post.createdAt).toLocaleString()} className="shrink-0 text-sm text-mute">
             {timeAgo(post.createdAt)}
           </time>
+          {/* "In this pool" is the default (the PnL in the pill says so); only an exit gets a mark. */}
+          {post.pool && !post.authorInPool && (
+            <span className="inline-flex shrink-0 items-center gap-1 text-sm text-mute" title="The author has exited this pool (last sync)" data-testid="thesis-closed">
+              <span className="h-1.5 w-1.5 rounded-full bg-dn" aria-hidden />
+              Closed
+            </span>
+          )}
         </div>
         <div className="mt-1">
           <ThesisBody body={post.body} size={size} />
         </div>
-        {/* Context after the text: pool and the author's PnL in it on the left, actions on the right. */}
+        {/* Actions after the text, on the right. */}
         <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1.5">
-          {/* "In this pool" is the default (the PnL beside it says so); only an exit is worth a word. */}
-          {post.pool && !post.authorInPool && (
-            <span className="text-sm text-mute" title="From the author's last sync">
-              Exited this pool
-            </span>
-          )}
           <span className="-mr-2 ml-auto flex items-center">
             <ThesisLikeButton thesisId={post.id} likeCount={post.likeCount} liked={post.likedByViewer} isOwn={post.isOwn} />
             {onDelete && (
