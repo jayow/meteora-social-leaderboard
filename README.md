@@ -64,6 +64,13 @@ No environment secrets required - Meteora Data API is public.
 Live: https://web-production-c8f29.up.railway.app  
 Repo: `jayow/meteora-social-leaderboard`
 
+## Coming soon
+
+- **Search by position address.** Header search covers members, tokens, pools and wallet lookup;
+  pasting a position address doesn't find anything yet.
+- **PnL % leaderboard** (undecided). PnL % already shows on open positions and LP ideas; the
+  leaderboard sorts only by PnL $, fees, volume and win rate.
+
 ## Roadmap
 
 Not built yet, roughly in priority order.
