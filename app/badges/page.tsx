@@ -256,9 +256,14 @@ export default function BadgesPage() {
           <>
             Badges
             {data?.mine && (
-              <span className="num ml-2 text-lg font-medium text-mute" data-testid="badges-summary">
-                {mine.size} of {BADGE_IDS.length}
-              </span>
+              <>
+                <span className="num ml-2 text-lg font-medium text-mute" data-testid="badges-summary">
+                  {mine.size} of {BADGE_IDS.length}
+                </span>
+                <Link href="/profile/me" className="link ml-3 text-sm font-medium tracking-normal">
+                  See them on your profile
+                </Link>
+              </>
             )}
           </>
         }
@@ -295,11 +300,6 @@ export default function BadgesPage() {
               );
             })}
           </ul>
-          {data.mine && (
-            <Link href="/profile/me" className="link mt-10 inline-block text-sm">
-              See them on your profile
-            </Link>
-          )}
         </>
       )}
       {sharing && slug && <ShareBadgeModal badge={sharing} slug={slug} onClose={() => setSharing(null)} />}
